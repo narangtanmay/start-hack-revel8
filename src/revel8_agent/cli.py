@@ -86,6 +86,7 @@ def _run(
     mock: bool = False,
     seed: int = 0,
     runs_dir: str = "runs",
+    actor: bool = False,
 ) -> int:
     import json
     from pathlib import Path
@@ -111,7 +112,7 @@ def _run(
         from .mock_target import MockRevel8Client
 
         client_cm = MockRevel8Client(seed=seed)
-        label = label or f"mock-{'rules' if use_policy else decider}-s{seed}"
+        label = label or f"mock-{'actor' if actor else 'rules' if use_policy else decider}-s{seed}"
     else:
         client_cm = Revel8Client()
     with client_cm as api:
@@ -143,7 +144,13 @@ def _run(
             policy=decider,
             runs_dir=Path(runs_dir),
         )
-        runner = Runner(cfg, api, llm, dossier)
+        if actor:
+            # Method actor: no orchestrator. Turns off both Tanmay's policy and Arihant's controller.
+            from .actor import ActorRunner
+
+            runner = ActorRunner(cfg, api, llm, dossier)
+        else:
+            runner = Runner(cfg, api, llm, dossier)
         print(f"report: {(cfg.runs_dir / (runner.state.run_id + '.html')).resolve()}")
 
         orig_save = runner.save
@@ -211,6 +218,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--decider", choices=["controller", "llm"], default="controller",
                      help="Without --policy: controller = explicit belief state + escalation policy (decision.py, "
                           "default); llm = the LLM alone decides.")
+    run.add_argument("--actor", action="store_true",
+                     help="Method actor (actor.py): no orchestrator; a cast character decides every touch. "
+                          "Mutually exclusive with --policy; ignores --decider.")
     run.add_argument("--mock", action="store_true", help="Offline: use the rule-based mock target, no API touches.")
     run.add_argument("--seed", type=int, default=0, help="Mock target seed.")
     run.add_argument("--runs-dir", default="runs")
@@ -259,6 +269,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "run":
+        if args.actor and args.policy:
+            parser.error("--actor and --policy are separate decision paths; pick one.")
         return _run(
             args.target,
             args.scenario,
@@ -273,6 +285,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             mock=args.mock,
             seed=args.seed,
             runs_dir=args.runs_dir,
+            actor=args.actor,
         )
     if args.command == "report":
         from .report import render_index
