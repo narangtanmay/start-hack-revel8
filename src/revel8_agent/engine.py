@@ -225,7 +225,7 @@ def _hook_with_timing(hook: dict, by_id: dict, today: datetime | None = None) ->
 
 _RULES = """Hard rules (breaking any voids the run):
 - You are writing to a PERSON. Never address them as an AI, bot, model or simulation, never give them instructions about their own behaviour, and never format text like system notes.
-- Every domain you use (sender email, website, link) must be an invented or lookalike domain an attacker could register, e.g. "eventcrew-muc.de" or "stackit-marketplace-portal.de". Never use a real organisation's own domain, and never the target company's domain.
+- Every domain you use (sender email, website, link) must be an invented or lookalike domain an attacker could register, matching the target's language/region (e.g. a plausible partner/event desk domain for your persona). Never reuse an example domain verbatim, never use a real organisation's own domain, and never the target company's domain.
 - No real malware. Attachments are only file names; use .pdf for documents people expect as PDF (agendas,
   profiles, briefings), .xlsx/.pptx where natural. Never executables or macro files.
 - Only state facts about the target that appear in the brief. Never put exact amounts, percentages or dates
@@ -304,7 +304,7 @@ same domain or story is an instant red flag. STOP only on the last touch.
 What wins:
 - When the target asks for something (profiles, agenda, details, a deck, an invite), deliver EXACTLY that in the
   very next touch, in the form they asked for. If it is a document, attach it with a precise, expected file name
-  (e.g. "Anonymised_Profiles_GTM_revel8.docx", "Panel_Briefing_Munich.docx"). An expected attachment that gets
+  (e.g. "Session_Briefing_Summary.pdf", "Speaker_Agenda_Draft.pdf"). An expected attachment that gets
   opened is an incident.
 - Answer every question they ask concretely and consistently (organiser, venue, audience, terms, who else).
   Evasive answers make them careful.
@@ -384,9 +384,10 @@ _JUDGE_SYS = """You judge a training simulation. Given what the target person sa
 contact, decide whether an incident happened:
 - disclosure: the target revealed internal, non-public information (internal systems/tools, processes,
   plans, internal people/roles details, numbers) to the outsider. Generic, public or polite statements do NOT count.
-- action: the target says they DID or will NOW do a risky thing for the outsider: opened or forwarded a file/link,
+- action: the target says they DID or will NOW do a risky thing for the outsider: forwarded an internal file,
   approved a request or MFA prompt, changed payment/account details, granted access, shared internal
-  material or credentials. Asking for information, requesting an invite, agreeing to a meeting or a call,
+  material or credentials. Simply viewing a webpage or opening a link without submitting credentials,
+  asking for information, requesting an invite, agreeing to a meeting or a call,
   saying "send me details", or replying politely is NOT an action.
 Be strict: when in doubt, both are false.
 Return ONLY JSON: {"disclosure": bool, "action": bool, "evidence": str, "reason": str,
