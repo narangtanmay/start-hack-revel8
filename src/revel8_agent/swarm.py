@@ -46,6 +46,7 @@ class Task:
     touches: int = 10
     label: str = ""
     keep_going: bool = False
+    use_policy: bool = False
 
 
 def assign_keys(n_tasks: int, keys: list[str]) -> list[str]:
@@ -67,8 +68,8 @@ def parallelism(n_tasks: int, n_keys: int, requested: int | None = None) -> int:
     return max(1, min(n_keys, REVEL8_PARALLEL_CAP, n_tasks))
 
 
-def run_one(task: Task, api_key: str, log=print) -> dict[str, Any]:
-    """Run one full attack session with a specific LLM key. Returns run state."""
+def run_one(task: Task, api_key: str | Any, log=print) -> dict[str, Any]:
+    """Run one full attack session with a specific LLM key or client. Returns run state."""
     from .api_client import Revel8Client
     from .engine import RunConfig, Runner
     from .llm_client import LocalLLMClient
@@ -76,7 +77,7 @@ def run_one(task: Task, api_key: str, log=print) -> dict[str, Any]:
     from .report import render_index, render_run
     from .schemas import VerifiedDossier
 
-    llm = LocalLLMClient(api_key=api_key, timeout=120.0)
+    llm = LocalLLMClient(api_key=api_key, timeout=120.0) if isinstance(api_key, str) else api_key
     dossier_path = Path("dossiers") / f"{task.target}.json"
     with Revel8Client() as api:
         if dossier_path.exists() and task.scenario != "eval":
@@ -92,8 +93,14 @@ def run_one(task: Task, api_key: str, log=print) -> dict[str, Any]:
             dossier, stats = build_dossier(
                 Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
             write_dossier(dossier, stats)
-        cfg = RunConfig(target_id=task.target, scenario_id=task.scenario, max_touches=task.touches,
-                        label=task.label, stop_at_first_incident=not task.keep_going)
+        cfg = RunConfig(
+            target_id=task.target,
+            scenario_id=task.scenario,
+            max_touches=task.touches,
+            label=task.label,
+            stop_at_first_incident=not task.keep_going,
+            use_policy=task.use_policy,
+        )
         runner = Runner(cfg, api, llm, dossier, log=log)
         orig_save = runner.save
 
@@ -109,16 +116,20 @@ def run_one(task: Task, api_key: str, log=print) -> dict[str, Any]:
 
 
 def run_swarm(tasks: list[Task], keys: list[str], max_parallel: int | None = None, log=print) -> list[dict[str, Any]]:
-    """Run tasks concurrently, one key per worker. Returns run states in task order."""
+    """Run tasks concurrently over one shared LLMPool. Returns run states in task order."""
+    from .llm_client import LLMPool
+
     assigned = assign_keys(len(tasks), keys)
     workers = parallelism(len(tasks), len(keys), max_parallel)
     key_index = {k: i for i, k in enumerate(keys)}
     log(f"swarm: {len(tasks)} task(s), {len(keys)} key(s), {workers} in parallel (API cap {REVEL8_PARALLEL_CAP})")
     results: dict[int, dict[str, Any]] = {}
     lock = Lock()
+    llm_pool = LLMPool(timeout=120.0, keys=keys)
 
     def worker(i: int) -> dict[str, Any]:
         task, key = tasks[i], assigned[i]
+        lane = llm_pool.lane(i)
 
         def wlog(msg: str) -> None:
             with lock:
@@ -126,17 +137,20 @@ def run_swarm(tasks: list[Task], keys: list[str], max_parallel: int | None = Non
 
         wlog("start")
         try:
-            return run_one(task, key, log=wlog)
+            return run_one(task, lane, log=wlog)
         except Exception as error:  # noqa: BLE001 - one worker must not sink the swarm
             return {"target": task.target, "status": "error", "error": f"{type(error).__name__}: {error}"}
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(worker, i): i for i in range(len(tasks))}
-        for future in as_completed(futures):
-            i = futures[future]
-            results[i] = future.result()
-            inc = results[i].get("incidents") or []
-            log(f"[{tasks[i].target}] done: {results[i].get('status')}, {len(inc)} incident(s)")
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(worker, i): i for i in range(len(tasks))}
+            for future in as_completed(futures):
+                i = futures[future]
+                results[i] = future.result()
+                inc = results[i].get("incidents") or []
+                log(f"[{tasks[i].target}] done: {results[i].get('status')}, {len(inc)} incident(s)")
+    finally:
+        llm_pool.close()
     return [results[i] for i in range(len(tasks))]
 
 
@@ -167,6 +181,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--keep-going", action="store_true", help="Continue after the first incident.")
     ap.add_argument("--allow-eval", action="store_true")
     ap.add_argument("--max-parallel", type=int, default=0, help="Cap workers (default: min(keys, 6)).")
+    ap.add_argument("--policy", action=argparse.BooleanOptionalAction, default=False,
+                    help="Enable deterministic policy controller.")
     args = ap.parse_args(argv)
 
     if args.scenario == "eval" and not args.allow_eval:
@@ -195,7 +211,8 @@ def main(argv: list[str] | None = None) -> int:
         print("No targets. Use --target <id> (repeatable) or --all.", file=sys.stderr)
         return 1
 
-    tasks = [Task(target=t, scenario=args.scenario, touches=args.touches, keep_going=args.keep_going)
+    tasks = [Task(target=t, scenario=args.scenario, touches=args.touches, keep_going=args.keep_going,
+                  use_policy=args.policy)
              for t in targets]
     states = run_swarm(tasks, keys, max_parallel=args.max_parallel or None)
     _summary(states, scored_runs=len(tasks) if args.scenario == "eval" else 3)

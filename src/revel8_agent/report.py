@@ -162,6 +162,12 @@ overflow:auto;background:var(--surface-2);border-radius:10px;padding:12px}
 .twin-rat{font-size:11.5px;color:var(--muted)}
 .ledger{margin:8px 0 0 28px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .ledger-lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-right:2px}
+.policy{margin:10px 0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px}
+.policy-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
+.policy-title{font-size:11.5px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em;margin-right:4px}
+.policy-grid{display:grid;grid-template-columns:92px 1fr;gap:4px 10px;margin:0}
+.policy-grid dt{color:var(--muted);font-size:12px}.policy-grid dd{margin:0;color:var(--text)}
+.policy-alts{margin:6px 0 0;padding-left:18px;color:var(--text-2);font-size:12px}
 """
 
 _STATUS = {"done": ("b-good", "Done"), "error": ("b-crit", "Error"), "running": ("b-live", "Live"), "starting": ("b-live", "Starting")}
@@ -380,6 +386,55 @@ def _ledger_badges_html(ledger: object) -> str:
     return f"<div class='ledger'><span class='ledger-lbl'>Ledger:</span>{''.join(pills)}</div>"
 
 
+def _policy_html(policy: object) -> str:
+    if not isinstance(policy, dict) or not policy:
+        return ""
+    move_type = str(policy.get("move_type") or "")
+    badge_cls = "b-warn" if move_type == "STOP" else ("b-good" if move_type == "STAY" else "b-live")
+    head_parts = [
+        "<span class='policy-title'>Policy Move</span>",
+        f"<span class='badge {badge_cls}'>{_e(move_type)}</span>",
+    ]
+    if policy.get("channel"):
+        head_parts.append(f"<span class='badge'>{_e(policy.get('channel'))}</span>")
+    if policy.get("objective"):
+        head_parts.append(f"<span class='badge'>{_e(policy.get('objective'))}</span>")
+    if policy.get("hook_id"):
+        head_parts.append(f"<span class='mono'>hook {_e(policy.get('hook_id'))}</span>")
+
+    rows: list[str] = []
+    if policy.get("ask"):
+        rows.append(f"<dt>Ask</dt><dd>{_e(policy.get('ask'))}</dd>")
+    if policy.get("rationale"):
+        rows.append(f"<dt>Rationale</dt><dd>{_e(policy.get('rationale'))}</dd>")
+    cited = [str(x) for x in (policy.get("cited_fact_ids") or []) if str(x).strip()]
+    if cited:
+        chips = " ".join(f"<span class='badge mono'>{_e(fid)}</span>" for fid in cited)
+        rows.append(f"<dt>Cited facts</dt><dd>{chips}</dd>")
+    promises = [str(x) for x in (policy.get("promises") or []) if str(x).strip()]
+    if promises:
+        p_items = "".join(f"<li>{_e(p)}</li>" for p in promises)
+        rows.append(f"<dt>Promises</dt><dd><ul class='policy-alts'>{p_items}</ul></dd>")
+    alts = [a for a in (policy.get("alternatives_considered") or []) if isinstance(a, dict)]
+    if alts:
+        alt_items: list[str] = []
+        for alt in alts:
+            m = _e(alt.get("move_type") or "")
+            ch = _e(alt.get("channel") or "")
+            hk = _e(alt.get("hook_id") or "")
+            rsn = _e(alt.get("reason") or "")
+            meta = " · ".join(x for x in (m, ch, f"hook {hk}" if hk else "") if x)
+            alt_items.append(f"<li><b>{meta}</b>: {rsn}</li>" if meta else f"<li>{rsn}</li>")
+        rows.append(f"<dt>Alternatives</dt><dd><ul class='policy-alts'>{''.join(alt_items)}</ul></dd>")
+
+    return (
+        "<div class='policy'>"
+        f"<div class='policy-head'>{''.join(head_parts)}</div>"
+        f"<dl class='policy-grid'>{''.join(rows)}</dl>"
+        "</div>"
+    )
+
+
 _REDACT = False  # public snapshots: landing pages listed (URL + fields), never rendered
 _FACTS: dict[str, dict[str, dict]] = {}  # target id -> fact id -> fact (from dossiers/), for cited-fact lookups
 
@@ -460,8 +515,9 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     cls = "hit" if hit else ("replied" if replied else "")
     snd = a.get("sender") or {}
     out = [f"<div class='touch {cls}'><div class='tn'>{'✓' if hit else _e(n)}</div>"]
-    if a.get("decision") == "STOP":
-        out.append(f"<div class='thead'><span class='badge'>STOP</span></div><div class='why'>{_e(a.get('rationale'))}</div></div>")
+    if a.get("decision") == "STOP" or step.get("decision") == "STOP":
+        pol_html = _policy_html(step.get("policy"))
+        out.append(f"<div class='thead'><span class='badge'>STOP</span></div><div class='why'>{_e(a.get('rationale'))}</div>{pol_html}</div>")
         return "".join(out)
     icon = "📞" if a.get("kind") == "call" else ("✉️" if a.get("channel") == "email" else "💬")
     tm = step.get("timing") or {}
@@ -470,6 +526,9 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     out.append(f"<div class='thead'><span class='chan'>{icon} {_e(a.get('channel'))}</span><span class='badge'>{_e(a.get('decision'))}</span>"
                f"<span class='badge'>{_e(a.get('objective'))}</span><span class='mono'>hook {_e(a.get('hook_id'))}</span>{tm_html}</div>")
     out.append(f"<div class='why'><b>Read:</b> {_e(a.get('assessment'))}<br><b>Move:</b> {_e(a.get('rationale'))}</div>")
+    pol_html = _policy_html(step.get("policy"))
+    if pol_html:
+        out.append(pol_html)
     twin_html = _shadow_twin_html(step.get("shadow_twin"))
     if twin_html:
         out.append(twin_html)

@@ -29,6 +29,7 @@ from .api_client import Revel8APIError, Revel8Client
 from .gate import _META_TEXT, validate_contact_plan
 from .llm_client import ChatMessage, LocalLLMClient, LocalLLMError
 from .osint import normalize
+from .policy import Policy, RuleBasedPolicy
 from .schemas import AttachmentSpec, ContactPlan, LandingPageSpec, SenderInfo, VerifiedDossier
 from .templates import (
     colleague_note,
@@ -65,6 +66,7 @@ class RunConfig:
     label: str = ""
     use_ledger_gate: bool = True
     use_shadow_twin: bool = False
+    use_policy: bool = False
 
 
 @dataclass
@@ -137,7 +139,7 @@ def timing(recency: str, today: datetime | None = None) -> str:
     return "past" if when.date() < today.date() else "upcoming"
 
 
-def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
+def make_brief(dossier: VerifiedDossier, max_facts: int = 16, today: datetime | None = None) -> dict:
     """Keep the planner focused: hook-supporting facts first, then personal, then recent ones."""
     # facts that contradict another source never reach the planner (wrong facts cost points)
     by_id = {f.id: f for f in dossier.facts if not getattr(f, "conflicts_with", None)}
@@ -165,20 +167,24 @@ def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
     return {
         "target": {"name": dossier.target_name, "role": dossier.role, "company": dossier.company},
         "facts": [{"id": i, "fact": by_id[i].fact, "recency": by_id[i].recency, "category": by_id[i].category,
-                   "timing": timing(by_id[i].recency)} for i in chosen],
-        "hooks": [_hook_with_timing(h.model_dump(), by_id) for h in dossier.hypotheses],
+                   "timing": timing(by_id[i].recency, today)} for i in chosen],
+        "hooks": [_hook_with_timing(h.model_dump(), by_id, today=today) for h in dossier.hypotheses],
         "themes": [{"topic": th.topic, "count": th.count, "latest": th.latest}
                    for th in getattr(dossier, "themes", [])[:6]],
     }
 
 
-def _hook_with_timing(hook: dict, by_id: dict) -> dict:
-    tags = [timing(by_id[f].recency) for f in hook.get("supporting_fact_ids", []) if f in by_id]
+def _hook_with_timing(hook: dict, by_id: dict, today: datetime | None = None) -> dict:
+    tags = [timing(by_id[f].recency, today) for f in hook.get("supporting_fact_ids", []) if f in by_id]
     event_like = any(by_id[f].category == "talk_or_event" for f in hook.get("supporting_fact_ids", []) if f in by_id)
     if tags and all(t == "past" for t in tags):
         hook["timing"] = "PAST (do not pitch as upcoming; refer to it only as something they already did)"
     elif event_like and "past" in tags:
         hook["timing"] = "partly past: check each fact's timing"
+    elif event_like and any(t in ("this-year", "undated") for t in tags):
+        hook["timing"] = "uncertain-date (verify before pitching as upcoming)"
+    elif tags and all(t == "upcoming" for t in tags):
+        hook["timing"] = "upcoming"
     else:
         hook["timing"] = "current"
     return hook
@@ -419,8 +425,9 @@ def _minimal_pdf(title: str) -> bytes:
 
 class Runner:
     def __init__(self, cfg: RunConfig, api: Revel8Client, llm: LocalLLMClient, dossier: VerifiedDossier,
-                 log=print) -> None:
+                 log=print, policy: Policy | None = None) -> None:
         self.cfg, self.api, self.llm, self.dossier, self._print = cfg, api, llm, dossier, log
+        self.policy: Policy | None = policy if policy is not None else (RuleBasedPolicy() if cfg.use_policy else None)
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{cfg.target_id}" + (f"-{cfg.label}" if cfg.label else "")
         self.state = RunState(
             run_id=run_id,
@@ -536,7 +543,7 @@ class Runner:
         return asset
 
     # ---- one decision
-    def decide(self, touch: int, feedback: str = "") -> dict:
+    def decide(self, touch: int, feedback: str = "", policy_move: dict[str, Any] | None = None) -> dict:
         user = (f"TODAY: {datetime.now():%A %Y-%m-%d}\n"
                 f"CAMPAIGN PLAN: {json.dumps(self.state.plan, ensure_ascii=False)}\n"
                 f"BRIEF FACTS: {json.dumps(self.state.brief['facts'], ensure_ascii=False)}\n"
@@ -544,6 +551,11 @@ class Runner:
                 f"TARGET ID for 'to': {self.cfg.target_id}\n"
                 f"THIS IS TOUCH {touch} OF {self.cfg.max_touches}.\n"
                 f"HISTORY SO FAR:\n{_history_text(self.state) or '(nothing yet: this is the first contact)'}")
+        if policy_move:
+            user += (
+                "\n\nPOLICY MOVE (follow this move_type, channel, hook_id, cited_fact_ids, ask, and promises): "
+                f"{json.dumps(policy_move, ensure_ascii=False)}"
+            )
         if feedback:
             user += f"\n\nYOUR PREVIOUS DRAFT WAS REJECTED: {feedback}\nFix it."
         system = _DECIDE_SYS.replace("{msg}", ", ".join(MESSAGE_CHANNELS)).replace("{live}", ", ".join(LIVE_CHANNELS))
@@ -756,6 +768,30 @@ class Runner:
                                      "source": "llm-judge (estimate)" if judged else "api event"})
         self.log(f"   *** INCIDENT at touch {touch}: {kind} - {detail[:100]}")
 
+    def _stop_allowed(self) -> bool:
+        if self.cfg.use_policy or self.cfg.max_touches - self.state.touches_used <= 1:
+            return True
+        executed = [
+            s for s in self.state.steps
+            if s.get("decision") != "STOP" and (s.get("action") or {}).get("decision") != "STOP"
+        ]
+        sentiments = [str((s.get("judge") or {}).get("sentiment") or "").lower() for s in executed]
+        consec_neg = 0
+        for sent in reversed(sentiments):
+            if sent in ("refusing", "suspicious"):
+                consec_neg += 1
+            else:
+                break
+        if consec_neg >= 2:
+            return True
+        consec_silent = 0
+        for sent in reversed(sentiments):
+            if sent == "silent":
+                consec_silent += 1
+            else:
+                break
+        return consec_silent >= 3
+
     # ---- main loop
     def run(self) -> RunState:
         st = self.state
@@ -772,16 +808,36 @@ class Runner:
             while st.touches_used < self.cfg.max_touches:
                 touch = st.touches_used + 1
                 step: dict[str, Any] = {"touch": touch, "at": _now(), "attempts": [], "timing": {}}
+                policy_move: dict[str, Any] | None = None
+                if self.cfg.use_policy:
+                    active_policy = self.policy or RuleBasedPolicy()
+                    policy_move = active_policy.choose_next_move(
+                        st.brief, st.steps, touch, self.cfg.max_touches, st.plan
+                    )
+                    step["policy"] = policy_move
+                    if policy_move.get("move_type") == "STOP":
+                        step["decision"] = "STOP"
+                        step["action"] = {
+                            "decision": "STOP",
+                            "channel": policy_move.get("channel"),
+                            "hook_id": policy_move.get("hook_id"),
+                            "objective": policy_move.get("objective"),
+                            "rationale": policy_move.get("rationale", ""),
+                            "cited_fact_ids": list(policy_move.get("cited_fact_ids") or []),
+                        }
+                        self.log(f"touch {touch}: policy decided to STOP: {policy_move.get('rationale')}")
+                        st.steps.append(step)
+                        break
                 feedback = ""
                 t0 = time.monotonic()
                 for n_try in range(3):
-                    a = self.decide(touch, feedback)
+                    a = self.decide(touch, feedback, policy_move=policy_move)
                     attempt = {"try": n_try + 1, "decision": a.get("decision"), "kind": a.get("kind"),
                                "channel": a.get("channel"), "subject": a.get("subject"),
                                "feedback_given": feedback or None, "errors": []}
                     step["attempts"].append(attempt)
                     if a.get("decision") == "STOP":
-                        if self.cfg.max_touches - st.touches_used > 1:
+                        if not self._stop_allowed():
                             feedback = ("STOP is not allowed while touches remain. Choose PIVOT_HOOK or PIVOT_CHANNEL "
                                         "with a different angle from the brief.")
                             attempt["errors"] = [feedback]
@@ -802,6 +858,7 @@ class Runner:
                 step["timing"]["decide_s"] = round(time.monotonic() - t0, 1)
                 step["action"] = a
                 if a.get("decision") == "STOP":
+                    step["decision"] = "STOP"
                     self.log(f"touch {touch}: agent decided to STOP: {a.get('rationale')}")
                     st.steps.append(step)
                     break

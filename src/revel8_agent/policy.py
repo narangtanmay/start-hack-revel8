@@ -1,0 +1,425 @@
+"""Deterministic policy interface and default rule-based state machine."""
+
+from __future__ import annotations
+
+from typing import Any, Literal, Protocol, runtime_checkable
+
+MoveType = Literal["STAY", "PIVOT_CHANNEL", "PIVOT_HOOK", "ESCALATE_CALL", "STOP"]
+
+_DEFAULT_MESSAGE_CHANNELS = ("email", "linkedin_message", "slack", "teams_chat", "sms")
+_LIVE_CHANNELS = frozenset({"phone_call", "video_call", "teams_call", "live_chat"})
+_NEGATIVE_SENTIMENTS = frozenset({"refusing", "suspicious"})
+
+
+@runtime_checkable
+class Policy(Protocol):
+    def choose_next_move(
+        self,
+        brief: dict[str, Any],
+        steps: list[dict[str, Any]],
+        touch: int,
+        max_touches: int,
+        plan: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
+
+def _is_past_hook(hook: dict[str, Any]) -> bool:
+    return str(hook.get("timing", "")).strip().upper().startswith("PAST")
+
+
+def _is_uncertain_hook(hook: dict[str, Any]) -> bool:
+    label = str(hook.get("timing", "")).lower()
+    return "uncertain" in label or "partly past" in label
+
+
+def _rank_hooks(hooks: list[dict[str, Any]], preferred_id: str | None = None) -> list[dict[str, Any]]:
+    valid = [h for h in hooks if isinstance(h, dict) and h.get("id")]
+    if not valid:
+        return []
+    has_non_past = any(not _is_past_hook(h) for h in valid)
+
+    def sort_key(h: dict[str, Any]) -> tuple[int, int, int, float]:
+        past_rank = 2 if _is_past_hook(h) else (1 if _is_uncertain_hook(h) else 0)
+        pref_rank = 0 if (preferred_id and h.get("id") == preferred_id and (not _is_past_hook(h) or not has_non_past)) else 1
+        own_rank = 0 if h.get("is_own_angle") else 1
+        conf = float(h.get("confidence", 0.0) or 0.0)
+        return (past_rank, pref_rank, own_rank, -conf)
+
+    return sorted(valid, key=sort_key)
+
+
+def _valid_fact_ids(brief: dict[str, Any]) -> list[str]:
+    facts = brief.get("facts") or []
+    return [str(f["id"]) for f in facts if isinstance(f, dict) and f.get("id")]
+
+
+def _cited_facts_for_hook(brief: dict[str, Any], hook: dict[str, Any] | None) -> list[str]:
+    valid_ids = _valid_fact_ids(brief)
+    valid_set = set(valid_ids)
+    chosen: list[str] = []
+    if hook:
+        for fid in hook.get("supporting_fact_ids") or []:
+            fid_str = str(fid)
+            if fid_str in valid_set and fid_str not in chosen:
+                chosen.append(fid_str)
+    if chosen:
+        return chosen
+    non_past = [
+        str(f["id"])
+        for f in (brief.get("facts") or [])
+        if isinstance(f, dict) and f.get("id") and str(f.get("timing", "")).lower() != "past"
+    ]
+    return (non_past or valid_ids)[:2]
+
+
+def _channel_ladder(plan: dict[str, Any]) -> tuple[list[str], list[str]]:
+    planned: list[str] = []
+    for item in plan.get("sequence") or []:
+        if isinstance(item, dict) and item.get("channel"):
+            ch = str(item["channel"]).strip()
+            if ch and ch not in planned:
+                planned.append(ch)
+    message_channels: list[str] = []
+    live_channels: list[str] = []
+    for ch in planned + list(_DEFAULT_MESSAGE_CHANNELS) + ["phone_call"]:
+        if ch in _LIVE_CHANNELS:
+            if ch not in live_channels:
+                live_channels.append(ch)
+        else:
+            if ch not in message_channels:
+                message_channels.append(ch)
+    return message_channels, live_channels
+
+
+def _step_sentiment(step: dict[str, Any]) -> str:
+    judge = step.get("judge")
+    if isinstance(judge, dict) and judge.get("sentiment"):
+        return str(judge["sentiment"]).strip().lower()
+    events = step.get("events") or []
+    transcript = step.get("transcript") or []
+    if not events and not transcript:
+        return "silent"
+    return "engaged"
+
+
+def _step_channel(step: dict[str, Any]) -> str:
+    action = step.get("action") if isinstance(step.get("action"), dict) else {}
+    policy = step.get("policy") if isinstance(step.get("policy"), dict) else {}
+    return str(action.get("channel") or policy.get("channel") or "")
+
+
+def _step_hook(step: dict[str, Any]) -> str:
+    action = step.get("action") if isinstance(step.get("action"), dict) else {}
+    policy = step.get("policy") if isinstance(step.get("policy"), dict) else {}
+    return str(action.get("hook_id") or policy.get("hook_id") or "")
+
+
+def _executed_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        action = s.get("action") if isinstance(s.get("action"), dict) else {}
+        if s.get("decision") == "STOP" or action.get("decision") == "STOP":
+            continue
+        out.append(s)
+    return out
+
+
+def _alt(move_type: str, channel: str, hook_id: str, reason: str) -> dict[str, str]:
+    return {
+        "move_type": move_type,
+        "channel": channel,
+        "hook_id": hook_id,
+        "reason": reason,
+    }
+
+
+class RuleBasedPolicy:
+    """Deterministic state-machine controller over brief, step history, and verdicts."""
+
+    def choose_next_move(
+        self,
+        brief: dict[str, Any],
+        steps: list[dict[str, Any]],
+        touch: int,
+        max_touches: int,
+        plan: dict[str, Any],
+    ) -> dict[str, Any]:
+        objective = str(plan.get("objective") or "disclosure")
+        planned_hook = str(plan.get("hook_id") or "") or None
+        ranked_hooks = _rank_hooks(list(brief.get("hooks") or []), preferred_id=planned_hook)
+        hooks_by_id = {str(h["id"]): h for h in ranked_hooks}
+        message_channels, live_channels = _channel_ladder(plan)
+        default_channel = message_channels[0] if message_channels else "email"
+        initial_hook = ranked_hooks[0] if ranked_hooks else None
+        initial_hook_id = str(initial_hook["id"]) if initial_hook else (planned_hook or "")
+
+        history = _executed_steps(steps)
+        used_channels = [_step_channel(s) for s in history if _step_channel(s)]
+        used_hooks = [_step_hook(s) for s in history if _step_hook(s)]
+        sentiments = [_step_sentiment(s) for s in history]
+
+        consecutive_silent = 0
+        silent_channels: set[str] = set()
+        for s, sent in zip(reversed(history), reversed(sentiments)):
+            if sent == "silent":
+                consecutive_silent += 1
+                ch = _step_channel(s)
+                if ch:
+                    silent_channels.add(ch)
+            else:
+                break
+
+        consecutive_negative = 0
+        for sent in reversed(sentiments):
+            if sent in _NEGATIVE_SENTIMENTS:
+                consecutive_negative += 1
+            else:
+                break
+
+        last_channel = used_channels[-1] if used_channels else default_channel
+        last_hook_id = used_hooks[-1] if used_hooks else initial_hook_id
+        last_sentiment = sentiments[-1] if sentiments else ""
+
+        unused_msg_channels = [c for c in message_channels if c not in used_channels]
+        unused_live_channels = [c for c in live_channels if c not in used_channels]
+        unused_hooks = [h for h in ranked_hooks if str(h["id"]) not in used_hooks]
+
+        def build_move(
+            move_type: MoveType,
+            hook_id: str,
+            channel: str,
+            ask: str,
+            promises: list[str],
+            rationale: str,
+            alternatives: list[dict[str, str]],
+        ) -> dict[str, Any]:
+            hook_obj = hooks_by_id.get(hook_id)
+            return {
+                "move_type": move_type,
+                "hook_id": hook_id,
+                "channel": channel,
+                "objective": objective,
+                "ask": ask,
+                "cited_fact_ids": _cited_facts_for_hook(brief, hook_obj),
+                "promises": promises,
+                "rationale": rationale,
+                "alternatives_considered": alternatives,
+            }
+
+        if touch > max_touches:
+            return build_move(
+                "STOP",
+                last_hook_id,
+                last_channel,
+                "No further contact; touch budget exhausted.",
+                ["Close session without additional outreach"],
+                f"Touch {touch} exceeds max_touches ({max_touches}).",
+                [
+                    _alt("STAY", last_channel, last_hook_id, "Rejected: touch budget exhausted."),
+                    _alt("PIVOT_CHANNEL", unused_msg_channels[0] if unused_msg_channels else default_channel, last_hook_id, "Rejected: no touches remaining."),
+                ],
+            )
+
+        if consecutive_negative >= 2:
+            alt_hook = str(unused_hooks[0]["id"]) if unused_hooks else last_hook_id
+            alt_chan = unused_msg_channels[0] if unused_msg_channels else default_channel
+            return build_move(
+                "STOP",
+                last_hook_id,
+                last_channel,
+                "Stop outreach and record clean termination.",
+                ["Do not send additional follow-ups after repeated negative verdicts"],
+                f"Stopping after {consecutive_negative} consecutive refusing/suspicious verdicts.",
+                [
+                    _alt("PIVOT_HOOK", last_channel, alt_hook, "Rejected: repeated negative verdicts indicate further outreach is counterproductive."),
+                    _alt("PIVOT_CHANNEL", alt_chan, last_hook_id, "Rejected: switching channel after repeated refusal/suspicion increases friction."),
+                ],
+            )
+
+        if consecutive_silent >= 3 and len(silent_channels) >= 2:
+            alt_chan = unused_msg_channels[0] if unused_msg_channels else (unused_live_channels[0] if unused_live_channels else last_channel)
+            alt_hook = str(unused_hooks[0]["id"]) if unused_hooks else last_hook_id
+            return build_move(
+                "STOP",
+                last_hook_id,
+                last_channel,
+                "Stop outreach after sustained non-response across channels.",
+                ["Close session cleanly without further touches"],
+                f"Stopping after {consecutive_silent} consecutive silent touches across {len(silent_channels)} distinct channels.",
+                [
+                    _alt("PIVOT_CHANNEL", alt_chan, last_hook_id, "Rejected: silent across multiple channels already."),
+                    _alt("PIVOT_HOOK", last_channel, alt_hook, "Rejected: sustained silence across channels warrants stopping."),
+                ],
+            )
+
+        if not history:
+            alts: list[dict[str, str]] = []
+            if len(message_channels) > 1:
+                alts.append(_alt("PIVOT_CHANNEL", message_channels[1], initial_hook_id, "Deferred: start on primary planned message channel first."))
+            if len(ranked_hooks) > 1:
+                alts.append(_alt("PIVOT_HOOK", default_channel, str(ranked_hooks[1]["id"]), "Deferred: lower-ranked hook kept as fallback."))
+            if planned_hook and planned_hook != initial_hook_id and planned_hook in hooks_by_id:
+                alts.append(_alt("STAY", default_channel, planned_hook, "Rejected: planned hook references past timing while a non-past hook is available."))
+            if not alts:
+                alts.append(_alt("ESCALATE_CALL", live_channels[0] if live_channels else "phone_call", initial_hook_id, "Rejected: live call deferred until after initial text contact."))
+            timing_note = f"hook timing={initial_hook.get('timing', 'unknown')}" if initial_hook else "no hooks in brief"
+            return build_move(
+                "STAY",
+                initial_hook_id,
+                default_channel,
+                "Send concise initial outreach aligned with the planned objective.",
+                ["Keep persona details consistent with campaign plan", "Reference only verified brief facts"],
+                f"Initial touch on primary channel {default_channel} with top-ranked hook {initial_hook_id or 'none'} ({timing_note}).",
+                alts[:3],
+            )
+
+        if last_sentiment in ("engaged", "questioning"):
+            next_chan = unused_msg_channels[0] if unused_msg_channels else default_channel
+            return build_move(
+                "STAY",
+                last_hook_id,
+                last_channel,
+                "Answer the target's latest response directly and advance the objective.",
+                ["Address every question raised in the prior turn", "Keep channel and persona consistent"],
+                f"Target verdict was {last_sentiment} on {last_channel}; stay in the active thread.",
+                [
+                    _alt("PIVOT_CHANNEL", next_chan, last_hook_id, "Rejected: active conversation is already progressing on current channel."),
+                    _alt("ESCALATE_CALL", live_channels[0] if live_channels else "phone_call", last_hook_id, "Rejected: live call unnecessary while text thread is active."),
+                ],
+            )
+
+        if last_sentiment == "hesitant":
+            next_chan = unused_msg_channels[0] if unused_msg_channels else default_channel
+            return build_move(
+                "STAY",
+                last_hook_id,
+                last_channel,
+                "Clarify context with a lower-friction follow-up on the same thread.",
+                ["Reduce friction and keep scope concrete", "Stay consistent with prior details"],
+                f"Target verdict was hesitant on {last_channel}; clarify before escalating or switching.",
+                [
+                    _alt("ESCALATE_CALL", live_channels[0] if live_channels else "phone_call", last_hook_id, "Rejected: live call adds pressure during hesitation."),
+                    _alt("PIVOT_CHANNEL", next_chan, last_hook_id, "Rejected: preserve continuity on the current thread first."),
+                ],
+            )
+
+        if consecutive_negative == 1:
+            if unused_hooks:
+                new_hook = str(unused_hooks[0]["id"])
+                new_chan = unused_msg_channels[0] if unused_msg_channels else last_channel
+                return build_move(
+                    "PIVOT_HOOK",
+                    new_hook,
+                    new_chan,
+                    "Introduce an alternate verified angle with lower friction.",
+                    ["Keep the same persona identity", "Avoid repeating the rejected angle"],
+                    f"Prior touch received {last_sentiment}; pivoting to unused hook {new_hook}.",
+                    [
+                        _alt("STAY", last_channel, last_hook_id, f"Rejected: prior touch on {last_hook_id} was {last_sentiment}."),
+                        _alt("STOP", last_channel, last_hook_id, "Rejected: single negative verdict and an unused hook remains."),
+                    ],
+                )
+            if unused_msg_channels:
+                new_chan = unused_msg_channels[0]
+                return build_move(
+                    "PIVOT_CHANNEL",
+                    last_hook_id,
+                    new_chan,
+                    "Follow up briefly on an unused channel with de-escalated tone.",
+                    ["Keep the same persona identity", "De-escalate and clarify purpose"],
+                    f"Prior touch received {last_sentiment} with no unused hooks; pivoting to {new_chan}.",
+                    [
+                        _alt("STAY", last_channel, last_hook_id, f"Rejected: staying on {last_channel} repeats the {last_sentiment} exchange."),
+                        _alt("STOP", last_channel, last_hook_id, "Rejected: single negative verdict and an unused channel remains."),
+                    ],
+                )
+            return build_move(
+                "STOP",
+                last_hook_id,
+                last_channel,
+                "Stop outreach; no unused hook or channel remains after negative verdict.",
+                ["Close session cleanly"],
+                f"Prior touch received {last_sentiment} and no unused hook or channel remains.",
+                [
+                    _alt("STAY", last_channel, last_hook_id, "Rejected: repeating the same channel and hook after negative verdict."),
+                    _alt("ESCALATE_CALL", live_channels[0] if live_channels else "phone_call", last_hook_id, "Rejected: escalating to a call after negative verdict increases risk."),
+                ],
+            )
+
+        # Silent path (consecutive_silent >= 1)
+        if consecutive_silent == 1 and unused_msg_channels:
+            new_chan = unused_msg_channels[0]
+            alt_hook = str(unused_hooks[0]["id"]) if unused_hooks else last_hook_id
+            return build_move(
+                "PIVOT_CHANNEL",
+                last_hook_id,
+                new_chan,
+                "Follow up briefly on an alternate channel referencing the initial outreach.",
+                ["Reference prior contact consistently", "Keep the ask brief and low-friction"],
+                f"No response on {last_channel}; pivoting channel to {new_chan}.",
+                [
+                    _alt("STAY", last_channel, last_hook_id, f"Rejected: {last_channel} received no response on prior touch."),
+                    _alt("PIVOT_HOOK", last_channel, alt_hook, "Deferred: test channel reachability before changing hook."),
+                ],
+            )
+
+        if unused_hooks:
+            new_hook = str(unused_hooks[0]["id"])
+            new_chan = unused_msg_channels[0] if unused_msg_channels else last_channel
+            return build_move(
+                "PIVOT_HOOK",
+                new_hook,
+                new_chan,
+                "Pivot to an alternate verified hook on a fresh or available channel.",
+                ["Keep persona consistent", "Ground outreach in verified brief facts"],
+                f"Consecutive silence ({consecutive_silent}); pivoting to unused hook {new_hook} via {new_chan}.",
+                [
+                    _alt("STAY", last_channel, last_hook_id, "Rejected: current hook has not produced engagement."),
+                    _alt("STOP", last_channel, last_hook_id, "Rejected: unused hooks and touch budget remain."),
+                ],
+            )
+
+        if unused_msg_channels:
+            new_chan = unused_msg_channels[0]
+            return build_move(
+                "PIVOT_CHANNEL",
+                last_hook_id,
+                new_chan,
+                "Switch to an unused message channel for a concise follow-up.",
+                ["Keep persona and prior context consistent"],
+                f"Consecutive silence ({consecutive_silent}); pivoting to unused channel {new_chan}.",
+                [
+                    _alt("STAY", last_channel, last_hook_id, f"Rejected: {last_channel} remained silent."),
+                    _alt("STOP", last_channel, last_hook_id, "Rejected: unused message channels remain."),
+                ],
+            )
+
+        if unused_live_channels:
+            call_chan = unused_live_channels[0]
+            return build_move(
+                "ESCALATE_CALL",
+                last_hook_id,
+                call_chan,
+                "Escalate to a brief live call referencing prior messages.",
+                ["Keep persona and prior message details consistent", "End politely if target declines"],
+                f"Silent across message channels; escalating to live channel {call_chan}.",
+                [
+                    _alt("STAY", last_channel, last_hook_id, "Rejected: message channels produced no response."),
+                    _alt("STOP", last_channel, last_hook_id, "Rejected: live channel option has not been tried yet."),
+                ],
+            )
+
+        return build_move(
+            "STOP",
+            last_hook_id,
+            last_channel,
+            "Stop outreach; all candidate channels and hooks exhausted without response.",
+            ["Close session cleanly"],
+            f"Consecutive silence ({consecutive_silent}) with no remaining unused channels or hooks.",
+            [
+                _alt("STAY", last_channel, last_hook_id, "Rejected: repeating exhausted channel and hook."),
+                _alt("PIVOT_CHANNEL", default_channel, last_hook_id, "Rejected: all channels already attempted."),
+            ],
+        )

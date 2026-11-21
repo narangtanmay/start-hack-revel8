@@ -102,6 +102,7 @@ def test_cli_run_ablation_flags(monkeypatch: pytest.MonkeyPatch) -> None:
         keep_going: bool,
         use_ledger_gate: bool = True,
         use_shadow_twin: bool = False,
+        use_policy: bool = False,
     ) -> int:
         captured.update(
             target=target,

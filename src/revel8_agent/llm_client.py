@@ -181,12 +181,13 @@ class LLMPool:
     """
 
     def __init__(self, timeout: float = 90.0, model: str | None = None, rpm_per_key: int | None = None,
-                 max_wait: float = 240.0) -> None:
-        keys = api_keys_from_env() or [""]
-        self.clients = [LocalLLMClient(api_key=k, timeout=timeout, model=model) for k in keys]
+                 max_wait: float = 240.0, keys: list[str] | None = None) -> None:
+        resolved_keys = [k.strip() for k in keys if k.strip()] if keys is not None else api_keys_from_env()
+        resolved_keys = resolved_keys or [""]
+        self.clients = [LocalLLMClient(api_key=k, timeout=timeout, model=model) for k in resolved_keys]
         self.model = self.clients[0].model
         rpm = rpm_per_key or int(os.getenv("LLM_RPM_PER_KEY", "18"))
-        self.limits = [KeyLimiter(rpm) for _ in keys]
+        self.limits = [KeyLimiter(rpm) for _ in resolved_keys]
         self.max_wait = max_wait
         self._lock = threading.Lock()
 
