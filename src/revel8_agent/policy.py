@@ -328,6 +328,22 @@ class RuleBasedPolicy:
             )
 
         if consecutive_negative == 1:
+            last_events = history[-1].get("events") or []
+            replied = any(isinstance(e, dict) and e.get("type") == "reply" for e in last_events)
+            if replied:
+                next_chan = unused_msg_channels[0] if unused_msg_channels else default_channel
+                return build_move(
+                    "STAY",
+                    last_hook_id,
+                    last_channel,
+                    "Address the target's objection directly in-thread with a lower-friction, no-pressure response.",
+                    ["Answer their concern directly without repeating the objected artifact", "Keep channel and persona consistent"],
+                    f"Target replied on {last_channel} with first {last_sentiment} verdict; stay in-thread to address the objection before abandoning the live channel.",
+                    [
+                        _alt("PIVOT_CHANNEL", next_chan, last_hook_id, f"Rejected: target just replied on {last_channel}; switching channels abandons a live thread."),
+                        _alt("STOP", last_channel, last_hook_id, "Rejected: single objection in an active thread can be resolved in-thread."),
+                    ],
+                )
             if unused_hooks:
                 new_hook = str(unused_hooks[0]["id"])
                 new_chan = unused_msg_channels[0] if unused_msg_channels else last_channel

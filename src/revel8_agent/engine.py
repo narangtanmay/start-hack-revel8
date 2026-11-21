@@ -1245,7 +1245,7 @@ class Runner:
                 # Stop only on incidents the API itself confirmed (page.submitted / attachment.opened). A judged
                 # estimate stopped v6 Julius at touch 2 on "please send the invite" (a false positive); the API
                 # scores disclosures itself, and touches after a real incident do not lower the score.
-                if self.cfg.stop_at_first_incident and any(i["source"] == "api event" for i in st.incidents):
+                if self.cfg.stop_at_first_incident and any(i.get("source") == "api event" for i in st.incidents):
                     break
             st.status = "done"
         except Exception as error:  # noqa: BLE001 - always leave a readable run file behind
