@@ -1,0 +1,1003 @@
+{
+  "target_id": "julius",
+  "target_name": "Julius Muth",
+  "role": "Co-Founder & Co-CEO, revel8 (business and go-to-market)",
+  "company": "revel8",
+  "facts": [
+    {
+      "id": "f1",
+      "fact": "Julius Muth was a guest on the Marketing From Zero To One podcast, season 12, episode 4, discussing cybersecurity, AI, and his work at revel8.",
+      "category": "talk_or_event",
+      "source_url": "https://soundcloud.com/marketing_021/juliusmuth",
+      "verbatim_quote": "Play S12/E04 mit Julius Muth (revel8) | Cybersecurity Cybersicherheit Künstliche Intelligenz KI by Marketing From Zero To One | #Marketing_021 🎙 on desktop and mobile.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f2",
+      "fact": "Julius Muth is associated with revel8 and the company-shield.com website.",
+      "category": "current_project",
+      "source_url": "https://soundcloud.com/marketing_021/juliusmuth",
+      "verbatim_quote": "Mit Julius Muth (revel8 Staffel #12 Folge #4 | #Marketing_021 Der Podcast über Marketing, Vertrieb, Entrepreneurship und Startups",
+      "recency": "unknown"
+    },
+    {
+      "id": "f3",
+      "fact": "Julius Muth is a Managing Director of revel8 GmbH.",
+      "category": "role",
+      "source_url": "https://www.revel8.ai/imprint",
+      "verbatim_quote": "Managing Directors: Tom-Christopher Müller, Julius Muth",
+      "recency": "2026-03"
+    },
+    {
+      "id": "f4",
+      "fact": "revel8 GmbH is registered in Munich, Germany.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/imprint",
+      "verbatim_quote": "revel8 GmbH Sandstraße 3 80335 Munich Germany",
+      "recency": "2026-03"
+    },
+    {
+      "id": "f5",
+      "fact": "revel8 GmbH's commercial register entry is HRB 287782 at Amtsgericht München.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/imprint",
+      "verbatim_quote": "Commercial register HRB 287782, Amtsgericht München",
+      "recency": "2026-03"
+    },
+    {
+      "id": "f6",
+      "fact": "revel8 GmbH's phone number is +49 15888 362505.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/imprint",
+      "verbatim_quote": "Phone +49 15888 362505",
+      "recency": "2026-03"
+    },
+    {
+      "id": "f7",
+      "fact": "revel8 GmbH is not willing or obliged to participate in dispute resolution proceedings before a consumer arbitration board.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/imprint",
+      "verbatim_quote": "We are not willing or obliged to participate in dispute resolution proceedings before a consumer arbitration board.",
+      "recency": "2026-03"
+    },
+    {
+      "id": "f8",
+      "fact": "revel8 GmbH is responsible for the content of its website.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/imprint",
+      "verbatim_quote": "revel8 GmbH is responsible for the content of this website.",
+      "recency": "2026-03"
+    },
+    {
+      "id": "f9",
+      "fact": "Julius Muth is Co-Founder & CEO of revel8, leading business operations and Go-To-Market.",
+      "category": "role",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Julius is the Co-Founder of revel8, leading business operations and Go-To-Market after driving international growth at Celonis and building a strong analytical foundation across finance, M&A, and mathematics.",
+      "recency": "2024"
+    },
+    {
+      "id": "f10",
+      "fact": "Julius Muth previously drove international growth at Celonis.",
+      "category": "background",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "after driving international growth at Celonis and building a strong analytical foundation across finance, M&A, and mathematics.",
+      "recency": "2024"
+    },
+    {
+      "id": "f11",
+      "fact": "Julius Muth has a global perspective shaped by time in Hong Kong, Singapore, and Madrid.",
+      "category": "background",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "His global perspective - shaped by time in Hong Kong, Singapore, and Madrid - fuels revel8’s expansion into modern, AI-driven cybersecurity.",
+      "recency": "2024"
+    },
+    {
+      "id": "f12",
+      "fact": "revel8 was founded in 2024 (previously named Company Shield).",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "we founded revel8 (previously Company Shield) in 2024 to empower businesses and individuals to build resilience against the increasing number and sophistication of cyber threats.",
+      "recency": "2024"
+    },
+    {
+      "id": "f13",
+      "fact": "revel8's mission is to protect companies from deepfake cyber attacks by building lasting human resilience.",
+      "category": "current_project",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Our mission is to protect your company from deepfake cyber attacks by building lasting human resilience.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f14",
+      "fact": "revel8 aims to create 10 Million Human Firewalls by 2028.",
+      "category": "current_project",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "we are determined to create 10 Million Human Firewalls by 2028!",
+      "recency": "2028"
+    },
+    {
+      "id": "f15",
+      "fact": "revel8 is a Berlin-based team.",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "We are a Berlin-based team (previously named Company Shield) united by a mission to protect humans as they remain the weakest link in cybersecurity.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f16",
+      "fact": "revel8 has grown to a team of 30 employees.",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "As of today, we have grown to a proud team of 30 revels, who are relentlessly working on helping our customers to be one step ahead of cyber criminals.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f17",
+      "fact": "revel8's founders met at Celonis.",
+      "category": "network",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Our journey began when our three founders met at the German software decacorn Celonis.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f18",
+      "fact": "revel8 is hiring for open positions.",
+      "category": "hiring",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Join our team of passionate, talented cyber revels redefining cybersecurity and help protect people! Check our open positions",
+      "recency": "unknown"
+    },
+    {
+      "id": "f19",
+      "fact": "Julius Muth is co-founder and CEO of revel8.",
+      "category": "role",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "says co-founder and CEO Julius Muth.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f20",
+      "fact": "Julius Muth co-founded revel8 with Tom Müller and Robert Seilbeck.",
+      "category": "background",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Julius Muth, Tom Müller, and Robert Seilbeck founded revel8 after seeing how unprepared organizations were for AI-based impersonation.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f21",
+      "fact": "Julius Muth is a former Celonis employee.",
+      "category": "background",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "revel8 was founded by Celonis alumni Julius Muth, Tom Müller, and Robert Seilbeck",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f22",
+      "fact": "Julius Muth stated the goal to train 10 million 'human firewalls.'",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Their goal is to train 10 million ‘human firewalls.’",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f23",
+      "fact": "Julius Muth is quoted about using the investment to build next-generation defense tools.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "This investment gives us the resources to build the next generation of defense tools for the next generation of threats.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f24",
+      "fact": "Julius Muth is a co-founder of revel8, which raised a €5.7 million seed round led by Peak.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Berlin-based cybersecurity startup revel8, which trains employees with realistic attack simulations of the latest AI cyber threats, has raised a €5.7 million seed round.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f25",
+      "fact": "Julius Muth's company revel8 counts FC Bayern, OBI and Stihl among its customers.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Founded by former Celonis employees, revel8 today counts FC Bayern, OBI and Stihl among its customers.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f26",
+      "fact": "Julius Muth's company revel8 is among the first cybersecurity providers on the Stackit marketplace from Schwarz Group.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "The company is among the first cybersecurity providers on the Stackit marketplace from Schwarz Group, offering enterprises a European cloud option.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f27",
+      "fact": "Julius Muth's company revel8 is headquartered in Berlin with a relocation to Munich planned for early 2026.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Founded in 2024 and headquartered in Berlin, with a relocation to Munich planned for early 2026",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f28",
+      "fact": "Julius Muth's company revel8 was founded in 2024.",
+      "category": "background",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Founded in 2024 and headquartered in Berlin",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f29",
+      "fact": "Julius Muth is Co-Founder of revel8 and oversees business and go-to-market strategies.",
+      "category": "role",
+      "source_url": "https://www.ventum-consulting.com/en/news/cyber-community-rooftop-night/",
+      "verbatim_quote": "Julius Muth is a co-founder of revel8 and oversees business and go-to-market strategies for the AI-native platform for realistic security awareness.",
+      "recency": "2026-06"
+    },
+    {
+      "id": "f30",
+      "fact": "Julius Muth will give a talk titled 'Recent Attacks & Live Deepfake Demo' at the Cyber Community Rooftop Night on July 16, 2026.",
+      "category": "talk_or_event",
+      "source_url": "https://www.ventum-consulting.com/en/news/cyber-community-rooftop-night/",
+      "verbatim_quote": "Talk 2 – Julius Muth (revel8): Recent Attacks & Live Deepfake Demo",
+      "recency": "2026-07-16"
+    },
+    {
+      "id": "f31",
+      "fact": "Before revel8, Julius Muth drove international growth at Celonis.",
+      "category": "background",
+      "source_url": "https://www.ventum-consulting.com/en/news/cyber-community-rooftop-night/",
+      "verbatim_quote": "Before revel8, he drove international growth at Celonis.",
+      "recency": "2026-06"
+    },
+    {
+      "id": "f32",
+      "fact": "Julius Muth is a sought-after voice in the DACH security community on topics such as AI-powered social engineering, deepfakes, and the human line of defense.",
+      "category": "network",
+      "source_url": "https://www.ventum-consulting.com/en/news/cyber-community-rooftop-night/",
+      "verbatim_quote": "Today, he is a sought-after voice in the DACH security community on topics such as AI-powered social engineering, deepfakes, and the human line of defense",
+      "recency": "2026-06"
+    },
+    {
+      "id": "f33",
+      "fact": "Julius Muth has appeared at it-sa Expo, GITEX, Rethink!, and many more.",
+      "category": "talk_or_event",
+      "source_url": "https://www.ventum-consulting.com/en/news/cyber-community-rooftop-night/",
+      "verbatim_quote": "with appearances at it-sa Expo, GITEX, Rethink!, and many more.",
+      "recency": "2026-06"
+    },
+    {
+      "id": "f34",
+      "fact": "Julius Muth is a co-founder of revel8, a Munich-based startup that prepares employees for the new wave of AI-driven cyberattacks.",
+      "category": "role",
+      "source_url": "https://www.sans.org/profiles/julius-muth",
+      "verbatim_quote": "Julius Muth is a co-founder of revel8, a Munich-based startup that prepares employees for the new wave of AI-driven cyberattacks.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f35",
+      "fact": "revel8 was founded in 2024 and now employs 35 people.",
+      "category": "company_news",
+      "source_url": "https://www.sans.org/profiles/julius-muth",
+      "verbatim_quote": "revel8 was founded in 2024 and now employs 35 people.",
+      "recency": "2024"
+    },
+    {
+      "id": "f36",
+      "fact": "revel8's clients to date include companies such as Beiersdorf, Allianz, and Daimler Truck.",
+      "category": "company_news",
+      "source_url": "https://www.sans.org/profiles/julius-muth",
+      "verbatim_quote": "Its clients to date include companies such as Beiersdorf, Allianz, and Daimler Truck.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f37",
+      "fact": "Julius Muth participates in SANS events, presentations, written content, or other community resources as an external contributor.",
+      "category": "talk_or_event",
+      "source_url": "https://www.sans.org/profiles/julius-muth",
+      "verbatim_quote": "This individual participates in SANS events, presentations, written content, or other community resources as an external contributor.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f38",
+      "fact": "Julius Muth is co-founder of Revel8, a startup tackling deepfake-powered social engineering.",
+      "category": "role",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "we sit down with Julius Muth, co-founder of Revel8, a fast-growing startup tackling one of the most urgent threats in modern cybersecurity: deepfake-powered social engineering.",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f39",
+      "fact": "Julius Muth flew from Berlin to Amsterdam for the podcast recording.",
+      "category": "background",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "Julius flew in from Berlin to join us in the Amsterdam studio",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f40",
+      "fact": "Revel8's goal is to build '10 million human firewalls'.",
+      "category": "current_project",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "their goal to build “10 million human firewalls.”",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f41",
+      "fact": "Revel8's team has operator DNA from Celonis.",
+      "category": "background",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "the team’s operator DNA from Celonis",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f42",
+      "fact": "Revel8 validated the market with 100 handwritten letters.",
+      "category": "company_news",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "Validating the market (100 handwritten letters)",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f43",
+      "fact": "Revel8 personalizes awareness with role-based 'playlist' simulations.",
+      "category": "current_project",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "How Revel8 personalizes awareness with role-based “playlist” simulations",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f44",
+      "fact": "Revel8 advocates measuring time-to-first-report instead of click rate as a security KPI.",
+      "category": "other",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "Why time-to-first-report beats click rate as a security KPI",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f45",
+      "fact": "Revel8 scaled from early MVPs to large enterprise rollouts.",
+      "category": "company_news",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "how Revel8 scaled from early MVPs to large enterprise rollouts",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f46",
+      "fact": "Revel8 is moving to a Munich office.",
+      "category": "company_news",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "Munich office move and what’s next",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f47",
+      "fact": "Revel8's growth strategy includes cold-calling 'Champions League'.",
+      "category": "company_news",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "cold-calling “Champions League,” and GTM",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f48",
+      "fact": "Revel8 hires people with a specific profile.",
+      "category": "hiring",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "Hiring profile and what they look for",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f49",
+      "fact": "Revel8's name has a naming story.",
+      "category": "other",
+      "source_url": "https://cybersecuritytalks.podbean.com/e/building-human-resilience-for-deepfake-driven-phishing-julius-muth-cyber-security-district-podcast",
+      "verbatim_quote": "Why the name Revel8 (and the naming story)",
+      "recency": "2026-04"
+    },
+    {
+      "id": "f50",
+      "fact": "Julius Muth is Co-Founder of Revel8, a company in Merantix Capital's portfolio that uses AI to quantify exposure and simulate potential financial impact.",
+      "category": "role",
+      "source_url": "https://news.merantix-capital.com/p/why-we-invest-in-ai-for-cybersecurity",
+      "verbatim_quote": "Revel8, from our own portfolio, uses AI to quantify exposure and simulate potential financial impact.",
+      "recency": "2025-10-21"
+    },
+    {
+      "id": "f51",
+      "fact": "Julius Muth pointed to recent call-center breaches at large European insurers as examples of how scams exploit workflows as much as systems, making predictive controls more valuable than reactive alerts.",
+      "category": "talk_or_event",
+      "source_url": "https://news.merantix-capital.com/p/why-we-invest-in-ai-for-cybersecurity",
+      "verbatim_quote": "Julius Muth, Co-Founder of Revel8, pointed to recent call-center breaches at large European insurers as examples of how scams now exploit workflows as much as systems, which makes predictive controls more valuable than reactive alerts.",
+      "recency": "2025-10-21"
+    },
+    {
+      "id": "f52",
+      "fact": "Julius Muth explained that CISOs must still define thresholds and decision rules for false positives and negatives in deepfake detection.",
+      "category": "talk_or_event",
+      "source_url": "https://news.merantix-capital.com/p/why-we-invest-in-ai-for-cybersecurity",
+      "verbatim_quote": "Muth explained that CISOs must still define thresholds and decision rules for false positives and negatives",
+      "recency": "2025-10-21"
+    },
+    {
+      "id": "f53",
+      "fact": "revel8 is presenting a talk titled 'The Dark Side of AI: Latest Social Engineering Trends' at it-sa 2026.",
+      "category": "talk_or_event",
+      "source_url": "https://www.itsa365.de/en/news-knowledge/2026/10/revel8-deepfakes-social-engineering",
+      "verbatim_quote": "Talk: “The Dark Side of AI: Latest Social Engineering Trends”",
+      "recency": "2026-10"
+    },
+    {
+      "id": "f54",
+      "fact": "revel8 will have a booth at it-sa 2026 in Nuremberg.",
+      "category": "company_news",
+      "source_url": "https://www.itsa365.de/en/news-knowledge/2026/10/revel8-deepfakes-social-engineering",
+      "verbatim_quote": "Visit us at our booth Hall 8, Booth 8-306 27–29 October 2026, Exhibition Centre Nuremberg",
+      "recency": "2026-10"
+    },
+    {
+      "id": "f55",
+      "fact": "revel8 trains teams with OSINT-personalised simulations across email, text messages, phone and video.",
+      "category": "current_project",
+      "source_url": "https://www.itsa365.de/en/news-knowledge/2026/10/revel8-deepfakes-social-engineering",
+      "verbatim_quote": "At revel8, this is why we train teams with OSINT-personalised simulations across email, text messages, phone and video, so that the first real deepfake call isn't also the first one anyone has ever experienced.",
+      "recency": "2026-10"
+    },
+    {
+      "id": "f56",
+      "fact": "Julius Muth is co-founder and CEO of revel8.",
+      "category": "role",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "Julius Muth, co-founder and CEO of revel8",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f57",
+      "fact": "revel8 raised €7 million in funding, including a €5.7 million seed round led by Peak with Fortino Capital, Merantix Capital, and business angels.",
+      "category": "company_news",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "Berlin-based cybersecurity startup revel8 has secured €7 million in funding, including a €5.7 million seed round led by Peak along with Fortino Capital, Merantix Capital, and several well-known business angels.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f58",
+      "fact": "Julius Muth co-founded revel8 with Tom Müller and Robert Seilbeck, former Celonis employees.",
+      "category": "background",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "revel8 was founded by former Celonis employees Julius Muth, Tom Müller, and Robert Seilbeck.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f59",
+      "fact": "revel8's goal is to train 10 million 'human firewalls' by 2028.",
+      "category": "current_project",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "Their goal is ambitious: to train 10 million “human firewalls” by 2028",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f60",
+      "fact": "Julius Muth stated that traditional e-learnings are outdated and realistic replicas of scams are more effective.",
+      "category": "other",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "“Traditional e-learnings are out of date. Training users with realistic replicas of the latest, relevant scams proves to be much more effective,”",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f61",
+      "fact": "revel8 plans to relocate from Berlin to Munich in early 2026.",
+      "category": "company_news",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "Revel8 plans to relocate from Berlin to Munich in early 2026",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f62",
+      "fact": "revel8's platform uses AI-powered attack simulations including deepfake calls, vishing, smishing, and spear-phishing.",
+      "category": "current_project",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "Its technology leverages AI-powered, personalised attack simulations that replicate deepfake calls, vishing, smishing, and spear-phishing",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f63",
+      "fact": "revel8's team of 22 is approximately 25% women and 75% men, with roughly 20% from international backgrounds.",
+      "category": "company_news",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "Currently, the team of 22 is approximately 25% women and 75% men, with roughly 20% from international backgrounds.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f64",
+      "fact": "Julius Muth described revel8's attack scenarios as a 'Spotify playlist' of attacks tailored to individual employee risk profiles.",
+      "category": "other",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "tailored to the individual employee’s risk profile in what Muth calls a “Spotify playlist” of attacks",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f65",
+      "fact": "revel8 aims to become Europe's leading AI-native human cyber defence platform.",
+      "category": "current_project",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "aims to become Europe’s leading AI-native human cyber defence platform",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f66",
+      "fact": "revel8 plans to invest heavily in R&D, expand across European markets, and build a community hub for CISOs.",
+      "category": "company_news",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "The company intends to invest heavily in R&D, expand across European markets, and build a community hub for CISOs and the broader cybersecurity ecosystem.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f67",
+      "fact": "Julius Muth said revel8's edge over competitors like KnowBe4 and SoSafe is adapting dynamically to evolving AI-powered attacker tactics.",
+      "category": "other",
+      "source_url": "https://techfundingnews.com/revel8-raises-7m-ai-powered-human-firewalls-cybersecurity/",
+      "verbatim_quote": "“Unlike traditional awareness platforms, which rely on static templates and generic training, revel8 brings real threats into the training room,”",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f68",
+      "fact": "Julius Muth is the CEO and Co-Founder of revel8.",
+      "category": "role",
+      "source_url": "https://www.crunchbase.com/person/julius-muth",
+      "verbatim_quote": "Julius Muth is based out of Berlin and is the CEO and Co-Founder of revel8.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f69",
+      "fact": "Julius Muth is based in Berlin.",
+      "category": "background",
+      "source_url": "https://www.crunchbase.com/person/julius-muth",
+      "verbatim_quote": "Julius Muth is based out of Berlin",
+      "recency": "unknown"
+    },
+    {
+      "id": "f70",
+      "fact": "Julius Muth previously worked at Celonis as part of the Growth Team.",
+      "category": "background",
+      "source_url": "https://www.crunchbase.com/person/julius-muth",
+      "verbatim_quote": "Julius previously worked at Celonis as a Growth Team.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f71",
+      "fact": "Julius Muth is Co-Founder and CEO at revel8 and an expert in cybersecurity go-to-market strategy.",
+      "category": "role",
+      "source_url": "https://www.revel8.ai/author/julius-muth",
+      "verbatim_quote": "Julius Muth · Co-Founder and CEO at revel8 and a recognized expert in cybersecurity go-to-market strategy.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f72",
+      "fact": "Julius specializes in positioning enterprise solutions against AI-driven phishing, deepfakes, and advanced social engineering threats.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/author/julius-muth",
+      "verbatim_quote": "Julius specializes in positioning enterprise solutions against AI-driven phishing, deepfakes, and advanced social engineering threats.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f73",
+      "fact": "Julius has a proven track record in scaling B2B SaaS and building high-impact sales motions.",
+      "category": "background",
+      "source_url": "https://www.revel8.ai/author/julius-muth",
+      "verbatim_quote": "He has a proven track record in scaling B2B SaaS, building high-impact sales motions, and aligning product-market fit with evolving security challenges.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f74",
+      "fact": "Julius is deeply immersed in the latest attack techniques, including AI-powered phishing and real-time deepfake social engineering.",
+      "category": "interest",
+      "source_url": "https://www.revel8.ai/author/julius-muth",
+      "verbatim_quote": "Through his work at revel8, Julius is deeply immersed in the latest attack techniques, from AI-powered phishing to real-time deepfake social engineering.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f75",
+      "fact": "Julius works closely with threat intelligence, product, and customer teams, giving him first-hand insight into modern attacks and where traditional defenses fail.",
+      "category": "network",
+      "source_url": "https://www.revel8.ai/author/julius-muth",
+      "verbatim_quote": "He works closely with threat intelligence, product, and customer teams, giving him first-hand insight into how modern attacks are executed and where traditional defenses fail.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f76",
+      "fact": "Julius Muth's work at revel8 focuses on protecting people against GenAI attacks.",
+      "category": "current_project",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Wir bei revel8 bauen die Plattform, die Menschen gegen GenAI-Angriffe schützt.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f77",
+      "fact": "Julius Muth will present a live demo of the latest vishing attacks on stage at 'it-sa Expo 2025' in Nuremberg, Germany.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Live demo of Julius Muth of the latest vishing attacks on stage at \"it-sa Expo 2025\" in Nuremberg, Germany",
+      "recency": "2025"
+    },
+    {
+      "id": "f78",
+      "fact": "Julius Muth will participate in a live webinar about the Salesforce attack and raising awareness of vishing attacks.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Live Webinar | Die Salesforce-Attacke: Awareness bei Vishing-Angriffen (DE) In this webinar from revel8, you will learn: What happened during the major Salesforce attack and how can you raise awareness of vishing attacks in your company? Julius Muth",
+      "recency": "2025-09-19"
+    },
+    {
+      "id": "f79",
+      "fact": "Julius Muth will attend the Gartner Security & Risk Management Summit 2025 in London to exchange about leveraging AI and enhancing resilience.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Join Julius in London to exchange about how to leverage AI and enhance resilience for organizational protection in a dynamic threat and operating landscape.",
+      "recency": "2025-09-22"
+    },
+    {
+      "id": "f80",
+      "fact": "Julius Muth will have an 'it-sa insights' session at it-sa 365 in Nuremberg in October 2025.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Also, don't miss out on Julius Muth's \"it-sa insights\" session.",
+      "recency": "2025-10-07"
+    },
+    {
+      "id": "f81",
+      "fact": "Julius Muth will attend the VOICE Entscheiderforum in Berlin in November 2025 to talk about AI, cybersecurity, future of IT, European politics and the digital economy.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Let's talk AI, cybersecurity, future of IT, European politics and the digital economy. Julius Muth",
+      "recency": "2025-11-18"
+    },
+    {
+      "id": "f82",
+      "fact": "Julius Muth will attend the mysecurity Event 2025 in Stuttgart to talk about cybersecurity use cases and the latest trends in Social Engineering.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Find us at MHP Arena Stuttgart to talk about cybersecurity use cases and the latest trends in Social Engineering. Julius Muth",
+      "recency": "2025-11-18"
+    },
+    {
+      "id": "f83",
+      "fact": "Julius Muth will attend Cybersecurity 2025 in Dusseldorf, focusing on geopolitical instability and AI in cybersecurity.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Increased Threat - Innovative Responses\": The event focuses on how geopolitical instability and the rise of artificial intelligence are simultaneously enabling innovative cybersecurity defenses and creating new threats such as automated attacks, deepfakes, and disinformation. Julius Muth",
+      "recency": "2025-11-27"
+    },
+    {
+      "id": "f84",
+      "fact": "Julius Muth will attend Winter Voices: Frontier Tech Meets Glühwein in Berlin, co-hosted by revel8 and ElevenLabs.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Join revel8 and ElevenLabs for a cosy winter evening of Glühwein, fresh ideas, and high-quality networking - bringing together the people shaping the future of AI and security. We’ll explore how frontier voice AI, deepfake threats, and next-gen attack simulations are redefining trust and communication inside modern organizations, and exchange insights on how teams use advanced voice models to build new experiences. Julius Muth",
+      "recency": "2025-12-04"
+    },
+    {
+      "id": "f85",
+      "fact": "Julius Muth will be part of a panel at BCG's People-in-Motion in Berlin in January 2026 about the future of human-centered work.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "revel8 will be part of a panel around the future of human-centered work. We will explore how AI redefines processes and transforms the role of teams. Julius Muth",
+      "recency": "2026-01-22"
+    },
+    {
+      "id": "f86",
+      "fact": "Julius Muth will attend TechEx in London in February 2026, a high-level intelligence briefing across AI, Cyber Security, IoT, Data Infrastructure and Digital Transformation.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Designed for CIOs, CTOs, IT Directors and enterprise architects, TechEx delivers a high-level intelligence briefing across AI, Cyber Security, IoT, Data Infrastructure and Digital Transformation, helping leaders understand what’s changing, what matters and what to prioritise next. Julius Muth",
+      "recency": "2026-02-27"
+    },
+    {
+      "id": "f87",
+      "fact": "Julius Muth will attend Enforce Tac in Nuremberg in February 2026, a platform for making Europe safer.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Shaping security - European, networked, future-oriented. Enforce Tac is the central platform where decision-makers, innovators, and thought leaders from government agencies, industry, and society come together, united by the common goal of making Europe safer. Julius Muth",
+      "recency": "2026-02-27"
+    },
+    {
+      "id": "f88",
+      "fact": "Julius Muth will attend the NIS-2 Congress in Frankfurt in May 2026.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "11-13/05/2026 NIS-2 Congress, Frankfurt We will be there! Let's talk. Alexander Bünning Jasenko Jakirlic Julius Muth",
+      "recency": "2026-05-11"
+    },
+    {
+      "id": "f89",
+      "fact": "Julius Muth will be a speaker and sponsor at TAKE AWARE 2026 in Düsseldorf in May 2026.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "revel8 is a speaker and sponsor at TAKE AWARE 2026 in Düsseldorf. Join us to experience live AI-powered attack simulations - and learn how leading enterprises are building employee resilience against the next wave of social engineering threats. Kristian Dasch Jasper Albrecht Julius Muth",
+      "recency": "2026-05-19"
+    },
+    {
+      "id": "f90",
+      "fact": "Julius Muth will attend the SANS Meets NVISO Frankfurt Community Night 2026 in June 2026.",
+      "category": "talk_or_event",
+      "source_url": "https://revel8-f04e95.webflow.io/events",
+      "verbatim_quote": "Join us on Tuesday, the 16th of June, for the SANS Meets NVISO Frankfurt Community Night 2026! Julius Muth",
+      "recency": "2026-06-16"
+    },
+    {
+      "id": "f91",
+      "fact": "revel8 raised €7 million in seed funding to fight AI-powered cyberattacks.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8 raises €7M to turn employees into AI-powered human firewalls against cyberattacks",
+      "recency": "unknown"
+    },
+    {
+      "id": "f92",
+      "fact": "revel8 is a Berlin-based startup that builds human firewalls against AI attacks.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8: Mit Human Firewalls gegen KI-Angriffe",
+      "recency": "unknown"
+    },
+    {
+      "id": "f93",
+      "fact": "Julius Muth was interviewed about deepfake-driven phishing and building human resilience.",
+      "category": "talk_or_event",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Building Human Resilience for Deepfake-Driven Phishing",
+      "recency": "unknown"
+    },
+    {
+      "id": "f94",
+      "fact": "revel8 is available on the STACKIT Marketplace for cybersecurity awareness built for Europe.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8 is now live on the STACKIT Marketplace – Cybersecurity awareness, built for Europe",
+      "recency": "unknown"
+    },
+    {
+      "id": "f95",
+      "fact": "revel8 was featured in a list of German AI startups to watch according to VCs.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "8 German AI startups to watch, according to VCs",
+      "recency": "unknown"
+    },
+    {
+      "id": "f96",
+      "fact": "revel8 was included in a list of 6 deep-tech startups from Germany to watch by Earlybird VC.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "6 Deep-Tech-Startups aus Deutschland to watch – laut Earlybird VC",
+      "recency": "unknown"
+    },
+    {
+      "id": "f97",
+      "fact": "Julius Muth was interviewed on the Marketing From Zero To One podcast.",
+      "category": "talk_or_event",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "S12/E04 mit Julius Muth (revel8)",
+      "recency": "unknown"
+    },
+    {
+      "id": "f98",
+      "fact": "revel8 participated in a discussion on AI-supported cybersecurity for Mittelstand-Digital Zentrum Berlin.",
+      "category": "talk_or_event",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "KI-gestützte Cybersicherheit: Wie Technologie und Mensch gemeinsam gegen digitale Bedrohungen bestehen",
+      "recency": "unknown"
+    },
+    {
+      "id": "f99",
+      "fact": "revel8 was mentioned in Business Insider for raising 5.7 million euros with investors including Peak Capital and Mario Götze.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "5,7 Millionen Euro: Ex-Celonis-Mitarbeiter überzeugen mit ihrem KI-Startup Peak Capital und Mario Götze",
+      "recency": "unknown"
+    },
+    {
+      "id": "f100",
+      "fact": "revel8 was featured in Invest in Berlin for raising €7M to combat AI cyberattacks.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8 Raises €7M to Combat AI Cyberattacks",
+      "recency": "unknown"
+    },
+    {
+      "id": "f101",
+      "fact": "revel8 was covered by Silicon Canals for scooping up €7M.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8 scoops up €7M",
+      "recency": "unknown"
+    },
+    {
+      "id": "f102",
+      "fact": "revel8 was featured in Menlo Times for leveling up its fight against AI-powered cyberattacks.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Revel8 Levels Up its Fight Against AI-Powered Cyberattacks",
+      "recency": "unknown"
+    },
+    {
+      "id": "f103",
+      "fact": "revel8 was covered by Startbase for its successful €7 million seed round to defend against AI cyberattacks.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8 mit 7 Millionen Euro Seed zur Abwehr von KI-Cyberangriffen erfolgreich",
+      "recency": "unknown"
+    },
+    {
+      "id": "f104",
+      "fact": "revel8 was covered by Tech.eu for netting €7 million to fight AI-powered cyberattacks.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "revel8 nets €7 million to fight AI-powered cyberattacks",
+      "recency": "unknown"
+    },
+    {
+      "id": "f105",
+      "fact": "revel8 was mentioned in deutsche-startups.de's #DealMonitor.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "#DealMonitor: Enadyne, revel8, YASP",
+      "recency": "unknown"
+    },
+    {
+      "id": "f106",
+      "fact": "revel8 was covered by inside digital regarding hackers using devices no longer in use.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Du nutzt dieses Gerät nicht mehr – Hacker aber schon",
+      "recency": "unknown"
+    },
+    {
+      "id": "f107",
+      "fact": "revel8 was featured in Proof Collection with an interview with Julius Muth.",
+      "category": "talk_or_event",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Proof Collection: Interview mit Julius Muth (revel8)",
+      "recency": "unknown"
+    },
+    {
+      "id": "f108",
+      "fact": "revel8 was featured in WHU Magazine's Start-ups Investment Report Q3 2025.",
+      "category": "publication",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Start-ups Investment Report Q3 2025",
+      "recency": "2025"
+    },
+    {
+      "id": "f109",
+      "fact": "revel8 was covered by IT Daily regarding recognizing deepfakes before they cause damage.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Deepfakes erkennen, bevor sie Schaden anrichten",
+      "recency": "unknown"
+    },
+    {
+      "id": "f110",
+      "fact": "revel8 was covered by IT-Business regarding why security awareness is worthwhile for system houses.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Warum lohnt sich Security Awareness für Systemhäuser?",
+      "recency": "unknown"
+    },
+    {
+      "id": "f111",
+      "fact": "revel8 was featured in the Cyber Security District Podcast.",
+      "category": "talk_or_event",
+      "source_url": "https://www.revel8.ai/company/news",
+      "verbatim_quote": "Cyber Security District Podcast",
+      "recency": "unknown"
+    },
+    {
+      "id": "f112",
+      "fact": "Revel8 scaled fast with funding and enterprise rollouts.",
+      "category": "company_news",
+      "source_url": "https://podcasts.apple.com/sa/podcast/cyber-security-district/id1598365914",
+      "verbatim_quote": "How Revel8 scaled fast: funding, enterprise rollouts, and culture",
+      "recency": "unknown"
+    },
+    {
+      "id": "f113",
+      "fact": "Julius Muth is co-founder of Revel8, a startup addressing deepfake-powered social engineering.",
+      "category": "role",
+      "source_url": "https://cybersecuritytalks.podbean.com/",
+      "verbatim_quote": "Julius Muth, co-founder of Revel8, a fast-growing startup tackling one of the most urgent threats in modern cybersecurity: deepfake-powered social engineering.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f114",
+      "fact": "Revel8 scaled from early MVPs to large enterprise rollouts, with operator DNA from Celonis.",
+      "category": "company_news",
+      "source_url": "https://cybersecuritytalks.podbean.com/",
+      "verbatim_quote": "the team’s operator DNA from Celonis, and their goal to build “10 million human firewalls.”",
+      "recency": "unknown"
+    },
+    {
+      "id": "f115",
+      "fact": "Julius Muth started his career on a North Sea gas platform.",
+      "category": "background",
+      "source_url": "https://music.amazon.com/podcasts/8481f0be-b28d-4ffc-906e-e5eac2920f1e/cyber-security-district",
+      "verbatim_quote": "Starting on a North Sea gas platform",
+      "recency": "unknown"
+    },
+    {
+      "id": "f116",
+      "fact": "Julius Muth joined Randstad and ran the Dutch telco infrastructure.",
+      "category": "background",
+      "source_url": "https://music.amazon.com/podcasts/8481f0be-b28d-4ffc-906e-e5eac2920f1e/cyber-security-district",
+      "verbatim_quote": "Joining Randstad and running the Dutch telco infrastructure",
+      "recency": "unknown"
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "topic": "Speaking at it-sa 2026 in Nuremberg with a talk on 'The Dark Side of AI: Latest Social Engineering Trends'",
+      "rationale": "This is an upcoming, high-profile event in the DACH security community where Julius is presenting, directly tied to his core mission and current activities.",
+      "confidence": 0.95,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f53",
+        "f54"
+      ]
+    },
+    {
+      "id": "h2",
+      "topic": "Upcoming talk 'Recent Attacks & Live Deepfake Demo' at the Cyber Community Rooftop Night on July 16, 2026",
+      "rationale": "A recent, specific event where Julius will deliver a live demo, showcasing his expertise and current focus on deepfake attacks.",
+      "confidence": 0.9,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f30"
+      ]
+    },
+    {
+      "id": "h3",
+      "topic": "Scaling revel8 to 10 million 'human firewalls' by 2028",
+      "rationale": "This is a central, ambitious goal that Julius frequently cites, reflecting his current strategic focus and passion for the company's mission.",
+      "confidence": 0.9,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f14",
+        "f22",
+        "f40",
+        "f59"
+      ]
+    },
+    {
+      "id": "h4",
+      "topic": "Hiring for open positions at revel8",
+      "rationale": "As a co-CEO focused on go-to-market, hiring is a critical, active need to support the company's rapid growth and expansion.",
+      "confidence": 0.85,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f18",
+        "f48"
+      ]
+    },
+    {
+      "id": "h5",
+      "topic": "Expanding across European markets and building a CISO community hub",
+      "rationale": "This is a stated strategic priority following the seed round, indicating active commercial and networking efforts that Julius is leading.",
+      "confidence": 0.8,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f66"
+      ]
+    },
+    {
+      "id": "own1",
+      "topic": "The untapped potential of measuring time-to-first-report as a security KPI",
+      "rationale": "Julius has publicly advocated for this innovative metric, which is less obvious than typical awareness topics and could spark a deeper conversation about modern security effectiveness.",
+      "confidence": 0.75,
+      "is_own_angle": true,
+      "supporting_fact_ids": [
+        "f44"
+      ]
+    }
+  ]
+}
