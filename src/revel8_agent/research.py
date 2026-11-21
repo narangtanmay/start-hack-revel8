@@ -266,14 +266,6 @@ Return ONLY JSON: {{"facts": [{{"fact": str, "category": str, "verbatim_quote": 
 - category: one of {cats}.
 - At most 12 facts. Nothing from your own knowledge."""
 
-_EXPAND = """You extend research on {name} ({role} at {company}). Below are verified facts.
-Return ONLY JSON: {{"anchors": [str], "queries": [str]}}
-- anchors: up to 6 identity anchors that distinguish THIS person from namesakes and appear literally in the facts:
-  earlier employers, universities, cities, co-founders, personal handles/usernames, distinctive project names.
-- queries: up to 6 NEW web search queries about the PERSON (not the company) that would surface information the facts
-  hint at but do not cover: earlier career, studies/thesis, talks at other events, side projects, sports/hobbies,
-  charities, co-authored work, podcasts. Every query must contain the person's full name in quotes."""
-
 _CONFLICTS = """Below are verified facts about {name}, each with an id. Some may contradict each other (different amounts,
 dates, counts, titles, or places for the same thing). Return ONLY JSON:
 {{"conflicts": [{{"fact_ids": [str], "note": str}}]}}
@@ -550,29 +542,14 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 300.0,
         st["timings"]["extract1_s"] = round(time.monotonic() - t1, 1)
         log(f"[{t.id}] round 1: {len(facts)} verified facts ({time.monotonic() - start:.0f}s)")
 
-        # ---- round 2: expansion from what we learned
-        if left() > 90 and facts:
-            listing = "\n".join(f"- {f.fact} | quote: {f.verbatim_quote}" for f in facts[:80])
-            out = _json(pool.lane(0), _EXPAND.format(name=t.name, role=t.role, company=t.company), listing, temperature=0.3)
-            quotes = " ".join(f.verbatim_quote for f in facts)
-            for a in (out.get("anchors") or [])[:6]:
-                if isinstance(a, str) and fold(a) in fold(quotes) and ident.add_anchor(a):
-                    st["anchors_added"].append(a)
-            qs = []
-            for q in (out.get("queries") or [])[:6]:
-                if isinstance(q, str) and q.strip():
-                    q = q.strip()
-                    if fold(t.name) not in fold(q):
-                        q = f'"{t.name}" {q}'
-                    qs.append(("expansion", "web", q, 10))
-            st["expansion_queries"] = [q for _, _, q, _ in qs]
-            log(f"[{t.id}] round 2: anchors {st['anchors_added']} | {len(qs)} follow-up queries")
-            t2 = time.monotonic()
-            docs2 = to_docs(run_queries(qs))[: max(10, max_docs // 2)]
-            extract_all(docs2)
-            st["timings"]["round2_s"] = round(time.monotonic() - t2, 1)
-            docs += docs2
-            log(f"[{t.id}] round 2: +{len(docs2)} sources -> {len(facts)} verified facts ({time.monotonic() - start:.0f}s)")
+        # ---- round 2+: snowball expansion from what we learned (see snowball.py)
+        from .snowball import run_snowball
+
+        t2 = time.monotonic()
+        docs += run_snowball(t, pool.lane(0), ident, facts, st, run_queries=run_queries, to_docs=to_docs,
+                             extract_all=extract_all, left=left, log=log, max_docs=max(10, max_docs // 2))
+        st["timings"]["round2_s"] = round(time.monotonic() - t2, 1)
+        log(f"[{t.id}] expansion done -> {len(facts)} verified facts ({time.monotonic() - start:.0f}s)")
 
     # ---- consolidation
     proposed = sum(s.get("proposed", 0) for s in st["sources"].values())
