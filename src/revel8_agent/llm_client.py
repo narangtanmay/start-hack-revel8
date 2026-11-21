@@ -45,6 +45,7 @@ class LocalLLMClient:
         base_url, self.model, api_key = base_url.strip(), model.strip(), api_key.strip()
         raw_max_tokens = os.getenv("LLM_MAX_TOKENS", "").strip()
         self.max_tokens: int | None = int(raw_max_tokens) if raw_max_tokens.isdigit() and int(raw_max_tokens) > 0 else None
+        self.reasoning_effort: str | None = os.getenv("LLM_REASONING_EFFORT", "").strip() or None
         if not base_url or not self.model:
             raise LocalLLMError("Set LLM_BASE_URL and LLM_MODEL (or the LOCAL_LLM_* variants).")
 
@@ -99,6 +100,8 @@ class LocalLLMClient:
         payload: dict[str, JsonValue] = {"model": self.model, "messages": list(messages)}
         if self.max_tokens is not None:
             payload["max_tokens"] = self.max_tokens
+        if self.reasoning_effort is not None:
+            payload["reasoning_effort"] = self.reasoning_effort
         if temperature is not None:
             payload["temperature"] = temperature
         if json_mode:
