@@ -248,6 +248,20 @@ def test_rule_based_policy_never_repeats_sms_and_prefers_replied_channel() -> No
     ]
     m6_silent = policy.choose_next_move(brief, all_silent, touch=6, max_touches=10, plan=plan)
     assert m6_silent["channel"] != "sms"
+    assert "easy to ignore" not in m6_silent["ask"].lower()
+
+
+def test_rule_based_policy_pivots_objective_when_attachments_declined() -> None:
+    policy = RuleBasedPolicy()
+    brief = _sample_brief()
+    plan = _sample_plan(hook_id="h_curr")
+    plan["objective"] = "action"
+    t1 = _step(1, "email", "h_curr", "suspicious")
+    t1["events"] = [{"type": "reply", "channel": "email", "body": "Ich öffne keine Anhänge von Fremden."}]
+    move = policy.choose_next_move(brief, [t1], touch=2, max_touches=10, plan=plan)
+    assert move["move_type"] == "STAY"
+    assert move["channel"] == "email"
+    assert move["objective"] == "disclosure"
 
 
 def test_hook_with_timing_marks_year_only_and_undated_events_uncertain() -> None:

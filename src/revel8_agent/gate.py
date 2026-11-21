@@ -139,8 +139,6 @@ def validate_session_consistency(
     prior = [(t, p) for t, p in prior if t]
     if plan.attachments and any(c in t for t, _ in prior for c in _NO_ATTACHMENT_CLAIMS):
         errors.append("Cross-turn contradiction: an earlier message promised no attachment but this draft attaches a file.")
-    if not plan.attachments and any(c in low for c in _NO_ATTACHMENT_CLAIMS) and any(p.get("attachments") for _, p in prior):
-        errors.append("Cross-turn contradiction: an earlier message attached a file but this draft claims no attachment.")
     if plan.landing_page:
         fields = {f.strip().lower() for f in plan.landing_page.fields}
         if (fields & _CREDENTIAL_FIELDS or {"email", "password"} <= fields) and any(

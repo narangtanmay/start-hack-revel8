@@ -9,6 +9,17 @@ MoveType = Literal["STAY", "PIVOT_CHANNEL", "PIVOT_HOOK", "ESCALATE_CALL", "STOP
 _DEFAULT_MESSAGE_CHANNELS = ("email", "linkedin_message", "slack", "teams_chat", "sms")
 _LIVE_CHANNELS = frozenset({"phone_call", "video_call", "teams_call", "live_chat"})
 _NEGATIVE_SENTIMENTS = frozenset({"refusing", "suspicious"})
+_ATTACHMENT_DECLINE_CUES = (
+    "keine anhänge",
+    "keine pdf",
+    "öffne keine anhänge",
+    "pdf öffne ich nicht",
+    "don't open attachment",
+    "do not open attachment",
+    "no attachment",
+    "kein anhang",
+    "ohne anhang",
+)
 
 
 @runtime_checkable
@@ -179,6 +190,20 @@ class RuleBasedPolicy:
         used_hooks = [_step_hook(s) for s in history if _step_hook(s)]
         sentiments = [_step_sentiment(s) for s in history]
 
+        attachment_blocked = False
+        for s in history:
+            reply_text = " ".join(
+                str(e.get("body") or "")
+                for e in (s.get("events") or [])
+                if isinstance(e, dict) and e.get("type") == "reply"
+            ).casefold()
+            sent_text = str(((s.get("payload") or {}).get("body") or "")).casefold()
+            if any(cue in reply_text or cue in sent_text for cue in _ATTACHMENT_DECLINE_CUES):
+                attachment_blocked = True
+                break
+        if objective == "action" and attachment_blocked:
+            objective = "disclosure"
+
         consecutive_silent = 0
         silent_channels: set[str] = set()
         for s, sent in zip(reversed(history), reversed(sentiments)):
@@ -263,8 +288,8 @@ class RuleBasedPolicy:
                 move_type,
                 hook_id,
                 channel,
-                "Send a brief, de-escalated follow-up with a new angle; no pressure, easy to ignore.",
-                ["Keep the same persona identity", "Lower the ask and acknowledge prior contact"],
+                "Send a concise, direct follow-up with one specific question tied to the current objective.",
+                ["Keep the same persona identity", "Keep the ask concrete and single-purpose"],
                 f"{why} Budget remains ({touch}/{max_touches}), so de-escalate via {move_type} "
                 f"to hook {hook_id or 'none'} on {channel} instead of stopping.",
                 [

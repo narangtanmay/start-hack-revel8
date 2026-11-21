@@ -206,10 +206,10 @@ def test_rejects_attachment_after_no_attachment_promise(plan: ContactPlan, dossi
     assert any("Cross-turn contradiction" in e and "attach" in e for e in errors)
 
 
-def test_rejects_no_attachment_claim_after_attachment_sent(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+def test_allows_no_attachment_followup_after_prior_attachment(plan: ContactPlan, dossier: VerifiedDossier) -> None:
     plan.attachments, plan.body, plan.is_html = [], "Kein Anhang diesmal.", False
     errors = _check(plan, dossier, steps=[_sent("See file", [{"filename": "a.pdf"}])])
-    assert any("Cross-turn contradiction" in e for e in errors)
+    assert errors == []
 
 
 def test_rejects_credential_form_after_no_login_promise(plan: ContactPlan, dossier: VerifiedDossier) -> None:
