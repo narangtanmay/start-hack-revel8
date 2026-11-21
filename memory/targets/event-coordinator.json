@@ -39,6 +39,77 @@
    "silence": 2,
    "brushoffs": 0,
    "incidents": []
+  },
+  {
+   "run": "20261122-003644-event-coordinator",
+   "at": "2026-11-21T23:36:44+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 1,
+   "reply_rate": 0.0,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-003644-event-coordinator",
+   "at": "2026-11-21T23:36:44+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 2,
+   "reply_rate": 0.5,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": [
+    "action@t1 (llm-judge (estimate))",
+    "credentials@t2 (api event)"
+   ]
+  },
+  {
+   "run": "20261122-003653-event-coordinator",
+   "at": "2026-11-21T23:36:53+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 1,
+   "reply_rate": 0.0,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-003653-event-coordinator",
+   "at": "2026-11-21T23:36:53+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 2,
+   "reply_rate": 0.5,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": [
+    "action@t1 (llm-judge (estimate))",
+    "credentials@t2 (api event)"
+   ]
+  },
+  {
+   "run": "20261122-003654-event-coordinator",
+   "at": "2026-11-21T23:36:54+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Workshop logistics",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 2,
+   "reply_rate": 0.0,
+   "silence": 2,
+   "brushoffs": 0,
+   "incidents": []
   }
  ],
  "corrections": [],
