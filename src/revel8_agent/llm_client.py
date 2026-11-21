@@ -54,6 +54,7 @@ class LocalLLMClient:
         if not path.endswith("/v1"):
             path += "/v1"
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        self._timeout = timeout
         self._client = httpx.Client(base_url=url.copy_with(path=path), timeout=timeout, headers=headers)
 
     def __enter__(self) -> "LocalLLMClient":
@@ -72,6 +73,7 @@ class LocalLLMClient:
         *,
         json_mode: Literal[False] = False,
         temperature: float | None = None,
+        deadline: float | None = None,
     ) -> str: ...
 
     @overload
@@ -81,6 +83,7 @@ class LocalLLMClient:
         *,
         json_mode: bool,
         temperature: float | None = None,
+        deadline: float | None = None,
     ) -> JsonValue: ...
 
     def chat(
@@ -89,7 +92,10 @@ class LocalLLMClient:
         *,
         json_mode: bool = False,
         temperature: float | None = None,
+        deadline: float | None = None,
     ) -> JsonValue:
+        """`deadline` (a time.monotonic() value) bounds the whole call: request timeouts and retry waits are
+        cut to the time left, and no attempt starts after it. Used by research to keep its time budget."""
         payload: dict[str, JsonValue] = {"model": self.model, "messages": list(messages)}
         if temperature is not None:
             payload["temperature"] = temperature
@@ -97,8 +103,13 @@ class LocalLLMClient:
             payload["response_format"] = {"type": "json_object"}
 
         for attempt in range(6):
+            left = None if deadline is None else deadline - time.monotonic()
+            if left is not None and left <= 0:
+                raise LocalLLMError("Local LLM deadline reached.")
             try:
-                response = self._client.post("chat/completions", json=payload)
+                response = self._client.post(
+                    "chat/completions", json=payload,
+                    **({} if left is None else {"timeout": min(self._timeout, max(0.1, left))}))
             except httpx.TimeoutException:
                 raise LocalLLMError("Local LLM request timed out.") from None
             except httpx.RequestError:
@@ -107,6 +118,8 @@ class LocalLLMClient:
                 break
             retry_after = response.headers.get("retry-after", "")
             delay = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else min(30.0, 2.0 * 2**attempt)
+            if deadline is not None and time.monotonic() + delay >= deadline:
+                break  # no time for another attempt: report this response
             time.sleep(delay)
         if not response.is_success:
             raise LocalLLMError(
@@ -171,13 +184,15 @@ class PooledClient:
         self.model = pool.model
 
     def chat(self, messages: Sequence[ChatMessage], *, json_mode: bool = False,
-             temperature: float | None = None) -> JsonValue:
+             temperature: float | None = None, deadline: float | None = None) -> JsonValue:
         n = len(self.pool.clients)
         last: LocalLLMError | None = None
         for k in range(n):
+            if deadline is not None and last is not None and time.monotonic() >= deadline:
+                break  # out of time: do not fail over to another key
             client = self.pool.clients[(self.preferred + k) % n]
             try:
-                return client.chat(messages, json_mode=json_mode, temperature=temperature)
+                return client.chat(messages, json_mode=json_mode, temperature=temperature, deadline=deadline)
             except LocalLLMError as error:
                 last = error
                 if error.status_code not in (None, 429, 500, 502, 503, 504):

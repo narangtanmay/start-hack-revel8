@@ -33,3 +33,18 @@ def test_chat_plain_text_and_invalid_json() -> None:
         assert client.chat(MESSAGES) == "Check-in opens at 9 a.m."
         with pytest.raises(LocalLLMError, match="invalid JSON content"):
             client.chat(MESSAGES, json_mode=True)
+
+
+@respx.mock
+def test_chat_stops_retrying_at_the_deadline() -> None:
+    import time
+
+    # Always rate-limited: without a deadline this retries 6 times with waits of 2, 4, 8, 16, 30 s.
+    respx.post(f"{BASE}/v1/chat/completions").respond(status_code=429)
+    with LocalLLMClient(BASE, "workshop-model") as client:
+        t0 = time.monotonic()
+        with pytest.raises(LocalLLMError):
+            client.chat(MESSAGES, deadline=time.monotonic() + 1.0)
+        assert time.monotonic() - t0 < 1.5
+        with pytest.raises(LocalLLMError, match="deadline"):
+            client.chat(MESSAGES, deadline=time.monotonic() - 1)  # already past: no request at all

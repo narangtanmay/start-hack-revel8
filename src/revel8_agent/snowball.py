@@ -266,7 +266,9 @@ def run_snowball(
                                 followed=", ".join(followed_names) or "(none yet)")
         ex = ThreadPoolExecutor(1)
         try:
-            out = ex.submit(_json, llm, prompt, listing, 0.3).result(timeout=plan_timeout_s)
+            # leave the round at least half its minimum time for its own search, fetch and extraction
+            out = ex.submit(_json, llm, prompt, listing, 0.3).result(
+                timeout=max(0.0, min(plan_timeout_s, left() - reserve_s - min_round_s / 2)))
         except FutureTimeout:
             log(f"[{t.id}] snowball {round_no}: planning call over {plan_timeout_s:.0f}s, stopping")
             st["snowball"].append({"round": round_no, "timeout": True})

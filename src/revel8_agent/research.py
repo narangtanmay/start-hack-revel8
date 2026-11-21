@@ -155,7 +155,12 @@ def _cached(key: str, fn) -> list[dict]:
     return rows
 
 
-def brave(http: httpx.Client, vertical: str, q: str, count: int = 10) -> list[dict]:
+def _until(deadline: float | None, cap: float) -> float:
+    """Per-request timeout: at most `cap`, never past the deadline (0 = no time left)."""
+    return cap if deadline is None else max(0.0, min(cap, deadline - time.monotonic()))
+
+
+def brave(http: httpx.Client, vertical: str, q: str, count: int = 10, deadline: float | None = None) -> list[dict]:
     """Brave Search API verticals: web | news | images | videos. Returns plain dicts."""
     key = os.getenv("SEARCH_API_KEY", "").strip()
     if not key:
@@ -163,13 +168,17 @@ def brave(http: httpx.Client, vertical: str, q: str, count: int = 10) -> list[di
 
     def call() -> list[dict]:
         for attempt in range(3):
+            if _until(deadline, 15) <= 0:
+                return []
             try:
-                r = http.get(f"https://api.search.brave.com/res/v1/{vertical}/search", timeout=15,
+                r = http.get(f"https://api.search.brave.com/res/v1/{vertical}/search", timeout=_until(deadline, 15),
                              params={"q": q, "count": count},
                              headers={"X-Subscription-Token": key, "Accept": "application/json"})
             except httpx.HTTPError:
                 return []
             if r.status_code == 429:
+                if _until(deadline, 99) <= 1.5 * (attempt + 1):
+                    return []
                 time.sleep(1.5 * (attempt + 1))
                 continue
             if r.status_code != 200:
@@ -191,10 +200,13 @@ def brave(http: httpx.Client, vertical: str, q: str, count: int = 10) -> list[di
     return _cached(f"brave|{vertical}|{count}|{q}", call)
 
 
-def openalex(http: httpx.Client, name: str) -> list[dict]:
+def openalex(http: httpx.Client, name: str, deadline: float | None = None) -> list[dict]:
     def call() -> list[dict]:
         try:
-            r = http.get(f"https://api.openalex.org/authors?search={quote_plus(name)}&per-page=5", timeout=15)
+            if _until(deadline, 15) <= 0:
+                return []
+            r = http.get(f"https://api.openalex.org/authors?search={quote_plus(name)}&per-page=5",
+                         timeout=_until(deadline, 15))
             items = r.json().get("results", []) if r.status_code == 200 else []
         except (httpx.HTTPError, ValueError):
             return []
@@ -209,17 +221,22 @@ def openalex(http: httpx.Client, name: str) -> list[dict]:
     return _cached(f"openalex|{name}", call)
 
 
-def gh_users(http: httpx.Client, name: str) -> list[dict]:
+def gh_users(http: httpx.Client, name: str, deadline: float | None = None) -> list[dict]:
     def call() -> list[dict]:
         try:
-            r = http.get("https://api.github.com/search/users", params={"q": f'fullname:"{name}"'}, timeout=15)
+            if _until(deadline, 15) <= 0:
+                return []
+            r = http.get("https://api.github.com/search/users", params={"q": f'fullname:"{name}"'},
+                         timeout=_until(deadline, 15))
             logins = [u["login"] for u in (r.json().get("items") or [])[:4]] if r.status_code == 200 else []
         except (httpx.HTTPError, ValueError):
             return []
         out = []
         for login in logins:
             try:
-                u = http.get(f"https://api.github.com/users/{login}", timeout=15).json()
+                if _until(deadline, 15) <= 0:
+                    break
+                u = http.get(f"https://api.github.com/users/{login}", timeout=_until(deadline, 15)).json()
             except (httpx.HTTPError, ValueError):
                 continue
             out.append({"url": u.get("html_url", ""), "title": f"{u.get('name')} (@{login}) on GitHub",
@@ -420,14 +437,55 @@ def _doc_id(url: str) -> str:
     return "d_" + hashlib.sha1(url.encode()).hexdigest()[:10]
 
 
-_CONSOLIDATE_S = 20.0  # kept free at the end for conflicts + themes (in parallel) and hooks
+# Time plan for the default 90 s budget; every window scales with the budget (budget_s / 90).
+#   search <= 15 s (25 s kept for pages + extraction after it) | pages <= 20 s | round-1 extraction until 45 s remain | snowball rounds while 50 s remain
+#   (each needs 30 s) | the last 20 s for conflicts + themes (in parallel, until 12 s remain), then hooks.
+_CONSOLIDATE_S = 20.0
+
+
+class _DeadlineLane:
+    """An LLM lane whose every call (retries and key failover included) ends at the research deadline,
+    so calls abandoned by a closed window stop instead of competing with the attack for the keys."""
+
+    def __init__(self, lane: object, deadline: float) -> None:
+        self.lane, self.deadline = lane, deadline
+
+    def chat(self, messages, *, json_mode: bool = False, temperature: float | None = None):
+        return self.lane.chat(messages, json_mode=json_mode, temperature=temperature, deadline=self.deadline)
+
+
+def _bounded(workers: int, jobs: dict, timeout: float):
+    """Run `jobs` ({key: (fn, *args)}) in parallel and yield (key, future) for those done within `timeout`.
+
+    Never waits past the timeout: unfinished work is abandoned (its result is dropped) instead of joined,
+    which is what keeps research inside its time budget when a site or the model is slow.
+    """
+    ex = ThreadPoolExecutor(max(1, workers))
+    futs = {ex.submit(fn, *args): key for key, (fn, *args) in jobs.items()}
+    try:
+        for fut in as_completed(futs, timeout=max(0.0, timeout)):
+            yield futs[fut], fut
+    except TimeoutError:
+        pass
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
 
 def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, max_docs: int = 45,
              anchors: list[str] | None = None, log=print) -> tuple[VerifiedDossier, dict]:
+    """Research one target and return its dossier within `budget_s` seconds of being called.
+
+    The budget covers this whole function: search, page fetching, extraction, snowball rounds, conflict
+    check, themes and hooks. Every phase waits only until its own deadline; slow searches, pages or model
+    calls are abandoned, so a slow network or model yields a thinner dossier, never a late one.
+    """
     pool = pool or LLMPool()
     start = time.monotonic()
     left = lambda: budget_s - (time.monotonic() - start)  # noqa: E731
+    scale = budget_s / 90.0
+    deadline = start + budget_s
+    lane = lambda i: _DeadlineLane(pool.lane(i), deadline)  # noqa: E731
+    reserve_end = _CONSOLIDATE_S * scale  # kept free for conflicts, themes and hooks
     ident = Identity(t, anchors)
     st: dict = {"version": 2, "lanes": {}, "search": [], "sources": {}, "rejected": [], "anchors_added": [],
                 "expansion_queries": [], "keys": len(pool), "timings": {}}
@@ -437,21 +495,29 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, 
 
     with httpx.Client(headers={"User-Agent": _UA, "Accept-Language": "en,de;q=0.8"}, follow_redirects=True) as http:
 
-        def run_queries(plan: list[tuple[str, str, str, int]]) -> list[Hit]:
+        def search_window() -> float:
+            """Searches get at most 15 s, and never eat into the time later phases need."""
+            return max(0.5, min(15.0 * scale, left() - reserve_end - 25 * scale))
+
+        def run_queries(plan: list[tuple[str, str, str, int]], timeout: float | None = None) -> list[Hit]:
             hits: list[Hit] = []
-            with ThreadPoolExecutor(6) as ex:
-                futs = {ex.submit(brave, http, v, q, c): (lane, v, q) for lane, v, q, c in plan}
-                for fut in as_completed(futs):
-                    lane, v, q = futs[fut]
-                    rows = fut.result() or []
-                    st["search"].append({"query": q, "lane": lane, "vertical": v, "hits": [
-                        {"url": r["url"], "title": r["title"], "snippet": r["snippet"][:300], "published": r["published"],
-                         "about_target": ident.about(f"{r['title']} {r['snippet']} {r['url']}")} for r in rows]})
-                    hits += [Hit(r["url"], r["title"], r["snippet"], q, lane, r["published"]) for r in rows]
+            jobs = {(ln, v, q): (brave, http, v, q, c, deadline) for ln, v, q, c in plan}
+            done = 0
+            for (ln, v, q), fut in _bounded(6, jobs, search_window() if timeout is None else timeout):
+                done += 1
+                rows = (fut.result() if not fut.exception() else None) or []
+                st["search"].append({"query": q, "lane": ln, "vertical": v, "hits": [
+                    {"url": r["url"], "title": r["title"], "snippet": r["snippet"][:300], "published": r["published"],
+                     "about_target": ident.about(f"{r['title']} {r['snippet']} {r['url']}")} for r in rows]})
+                hits += [Hit(r["url"], r["title"], r["snippet"], q, ln, r["published"]) for r in rows]
+            if done < len(jobs):
+                st.setdefault("abandoned", []).append({"phase": "search", "count": len(jobs) - done})
+                log(f"[{t.id}] search window closed: {len(jobs) - done} slow queries dropped")
             return hits
 
         def academic() -> list[Hit]:
-            rows = [("academic", r) for r in openalex(http, t.name)] + [("academic", r) for r in gh_users(http, t.name)]
+            rows = ([("academic", r) for r in openalex(http, t.name, deadline)]
+                    + [("academic", r) for r in gh_users(http, t.name, deadline)])
             st["search"].append({"query": f"OpenAlex + GitHub: {t.name}", "lane": "academic", "vertical": "api", "hits": [
                 {"url": r["url"], "title": r["title"], "snippet": r["snippet"][:300], "published": "",
                  "about_target": bool(ident.anchor(r["snippet"]))} for _, r in rows]})
@@ -478,63 +544,78 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, 
                         docs.append(Doc(_doc_id(u), u, h.title, f"{h.title}\n{h.snippet}\n{u}", h.lane, h.published, True))
                 else:
                     to_fetch.append(h)
-            with ThreadPoolExecutor(10) as ex:
-                futs = {ex.submit(fetch_text, http, h.url): h for h in to_fetch[: max_docs * 2]}
-                try:
-                    for fut in as_completed(futs, timeout=max(10.0, min(60.0, left() * 0.3))):
-                        h = futs[fut]
-                        res = fut.result() if not fut.exception() else None
-                        if not res:
-                            # keep the snippet if the page cannot be fetched but the snippet is clearly about them
-                            ok = ident.about(f"{h.title} {h.snippet} {h.url}")
-                            st["sources"][h.url] = {"title": h.title, "kind": "snippet", "lane": h.lane, "published": h.published,
-                                                    "status": "page blocked; snippet used" if ok else "not fetched"}
-                            if ok:
-                                docs.append(Doc(_doc_id(h.url), h.url, h.title, f"{h.title}\n{h.snippet}", h.lane, h.published, True))
-                            continue
-                        title, text = res
-                        ok = ident.about(text)
-                        st["sources"][h.url] = {"title": title or h.title, "kind": "page", "lane": h.lane, "chars": len(text),
-                                                "published": h.published,
-                                                "status": "about target" if ok else "dropped: no full name + identity anchor"}
-                        if ok:
-                            docs.append(Doc(_doc_id(h.url), h.url, title or h.title, text, h.lane, h.published))
-                except TimeoutError:
-                    log(f"[{t.id}] fetch budget reached")
+            jobs = {i: (fetch_text, http, h.url) for i, h in enumerate(to_fetch[: max_docs * 2])}
+            got: set[int] = set()
+            # Pages get at most 20 s (30% of what is left), never the time later phases need.
+            for i, fut in _bounded(10, jobs, max(0.5, min(20.0 * scale, left() * 0.3, left() - reserve_end - 10 * scale))):
+                got.add(i)
+                h = to_fetch[i]
+                res = fut.result() if not fut.exception() else None
+                if not res:
+                    # keep the snippet if the page cannot be fetched but the snippet is clearly about them
+                    ok = ident.about(f"{h.title} {h.snippet} {h.url}")
+                    st["sources"][h.url] = {"title": h.title, "kind": "snippet", "lane": h.lane, "published": h.published,
+                                            "status": "page blocked; snippet used" if ok else "not fetched"}
+                    if ok:
+                        docs.append(Doc(_doc_id(h.url), h.url, h.title, f"{h.title}\n{h.snippet}", h.lane, h.published, True))
+                    continue
+                title, text = res
+                ok = ident.about(text)
+                st["sources"][h.url] = {"title": title or h.title, "kind": "page", "lane": h.lane, "chars": len(text),
+                                        "published": h.published,
+                                        "status": "about target" if ok else "dropped: no full name + identity anchor"}
+                if ok:
+                    docs.append(Doc(_doc_id(h.url), h.url, title or h.title, text, h.lane, h.published))
+            for i in set(jobs) - got:  # too slow: fall back to the search snippet, like a blocked page
+                h = to_fetch[i]
+                ok = ident.about(f"{h.title} {h.snippet} {h.url}")
+                st["sources"][h.url] = {"title": h.title, "kind": "snippet", "lane": h.lane, "published": h.published,
+                                        "status": "page too slow; snippet used" if ok else "page too slow"}
+                if ok:
+                    docs.append(Doc(_doc_id(h.url), h.url, h.title, f"{h.title}\n{h.snippet}", h.lane, h.published, True))
+            if len(got) < len(jobs):
+                log(f"[{t.id}] fetch window closed: {len(jobs) - len(got)} slow pages dropped")
             return docs
 
-        def extract_all(docs: list[Doc], reserve: float = 45.0) -> None:
-            """Extract until `reserve` seconds remain (round 1 keeps room for the snowball)."""
+        def extract_all(docs: list[Doc], reserve: float | None = None) -> None:
+            """Extract until `reserve` seconds remain (round 1 keeps 45 s of 90 free for the snowball)."""
+            reserve = 45.0 * scale if reserve is None else reserve
             n = len(pool)
-            with ThreadPoolExecutor(max(4, 3 * n)) as ex:
-                futs = {ex.submit(extract, pool.lane(i % n), t, d): d for i, d in enumerate(docs)}
-                try:
-                    for fut in as_completed(futs, timeout=max(5.0, left() - reserve)):
-                        d = futs[fut]
-                        src = st["sources"].setdefault(d.url, {"title": d.title, "kind": "page", "lane": d.lane})
-                        src.update(proposed=0, verified=0, rejected=0)
-                        for raw in fut.result():
-                            src["proposed"] += 1
-                            vf = verify(raw, d, ident)
-                            if vf is None:
-                                src["rejected"] += 1
-                                st["rejected"].append({"url": d.url, "quote": raw.get("verbatim_quote"), "fact": raw.get("fact")})
-                                continue
-                            key = normalize(vf.verbatim_quote)
-                            if key in seen_quotes:
-                                continue
-                            seen_quotes.add(key)
-                            src["verified"] += 1
-                            facts.append(vf)
-                except TimeoutError:
-                    log(f"[{t.id}] extraction budget reached; keeping verified facts")
+            jobs = {i: (extract, lane(i % n), t, d) for i, d in enumerate(docs)}
+            finished = 0
+            for i, fut in _bounded(max(4, 3 * n), jobs, left() - reserve):
+                finished += 1
+                d = docs[i]
+                src = st["sources"].setdefault(d.url, {"title": d.title, "kind": "page", "lane": d.lane})
+                src.update(proposed=0, verified=0, rejected=0)
+                for raw in (fut.result() if not fut.exception() else None) or []:
+                    src["proposed"] += 1
+                    vf = verify(raw, d, ident)
+                    if vf is None:
+                        src["rejected"] += 1
+                        st["rejected"].append({"url": d.url, "quote": raw.get("verbatim_quote"), "fact": raw.get("fact")})
+                        continue
+                    key = normalize(vf.verbatim_quote)
+                    if key in seen_quotes:
+                        continue
+                    seen_quotes.add(key)
+                    src["verified"] += 1
+                    facts.append(vf)
+            if finished < len(jobs):
+                st.setdefault("abandoned", []).append({"phase": "extract", "count": len(jobs) - finished})
+                log(f"[{t.id}] extraction window closed: {len(jobs) - finished} sources skipped; keeping verified facts")
 
         # ---- round 1: all lanes in parallel
         t0 = time.monotonic()
-        with ThreadPoolExecutor(2) as ex:
-            f_web = ex.submit(run_queries, plan_queries(t))
-            f_acad = ex.submit(academic)
-            hits = f_web.result() + f_acad.result()
+        window = search_window()
+        acad_ex = ThreadPoolExecutor(1)
+        f_acad = acad_ex.submit(academic)
+        hits = run_queries(plan_queries(t), timeout=window)
+        try:
+            hits += f_acad.result(timeout=max(0.0, window - (time.monotonic() - t0)))
+        except (TimeoutError, Exception):  # noqa: BLE001 - the academic lane is optional
+            log(f"[{t.id}] academic lane too slow or failed; skipped")
+        acad_ex.shutdown(wait=False, cancel_futures=True)
         st["timings"]["search_s"] = round(time.monotonic() - t0, 1)
         docs = to_docs(hits)
         docs.sort(key=lambda d: (d.snippet_only, _SOURCE_RANK.get(d.lane, 5)))
@@ -550,9 +631,10 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, 
         from .snowball import run_snowball
 
         t2 = time.monotonic()
-        docs += run_snowball(t, pool.lane(0), ident, facts, st, run_queries=run_queries, to_docs=to_docs,
-                             extract_all=lambda d: extract_all(d, reserve=_CONSOLIDATE_S + 3), left=left, log=log,
-                             max_docs=max(10, max_docs // 2), reserve_s=_CONSOLIDATE_S)
+        docs += run_snowball(t, lane(0), ident, facts, st, run_queries=run_queries, to_docs=to_docs,
+                             extract_all=lambda d: extract_all(d, reserve=reserve_end + 3 * scale), left=left, log=log,
+                             max_docs=max(10, max_docs // 2), reserve_s=reserve_end,
+                             min_round_s=30.0 * scale, plan_timeout_s=15.0 * scale)
         st["timings"]["round2_s"] = round(time.monotonic() - t2, 1)
         log(f"[{t.id}] expansion done -> {len(facts)} verified facts ({time.monotonic() - start:.0f}s)")
 
@@ -563,29 +645,32 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, 
     merged.sort(key=lambda f: (_SOURCE_RANK.get(f.lane, 5), f.category == "company_news"))
     for i, f in enumerate(merged, 1):
         f.id = f"f{i}"
-    # Conflicts and themes are independent: run them together; hooks need both. Each waits only as long as
-    # the budget allows (at least a few seconds), so a slow model cannot push research past its deadline.
+    # Conflicts and themes are independent: run them together; hooks need both. Conflicts and themes may use
+    # the time up to 12 s before the deadline; hooks get whatever is left. Nothing waits past the deadline.
+    # Conflict marks are written onto the facts by the worker thread, so the facts are copied first: an
+    # abandoned conflict check cannot change the dossier after it has been returned.
     t3 = time.monotonic()
     ex = ThreadPoolExecutor(2)
-    f_conf = ex.submit(mark_conflicts, pool.lane(1), t.name, merged)
-    f_themes = ex.submit(find_themes, pool.lane(2), t.name, merged)
+    conf_facts = [f.model_copy(deep=True) for f in merged]
+    f_conf = ex.submit(mark_conflicts, lane(1), t.name, conf_facts)
+    f_themes = ex.submit(find_themes, lane(2), t.name, merged)
+    n_conf, themes = 0, []
     try:
-        n_conf = f_conf.result(timeout=max(5.0, left() - 12))
-    except TimeoutError:
-        n_conf = 0
-        log(f"[{t.id}] conflict check over budget; skipped")
+        n_conf = f_conf.result(timeout=max(0.0, left() - 12 * scale))
+        merged = conf_facts
+    except (TimeoutError, Exception):  # noqa: BLE001 - the conflict check is optional
+        log(f"[{t.id}] conflict check over budget or failed; skipped")
     try:
-        themes = f_themes.result(timeout=max(3.0, left() - 12))
-    except TimeoutError:
-        themes = []
-        log(f"[{t.id}] themes over budget; skipped")
+        themes = f_themes.result(timeout=max(0.0, left() - 12 * scale))
+    except (TimeoutError, Exception):  # noqa: BLE001 - themes are optional
+        log(f"[{t.id}] themes over budget or failed; skipped")
     ex.shutdown(wait=False, cancel_futures=True)
     ex = ThreadPoolExecutor(1)
     try:
-        hooks = ex.submit(rank_hooks, pool.lane(3), t, merged, themes).result(timeout=max(12.0, left()))
-    except TimeoutError:
+        hooks = ex.submit(rank_hooks, lane(3), t, merged, themes).result(timeout=max(0.0, left()))
+    except (TimeoutError, Exception):  # noqa: BLE001
         hooks = []
-        log(f"[{t.id}] hook ranking over budget; no hooks")
+        log(f"[{t.id}] hook ranking over budget or failed; no hooks")
     ex.shutdown(wait=False, cancel_futures=True)
     st["timings"]["consolidate_s"] = round(time.monotonic() - t3, 1)
 
@@ -600,9 +685,11 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, 
     st.update(queries=len(st["search"]), hits=sum(len(q["hits"]) for q in st["search"]),
               docs_relevant=len(docs), facts_proposed=proposed, facts_verified_raw=verified_raw,
               facts_verified=len(merged), duplicates_merged=verified_raw - len(merged), conflicts=n_conf,
-              elapsed_s=round(time.monotonic() - start, 1))
+              elapsed_s=round(time.monotonic() - start, 1), budget_s=budget_s)
+    st["within_budget"] = st["elapsed_s"] <= budget_s + 1.0
     log(f"[{t.id}] done: {len(merged)} facts ({verified_raw - len(merged)} duplicates merged, {n_conf} conflicts), "
-        f"{len(themes)} themes, {len(hooks)} hooks in {st['elapsed_s']}s")
+        f"{len(themes)} themes, {len(hooks)} hooks in {st['elapsed_s']}s of a {budget_s:.0f}s budget"
+        + ("" if st["within_budget"] else "  ** OVER BUDGET **"))
     dossier = VerifiedDossier(target_id=t.id, target_name=t.name, role=t.role, company=t.company,
                               facts=merged, hypotheses=hooks, themes=themes, anchors=ident.anchors)
     return dossier, st
