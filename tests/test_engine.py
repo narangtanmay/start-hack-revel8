@@ -318,3 +318,9 @@ def test_live_lookup_adds_notes(monkeypatch):
     r.live_lookup(step)
     assert r.state.live_notes and r.state.live_notes[0]["query"].startswith("Tom")
     assert "Unicon" in r.state.live_notes[0]["found"][0]
+
+
+def test_judge_veto_accepting_an_invite_is_not_an_action():
+    from revel8_agent.engine import _NOT_AN_ACTION, _REAL_ACTION
+    ev = "I'll accept the invite on Monday and send you a line then."
+    assert _NOT_AN_ACTION.search(ev) and not _REAL_ACTION.search(ev)

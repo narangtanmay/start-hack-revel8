@@ -36,3 +36,4 @@ def test_recent_opinion_scores_high_static_profile_low():
     recent = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
     assert recency_score(_f("a", "Robert argues works councils need templates", recent, "publication"))[1] == "recent"
     assert recency_score(_f("b", "Julius is Co-Founder of revel8", recent, "role"))[1] == "static"
+

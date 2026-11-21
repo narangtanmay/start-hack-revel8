@@ -42,14 +42,14 @@ def main() -> int:
     calls: list[dict] = []
     orig = LocalLLMClient.chat
 
-    def chat(self, messages, *, json_mode=False, temperature=None):  # type: ignore[no-untyped-def]
+    def chat(self, messages, *, json_mode=False, temperature=None, **kw):  # type: ignore[no-untyped-def]
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         kind = ("plan" if "planning brain" in system else "decide" if "decision brain" in system
                 else "call" if "You are on a live" in system else "judge" if "You judge" in system else "other")
         t0 = time.monotonic()
-        rec = {"kind": kind, "json_mode": json_mode}
+        rec = {"kind": kind, "json_mode": json_mode, "reasoning": kw.get("reasoning")}
         try:
-            out = orig(self, messages, json_mode=json_mode, temperature=temperature)
+            out = orig(self, messages, json_mode=json_mode, temperature=temperature, **kw)
         except LocalLLMError as e:
             rec.update(ok=False, error=str(e), status=e.status_code, s=round(time.monotonic() - t0, 2))
             calls.append(rec)
