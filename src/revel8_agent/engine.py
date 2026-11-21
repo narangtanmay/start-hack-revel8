@@ -355,7 +355,9 @@ def _history_text(state: RunState, max_chars: int = 9000) -> str:
     return text[-max_chars:]
 
 
-_GREETING = re.compile(r"^\s*(hi|hello|hey|dear|hallo|liebe[rs]?|guten tag|moin)\b[^\n]{0,40},?\s*(\n|$)", re.I)
+# A greeting line is the salutation plus at most three name words, e.g. "Hi Julius," or "Dear Dr. Muth," —
+# never a whole sentence (that would delete content such as "Hi Julius, I'm Sarah from ...").
+_GREETING = re.compile(r"^\s*(hi|hello|hey|dear|hallo|liebe[rs]?|guten tag|moin)\b(?:\s+[^\s,\n]{1,30}){0,3}\s*,?\s*(\n|$)", re.I)
 _SIGNOFF = re.compile(r"^\s*(best|best regards|kind regards|regards|cheers|thanks|thank you|many thanks|viele grüße|"
                       r"beste grüße|mit freundlichen grüßen|liebe grüße|gruß|grüße)\b", re.I)
 _PLACEHOLDER = re.compile(r"\[(?:[^\]]{0,40}(?:link|url|page|portal|name|date|here)[^\]]{0,40})\]", re.I)
@@ -366,6 +368,8 @@ def _strip_salutations(paragraphs: list[str], sender_name: str) -> list[str]:
     out = list(paragraphs)
     if out:
         out[0] = _GREETING.sub("", out[0], count=1).strip()
+        # greeting glued to the first sentence: "Hi Julius, I'm Sarah from ..."
+        out[0] = re.sub(r"^(hi|hello|hey|dear|hallo|moin)\s+[^\s,]{1,30},\s*", "", out[0], count=1, flags=re.I).strip()
     while out and (not out[-1].strip() or _SIGNOFF.match(out[-1]) or
                    (sender_name and out[-1].strip().split("\n")[0].strip() == sender_name.strip())):
         out.pop()
