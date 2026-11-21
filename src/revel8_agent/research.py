@@ -1,6 +1,7 @@
 """Research v2: person-first, multi-lane OSINT with identity resolution, corroboration and conflict detection.
 
-Lanes run in parallel, each on its own Token Factory key (LLMPool.lane(i)):
+Lanes run in parallel. LLM calls go through LLMPool, which spreads them over every Token Factory key
+within each key's 20 requests/minute (see llm_client.LLMPool):
 
     web        person-centred web queries (name, interviews, talks, podcasts, role)
     news       Brave news vertical, with publish dates
@@ -581,9 +582,13 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 300.0,
     merged.sort(key=lambda f: (_SOURCE_RANK.get(f.lane, 5), f.category == "company_news"))
     for i, f in enumerate(merged, 1):
         f.id = f"f{i}"
-    n_conf = mark_conflicts(pool.lane(1), t.name, merged)
-    themes = find_themes(pool.lane(2), t.name, merged)
+    # conflicts and themes are independent: run them together; hooks need both (they skip conflicted facts)
+    with ThreadPoolExecutor(2) as ex:
+        f_conf = ex.submit(mark_conflicts, pool.lane(1), t.name, merged)
+        f_themes = ex.submit(find_themes, pool.lane(2), t.name, merged)
+        n_conf, themes = f_conf.result(), f_themes.result()
     hooks = rank_hooks(pool.lane(3), t, merged, themes)
+    st["llm_keys"] = pool.stats()
 
     lanes: dict[str, dict] = {}
     for q in st["search"]:
