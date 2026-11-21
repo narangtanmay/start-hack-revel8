@@ -35,6 +35,7 @@ def test_strip_salutations_and_placeholders() -> None:
     assert cleaned == ["I'm Sarah from TechEx.", "Access it here: [link to registration page]."]
     assert _fill_placeholders(cleaned, "https://x-events.de/s")[1] == "Access it here: https://x-events.de/s."
     assert _strip_salutations(["Hallo Julius,", "Kurze Frage.\n\nViele Grüße\nLena"], "Lena Fischer") == ["Kurze Frage."]
+    assert _strip_salutations(["Hi Julius, I'm Sarah from CyberShield."], "Sarah Mitchell") == ["I'm Sarah from CyberShield."]
 
 
 def test_pdf_attachment_fallback_preserves_pdf_filename(dossier: VerifiedDossier, tmp_path: Path) -> None:

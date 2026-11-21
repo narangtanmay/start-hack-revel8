@@ -449,6 +449,10 @@ def build_dossier(
         queries = build_queries(t)
         hits = search_all(http, queries, log=log)
         stats["queries"], stats["hits"] = len(queries), len(hits)
+        stats["search"] = [{"query": q, "hits": [{"url": h.url, "title": h.title, "snippet": h.snippet[:300],
+                                                  "about_target": mentions_target(f"{h.title} {h.snippet} {h.url}", t)}
+                                                 for h in hits if h.query == q]} for q in queries]
+        stats["sources"] = {}
         log(f"[{t.id}] search: {len(queries)} queries -> {len(hits)} hits ({budget_s - left():.1f}s)")
 
         # de-dupe, prefer URLs whose title/snippet already mention the person
@@ -484,10 +488,14 @@ def build_dossier(
                 except Exception:  # noqa: BLE001
                     res = None
                 if not res:
+                    stats["sources"][h.url] = {"title": h.title, "kind": "page", "status": "not fetched (blocked, login wall or error)"}
                     continue
                 title, text = res
                 stats["docs_fetched"] += 1
-                if mentions_target(text, t):
+                about = mentions_target(text, t)
+                stats["sources"][h.url] = {"title": title or h.title, "kind": "page", "chars": len(text),
+                                           "status": "about target" if about else "dropped: does not name surname + company"}
+                if about:
                     docs.append(SourceDoc(_doc_id(h.url, False), h.url, title or h.title, text, False, [h.query]))
         except TimeoutError:
             log(f"[{t.id}] fetch hit time budget")
@@ -499,6 +507,12 @@ def build_dossier(
 
     # 3-5. extract + verify, in parallel, while budget allows (reserve ~15 s for hooks)
     all_docs = docs + snippet_docs[:10]
+    for d in all_docs:
+        src = stats["sources"].setdefault(d.url, {"title": d.title, "kind": "snippet" if d.from_snippet else "page",
+                                                  "status": "about target"})
+        if d.from_snippet:
+            src["kind"], src["status"] = "search snippet", "about target (login wall: snippet used)"
+        src.update({"proposed": 0, "verified": 0, "rejected": 0, "extracted": False})
     verified: list[VerifiedFact] = []
     seen_quotes: set[str] = set()
     pool = ThreadPoolExecutor(int(os.getenv("LLM_PARALLEL", "4")))
@@ -506,16 +520,21 @@ def build_dossier(
     try:
         for fut in as_completed(futures, timeout=max(5.0, left() - 15)):
             d = futures[fut]
+            src = stats["sources"][d.url]
+            src["extracted"] = True
             for raw in fut.result():
                 stats["facts_proposed"] += 1
+                src["proposed"] += 1
                 vf = verify_fact(raw, d, t)
                 key = normalize(str(raw.get("verbatim_quote", "")))
                 if vf is None:
+                    src["rejected"] += 1
                     stats["rejected"].append({"url": d.url, "quote": raw.get("verbatim_quote"),
                                               "fact": raw.get("fact")})
                     continue
                 if key in seen_quotes:
                     continue
+                src["verified"] += 1
                 seen_quotes.add(key)
                 vf.id = f"f{len(verified) + 1}"
                 verified.append(vf)

@@ -1,7 +1,9 @@
 """Client for a local OpenAI-compatible chat endpoint."""
 
 import os
+import threading
 import time
+from collections import deque
 from collections.abc import Sequence
 from typing import Literal, TypedDict, overload
 
@@ -16,9 +18,10 @@ class ChatMessage(TypedDict):
 
 
 class LocalLLMError(RuntimeError):
-    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+    def __init__(self, message: str, *, status_code: int | None = None, retry_after: float | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
+        self.retry_after = retry_after
 
 
 _JSON = TypeAdapter(JsonValue)
@@ -89,6 +92,7 @@ class LocalLLMClient:
         *,
         json_mode: bool = False,
         temperature: float | None = None,
+        retry_rate_limit: bool = True,
     ) -> JsonValue:
         payload: dict[str, JsonValue] = {"model": self.model, "messages": list(messages)}
         if temperature is not None:
@@ -103,15 +107,18 @@ class LocalLLMClient:
                 raise LocalLLMError("Local LLM request timed out.") from None
             except httpx.RequestError:
                 raise LocalLLMError("Local LLM request failed.") from None
+            retry_after = response.headers.get("retry-after", "")
+            hinted = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else None
             if response.status_code not in {429, 502, 503, 504} or attempt == 5:
                 break
-            retry_after = response.headers.get("retry-after", "")
-            delay = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else min(30.0, 2.0 * 2**attempt)
-            time.sleep(delay)
+            if response.status_code == 429 and not retry_rate_limit:
+                break  # the pool moves this call to another key instead of sleeping on this one
+            time.sleep(hinted if hinted is not None else min(30.0, 2.0 * 2**attempt))
         if not response.is_success:
             raise LocalLLMError(
                 f"Local LLM returned HTTP {response.status_code}.",
                 status_code=response.status_code,
+                retry_after=hinted,
             )
 
         try:
@@ -128,6 +135,149 @@ class LocalLLMClient:
             return _JSON.validate_json(content, strict=True)
         except ValidationError:
             raise LocalLLMError("Local LLM returned invalid JSON content.") from None
+
+
+def api_keys_from_env() -> list[str]:
+    """All Token Factory keys: LLM_API_KEYS (comma-separated) plus LLM_API_KEY, de-duplicated, in order."""
+    load_dotenv()
+    keys = [k.strip() for k in os.getenv("LLM_API_KEYS", "").split(",") if k.strip()]
+    single = os.getenv("LLM_API_KEY", "").strip()
+    if single:
+        keys.insert(0, single)
+    return list(dict.fromkeys(keys))
+
+
+class KeyLimiter:
+    """Sliding-window request limiter for one API key, plus a cooldown set by the server's 429s.
+
+    Token Factory allows LLM_RPM_PER_KEY (default 20) requests per minute per key. We stay a little under it
+    so the server never has to say no.
+    """
+
+    def __init__(self, rpm: int, window: float = 60.0) -> None:
+        self.rpm, self.window = rpm, window
+        self.sent: deque[float] = deque()
+        self.cooldown_until = 0.0
+        self.inflight = 0
+        self.calls = self.rate_limited = self.errors = 0
+
+    def wait(self, now: float) -> float:
+        """Seconds until this key may take another request (0 = now)."""
+        while self.sent and now - self.sent[0] >= self.window:
+            self.sent.popleft()
+        w = max(0.0, self.cooldown_until - now)
+        if len(self.sent) >= self.rpm:
+            w = max(w, self.sent[0] + self.window - now)
+        return w
+
+
+class LLMPool:
+    """All Token Factory keys behind one scheduler.
+
+    Each key is limited to ~20 requests/minute by the server (not by GPU capacity: the backend serves many
+    requests at once). The pool sends every call to a key that has room in its window right now, preferring
+    the caller's lane, so N keys give N x 20 requests/minute in parallel. A 429 parks that key until its
+    retry-after and the call moves to another key at once; a thread only waits when every key is full.
+    """
+
+    def __init__(self, timeout: float = 90.0, model: str | None = None, rpm_per_key: int | None = None,
+                 max_wait: float = 240.0) -> None:
+        keys = api_keys_from_env() or [""]
+        self.clients = [LocalLLMClient(api_key=k, timeout=timeout, model=model) for k in keys]
+        self.model = self.clients[0].model
+        rpm = rpm_per_key or int(os.getenv("LLM_RPM_PER_KEY", "18"))
+        self.limits = [KeyLimiter(rpm) for _ in keys]
+        self.max_wait = max_wait
+        self._lock = threading.Lock()
+
+    def __len__(self) -> int:
+        return len(self.clients)
+
+    def lane(self, i: int) -> "PooledClient":
+        return PooledClient(self, i % len(self.clients))
+
+    def close(self) -> None:
+        for c in self.clients:
+            c.close()
+
+    def stats(self) -> list[dict]:
+        return [{"key": i, "calls": L.calls, "rate_limited": L.rate_limited, "errors": L.errors}
+                for i, L in enumerate(self.limits)]
+
+    def _acquire(self, preferred: int, avoid: set[int]) -> tuple[int, float]:
+        """Reserve a slot: (key index, 0) or (-1, seconds to wait before asking again)."""
+        n = len(self.clients)
+        with self._lock:
+            now = time.monotonic()
+            order = [(preferred + k) % n for k in range(n)]
+            candidates = [i for i in order if i not in avoid] or order
+            ready = [i for i in candidates if self.limits[i].wait(now) == 0.0]
+            if ready:
+                # preferred lane if it has room, else the key with the most room left in its window
+                i = ready[0] if ready[0] == preferred else min(ready, key=lambda j: (len(self.limits[j].sent), self.limits[j].inflight))
+                L = self.limits[i]
+                L.sent.append(now)
+                L.inflight += 1
+                L.calls += 1
+                return i, 0.0
+            return -1, min(self.limits[i].wait(now) for i in candidates)
+
+    def _release(self, i: int, error: LocalLLMError | None) -> None:
+        with self._lock:
+            L = self.limits[i]
+            L.inflight -= 1
+            if error is None:
+                return
+            if error.status_code == 429:
+                L.rate_limited += 1
+                L.cooldown_until = max(L.cooldown_until, time.monotonic() + (error.retry_after or 5.0))
+            else:
+                L.errors += 1
+                if error.status_code in (500, 502, 503, 504):
+                    L.cooldown_until = max(L.cooldown_until, time.monotonic() + 2.0)
+
+    def chat(self, preferred: int, messages: Sequence[ChatMessage], *, json_mode: bool = False,
+             temperature: float | None = None) -> JsonValue:
+        deadline = time.monotonic() + self.max_wait
+        tried: set[int] = set()
+        last: LocalLLMError | None = None
+        failures = 0  # non-rate-limit failures (timeouts, 5xx, bad JSON): one try per key, as before
+        while True:
+            i, wait = self._acquire(preferred, tried)
+            if i < 0:
+                if time.monotonic() + wait > deadline:
+                    raise last or LocalLLMError("All LLM keys are rate-limited.", status_code=429)
+                time.sleep(min(wait, 5.0) + 0.05)
+                tried.clear()  # windows moved on: every key is a candidate again
+                continue
+            try:
+                out = self.clients[i].chat(messages, json_mode=json_mode, temperature=temperature,
+                                           retry_rate_limit=False)
+            except LocalLLMError as error:
+                self._release(i, error)
+                last = error
+                if error.status_code not in (None, 429, 500, 502, 503, 504):
+                    raise  # a real request problem: another key will not fix it
+                tried.add(i)
+                if error.status_code != 429:
+                    failures += 1
+                if failures >= len(self.clients) or time.monotonic() > deadline:
+                    raise
+                continue
+            self._release(i, None)
+            return out
+
+
+class PooledClient:
+    """Drop-in for LocalLLMClient.chat(): a lane prefers one key but uses any key with room."""
+
+    def __init__(self, pool: LLMPool, preferred: int) -> None:
+        self.pool, self.preferred = pool, preferred
+        self.model = pool.model
+
+    def chat(self, messages: Sequence[ChatMessage], *, json_mode: bool = False,
+             temperature: float | None = None) -> JsonValue:
+        return self.pool.chat(self.preferred, messages, json_mode=json_mode, temperature=temperature)
 
 
 def _strip_fences(content: str) -> str:

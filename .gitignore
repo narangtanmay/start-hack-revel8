@@ -28,3 +28,10 @@ build/
 .cache/
 dossiers/*.stats.json
 site/
+/runs
+/.cache
+/data
+/.venv
+/site
+.claude/worktrees/
+/.patches
