@@ -72,3 +72,27 @@ def test_no_fallback_on_bad_request(monkeypatch):
         with pytest.raises(LocalLLMError):
             client.chat([{"role": "user", "content": "hi"}])
     assert route.call_count == 1
+
+
+def test_reasoning_effort_sent_and_blank_json_retried_on_fallback(monkeypatch):
+    import json as _json
+
+    import httpx
+    import respx
+
+    from revel8_agent.llm_client import LocalLLMClient
+
+    monkeypatch.setenv("LLM_FALLBACK_MODEL", "backup")
+    seen = []
+
+    def handler(request):
+        body = _json.loads(request.content)
+        seen.append((body["model"], body.get("reasoning_effort")))
+        content = "   " if body["model"] == "main" else '{"ok": 1}'   # DeepSeek JSON mode blanks non-JSON output
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}, "finish_reason": "stop"}]})
+
+    with respx.mock:
+        respx.post("http://llm.test/v1/chat/completions").mock(side_effect=handler)
+        c = LocalLLMClient(base_url="http://llm.test", model="main", api_key="k")
+        assert c.chat([{"role": "user", "content": "json please"}], json_mode=True, reasoning="high") == {"ok": 1}
+    assert seen == [("main", "high"), ("backup", "high")]

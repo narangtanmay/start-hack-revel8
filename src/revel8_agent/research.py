@@ -323,8 +323,16 @@ Return ONLY JSON:
   "avoid": [str],                     # claims NOT to make (past events as upcoming, conflicting facts, roles/events not in the facts)
   "confidence": float, "supporting_fact_ids": [str]}}],
  "own_angle": {{same fields}}}}
-- 4-6 hooks, best first. Prefer themes they repeat, facts with timing "upcoming"/"this-year"/"current", and facts
-  in their own words (posts, talks, interviews). Personal beats company news. The organisers seeded each twin's
+- 4-6 hooks, best first. What is SPECIFICALLY HAPPENING to them now beats what they talk about often: a dated,
+  concrete fact about this person (a commitment they made, an upcoming talk or session, something they just
+  launched, announced, joined, published or are hiring for) is a stronger reason to write than a broad recurring
+  theme. Themes tell you their interests; specific current facts tell you the moment. Include every such specific,
+  current fact as its own hook before broad themes; use themes for context and for the own_angle.
+- For each hook, think about which interactions this person ALREADY EXPECTS because of that fact, and from whom
+  (people they will meet, organisers, customers, partners, candidates, the press). The best sender is one of those:
+  their message is routine, needs no persuasion, and its ask is part of something the target already committed to.
+- Prefer facts with timing "upcoming"/"recent" and facts in their own words (posts, talks, interviews). Personal
+  beats company news. The organisers seeded each twin's
   open topics in its social media and online presence: facts from lane "social" or "media" (their own LinkedIn
   posts, X, podcasts, talks) are the strongest evidence of what matters to them now: prefer facts with source
   "social" or "own_article" (their own voice); "aggregator" facts are profile data, never a reason to write.
@@ -399,39 +407,67 @@ def recency_score(f: VerifiedFact) -> tuple[float, str]:
     return 0.15, "past"
 
 
-def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: str) -> tuple[float, dict]:
-    """Deterministic, explainable ranking: openness 30%, recency 25%, personal 20%, breadth 15%, LLM confidence 10%."""
+_SPECIFIC = re.compile(r"[\"'“„‘][^\"'”“]{6,}[\"'”‘]|\b(?:session|panel|keynote|talk|webinar|launch(?:ed|es)?|"
+                       r"announc\w+|release[sd]?|joined|appointed|hiring|opens?|published|award\w*|round|summit|"
+                       r"conference|konferenz|vortrag|podcast|episode)\b|\b[A-Z][\w-]+(?:\s+[A-Z0-9][\w-]+){1,4}\b")
+
+
+def specificity(f: VerifiedFact) -> float:
+    """How concrete a fact is: a dated, named thing (session, launch, title in quotes, proper-noun event) scores high;
+    broad statements ('works on AI security') score low."""
+    has_date = (fact_date(f.recency) or fact_date(getattr(f, "published", ""))) is not None
+    hits = len(_SPECIFIC.findall(f"{f.fact} {f.verbatim_quote}"))
+    return min(1.0, (0.4 if has_date else 0.0) + 0.2 * hits)
+
+
+def about_person(f: VerifiedFact, surname: str, first: str = "") -> bool:
+    """The fact is about this person: named in the fact/quote, or written as 'He/She ...' about them by extraction,
+    or the source page is theirs (their name in the URL slug)."""
+    text = normalize(f"{f.fact} {f.verbatim_quote}")
+    if surname and surname in text or (first and first in text):
+        return True
+    slug = fold(urlsplit(f.source_url).path).replace("-", " ").replace("_", " ")
+    if surname and any(v and v in slug for v in _variants(surname)):
+        return True
+    return bool(re.match(r"^(?:he|she|they)\b", f.fact.strip(), re.I)) and f.category != "company_news"
+
+
+def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: str, first: str = "") -> tuple[float, dict]:
+    """Deterministic, explainable ranking. What is specifically happening to them now leads; how often they
+    talk about a topic only helps a little: openness 25%, recency 25%, personal 20%, specificity 15%,
+    breadth 5%, LLM confidence 10%."""
     facts = [by_id[i] for i in h.supporting_fact_ids if i in by_id]
     if not facts:
         return 0.0, {}
-    quotes = " ".join(f.verbatim_quote for f in facts)
-    openness = min(1.0, (0.6 if h.open_signal else 0.0) + 0.2 * len(_OPEN_CUES.findall(quotes)))
+    texts = " ".join(f"{f.fact} {f.verbatim_quote}" for f in facts)
+    openness = min(1.0, (0.6 if h.open_signal else 0.0) + 0.2 * len(_OPEN_CUES.findall(texts)))
     rs = [recency_score(f) for f in facts]
     recency = max(r for r, _ in rs)
     timings = [label for _, label in rs]
-    personal = sum(1 for f in facts if f.category != "company_news" and surname in normalize(f.verbatim_quote + " " + f.fact)) / len(facts)
-    # The organisers seeded each twin's hooks in their social media and online presence ("find what matters to
-    # them"): facts from the person's own posts, talks and interviews count as the strongest personal signal.
+    personal = sum(1 for f in facts if f.category != "company_news" and about_person(f, surname, first)) / len(facts)
     own_voice = sum(1 for f in facts if getattr(f, "source_kind", "") in ("social", "own_article")
-                    and (surname in normalize(f.verbatim_quote + " " + f.fact) or getattr(f, "source_kind", "") == "own_article")
-                    ) / len(facts)
+                    and (about_person(f, surname, first) or getattr(f, "source_kind", "") == "own_article")) / len(facts)
     personal = max(personal, own_voice)
+    spec = max(specificity(f) for f in facts)
     theme_hits = max((th.count for th in themes if set(th.fact_ids) & set(h.supporting_fact_ids)), default=0)
     sources = len({f.source_url for f in facts} | {u for f in facts for u in f.corroborated_by})
     breadth = min(1.0, 0.15 * theme_hits + 0.15 * sources)
     parts = {"openness": round(openness, 2), "recency": round(recency, 2), "personal": round(personal, 2),
-             "own_voice": round(own_voice, 2),
-             "breadth": round(breadth, 2), "llm_confidence": round(h.confidence, 2)}
-    score = 0.30 * openness + 0.25 * recency + 0.20 * personal + 0.15 * breadth + 0.10 * h.confidence
+             "own_voice": round(own_voice, 2), "specificity": round(spec, 2), "breadth": round(breadth, 2),
+             "llm_confidence": round(h.confidence, 2)}
+    score = 0.25 * openness + 0.25 * recency + 0.20 * personal + 0.15 * spec + 0.05 * breadth + 0.10 * h.confidence
     if all(tg in ("past", "static") for tg in timings):
         score *= 0.6  # a hook built only on past events can be background, not the reason to write now
     return round(score, 3), parts
 
 
-def _json(llm: PooledClient, system: str, user: str, temperature: float = 0.1) -> dict:
+def _json(llm: PooledClient, system: str, user: str, temperature: float = 0.1, reasoning: str | None = "none") -> dict:
     msgs: list[ChatMessage] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     try:
-        out = llm.chat(msgs, json_mode=True, temperature=temperature)
+        try:
+            out = llm.chat(msgs, json_mode=True, temperature=temperature, reasoning=reasoning)
+        except TypeError:
+            out = llm.chat(msgs, json_mode=True, temperature=temperature)
     except LocalLLMError:
         return {}
     return out if isinstance(out, dict) else {}
@@ -517,7 +553,11 @@ def verify(raw: dict, doc: Doc, ident: Identity) -> VerifiedFact | None:
         rec = doc.published or "unknown"
     # Per-fact attribution (gap 3): a personal fact must name this person, or come from their own post/article.
     # Otherwise it is company context: e.g. a co-founder's talk must not become this person's hook.
-    named = ident.surname(f"{quote} {fact}") or fold(ident.first) in fold(f"{quote} {fact}")
+    slug = fold(urlsplit(doc.url).path).replace("-", " ").replace("_", " ").replace("/", " ")
+    page_is_theirs = (fold(ident.last) in slug or any(v in slug for v in _variants(ident.last))
+                      or ident.full_name(doc.title or ""))
+    named = (ident.surname(f"{quote} {fact}") or fold(ident.first) in fold(f"{quote} {fact}") or page_is_theirs
+             or bool(re.match(r"^(?:he|she|they)\b", fact, re.I)))
     if cat not in ("company_news", "hiring", "tooling") and not named and kind not in ("social", "own_article"):
         cat = "company_news"
     return VerifiedFact(id="", fact=fact, category=cat, source_url=doc.url, verbatim_quote=quote, recency=rec,
@@ -582,6 +622,7 @@ def find_themes(llm: PooledClient, name: str, facts: list[VerifiedFact]) -> list
     return sorted(themes, key=lambda x: -x.count)
 
 
+
 def rank_hooks(llm: PooledClient, t: Target, facts: list[VerifiedFact], themes: list[Theme]) -> list[HookHypothesis]:
     usable = [f for f in facts if not f.conflicts_with]
     # rank by own voice > recency > corroboration so the best facts fit, not just the first ones (memory layer 1)
@@ -594,12 +635,14 @@ def rank_hooks(llm: PooledClient, t: Target, facts: list[VerifiedFact], themes: 
     conflicted = "\n".join(f"[{f.id}] CONFLICT: {f.fact} ({f.conflict_note})" for f in facts if f.conflicts_with)
     theme_txt = "\n".join(f"- {th.topic}: {th.count} facts, latest {th.latest or 'unknown'} ({', '.join(th.fact_ids[:6])})" for th in themes)
     out = _json(llm, _HOOKS.format(name=t.name, role=t.role, company=t.company, today=time.strftime("%Y-%m-%d")),
-                f"THEMES:\n{theme_txt}\n\nFACTS:\n{listing}\n\nDO NOT USE:\n{conflicted}", temperature=0.3)
+                f"THEMES:\n{theme_txt}\n\nFACTS:\n{listing}\n\nDO NOT USE:\n{conflicted}", temperature=0.3,
+                reasoning="high")
     known = {f.id for f in usable}
     hooks: list[HookHypothesis] = []
 
     by_id = {f.id: f for f in usable}
     surname = normalize(t.name.split()[-1])
+    first = normalize(t.name.split()[0])
 
     def build(raw: object, hid: str, own: bool) -> HookHypothesis | None:
         if not isinstance(raw, dict) or not raw.get("topic"):
@@ -629,7 +672,7 @@ def rank_hooks(llm: PooledClient, t: Target, facts: list[VerifiedFact], themes: 
             incident_path=path if path in ("disclosure", "action", "credentials") else "disclosure",
             first_line=first, verify_risk=str(raw.get("verify_risk") or ""),
             avoid=[str(x) for x in raw.get("avoid") or [] if str(x).strip()][:6])
-        h.score, h.score_breakdown = score_hook(h, by_id, themes, surname)
+        h.score, h.score_breakdown = score_hook(h, by_id, themes, surname, first)
         return h
 
     for i, raw in enumerate((out.get("hooks") or [])[:6]):
@@ -928,18 +971,35 @@ def merge_dossiers(prev: VerifiedDossier, new: VerifiedDossier) -> tuple[Verifie
     Research varies run to run (search ranking, time budget), so accumulating keeps good sources (gap 5)."""
     if fold(prev.target_name) != fold(new.target_name):
         return new, 0
-    have = {normalize(f.verbatim_quote) for f in new.facts}
+    by_quote = {normalize(f.verbatim_quote): f.id for f in new.facts}
+    id_map: dict[str, str] = {}
     added = 0
     for f in prev.facts:
         key = normalize(f.verbatim_quote)
-        if key in have:
+        if key in by_quote:
+            id_map[f.id] = by_quote[key]
             continue
-        have.add(key)
         g = f.model_copy()
         g.id = f"p{added + 1}"
         g.conflicts_with = []  # ids from the old run do not exist here; conflicts are re-checked per run
         new.facts.append(g)
+        by_quote[key] = g.id
+        id_map[f.id] = g.id
         added += 1
+    # carry theme memberships over, so merged facts are not scored as belonging to no theme
+    themes = {fold(th.topic): th for th in new.themes}
+    for th in prev.themes:
+        ids = [id_map[i] for i in th.fact_ids if i in id_map]
+        if not ids:
+            continue
+        cur = themes.get(fold(th.topic))
+        if cur:
+            extra = [i for i in ids if i not in cur.fact_ids]
+            cur.fact_ids.extend(extra)
+            cur.count += len(extra)
+        else:
+            new.themes.append(Theme(topic=th.topic, count=len(ids), latest=th.latest, fact_ids=ids))
+            themes[fold(th.topic)] = new.themes[-1]
     new.anchors = list(dict.fromkeys([*new.anchors, *prev.anchors]))
     return new, added
 

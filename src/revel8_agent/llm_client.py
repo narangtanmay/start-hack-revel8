@@ -2,6 +2,7 @@
 
 import itertools
 import json
+import re
 import os
 import time
 from collections.abc import Sequence
@@ -77,7 +78,8 @@ class LocalLLMClient:
             raise LocalLLMError("LOCAL_LLM_BASE_URL must be an HTTP(S) URL.")
 
         path = url.path.rstrip("/")
-        if not path.endswith("/v1"):
+        # add /v1 only when the URL carries no API version (Gemini's OpenAI endpoint is /v1beta/openai)
+        if not re.search(r"/v\d+(?:beta|alpha)?\d*(?:/|$)", path + "/"):
             path += "/v1"
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         return httpx.Client(base_url=url.copy_with(path=path), timeout=timeout, headers=headers)
@@ -100,6 +102,7 @@ class LocalLLMClient:
         json_mode: Literal[False] = False,
         temperature: float | None = None,
         deadline: float | None = None,
+        reasoning: str | None = None,
     ) -> str: ...
 
     @overload
@@ -110,6 +113,7 @@ class LocalLLMClient:
         json_mode: bool,
         temperature: float | None = None,
         deadline: float | None = None,
+        reasoning: str | None = None,
     ) -> JsonValue: ...
 
     def chat(
@@ -119,13 +123,16 @@ class LocalLLMClient:
         json_mode: bool = False,
         temperature: float | None = None,
         deadline: float | None = None,
+        reasoning: str | None = None,
     ) -> JsonValue:
-        """`deadline` (a time.monotonic() value) bounds the whole call, for research's time budget.
+        """`reasoning`: reasoning_effort for this call ("none" | "low" | "high"); Token Factory's DeepSeek runs without
+        thinking unless asked (measured 2026-11-22), so judgement calls request "high". LLM_REASONING_DEFAULT
+        overrides calls that pass nothing. `deadline` (a time.monotonic() value) bounds the whole call, for research's time budget.
         One call on LLM_MODEL; on a model-side failure (invalid/empty JSON, 5xx, timeout) retry once on
         LLM_FALLBACK_MODEL if set, so one bad generation never costs the agent a touch."""
         try:
             return self._chat_once(messages, json_mode=json_mode, temperature=temperature,
-                                   model=self.model, extra=self.extra_body, deadline=deadline)
+                                   model=self.model, extra=self.extra_body, deadline=deadline, reasoning=reasoning)
         except LocalLLMError as error:
             fallback = os.getenv("LLM_FALLBACK_MODEL", "").strip()
             if (not fallback or fallback == self.model or error.status_code in (400, 401, 403, 404)
@@ -138,7 +145,8 @@ class LocalLLMClient:
                 extra = {}
             self.fallbacks_used = getattr(self, "fallbacks_used", 0) + 1
             return self._chat_once(messages, json_mode=json_mode, temperature=temperature,
-                                   model=fallback, extra=extra if isinstance(extra, dict) else {}, deadline=deadline)
+                                   model=fallback, extra=extra if isinstance(extra, dict) else {}, deadline=deadline,
+                                   reasoning=reasoning)
 
     def _chat_once(
         self,
@@ -149,8 +157,12 @@ class LocalLLMClient:
         model: str,
         extra: dict,
         deadline: float | None = None,
+        reasoning: str | None = None,
     ) -> JsonValue:
         payload: dict[str, JsonValue] = {**extra, "model": model, "messages": list(messages)}
+        effort = reasoning or os.getenv("LLM_REASONING_DEFAULT", "").strip() or None
+        if effort and os.getenv("LLM_REASONING", "1") == "1":
+            payload["reasoning_effort"] = effort
         if temperature is not None:
             payload["temperature"] = temperature
         if json_mode:
@@ -200,6 +212,12 @@ class LocalLLMClient:
 
         if not json_mode:
             return content
+        finish = (response.json()["choices"][0] or {}).get("finish_reason")
+        if finish == "length":
+            raise LocalLLMError("Local LLM output was cut off (finish_reason=length): JSON incomplete.")
+        if not content.strip():
+            # DeepSeek JSON mode replaces non-JSON output with blanks: treat as a failed generation and retry
+            raise LocalLLMError("Local LLM returned blank content in JSON mode.")
         content = _strip_fences(content)
         try:
             return _JSON.validate_json(content, strict=True)
@@ -247,7 +265,8 @@ class PooledClient:
         self.model = pool.model
 
     def chat(self, messages: Sequence[ChatMessage], *, json_mode: bool = False,
-             temperature: float | None = None, deadline: float | None = None) -> JsonValue:
+             temperature: float | None = None, deadline: float | None = None,
+             reasoning: str | None = None) -> JsonValue:
         n = len(self.pool.clients)
         last: LocalLLMError | None = None
         for k in range(n):
@@ -255,7 +274,8 @@ class PooledClient:
                 break  # out of time: do not fail over to another key
             client = self.pool.clients[(self.preferred + k) % n]
             try:
-                return client.chat(messages, json_mode=json_mode, temperature=temperature, deadline=deadline)
+                return client.chat(messages, json_mode=json_mode, temperature=temperature, deadline=deadline,
+                                   reasoning=reasoning)
             except LocalLLMError as error:
                 last = error
                 if error.status_code not in (None, 429, 500, 502, 503, 504):
