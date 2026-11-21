@@ -140,6 +140,9 @@ def on_topic_share(run: JsonObj, topic_keywords: list[str]) -> float | None:
     Estimate: topic match by keyword. If no keywords are given we fall back to
     the run's own planned hook, which measures focus, not correctness.
     """
+    truth = [t for t in run.get("truth") or [] if isinstance(t, dict) and "topic_hit" in t]
+    if truth:  # ground truth from the mock target (the real API keeps this private)
+        return sum(1 for t in truth if t["topic_hit"]) / len(truth)
     kws = [k.lower() for k in topic_keywords] or _planned_hook_keywords(run)
     sent = [s for s in _steps(run) if s.get("message_id") or s.get("conversation_id")]
     if not sent or not kws:
@@ -270,7 +273,8 @@ def score_suite(
         "assumptions": {
             "best_contacts": cfg.best_contacts,
             "best_topic_share": cfg.best_topic_share,
-            "topic_match": "keywords" if cfg.susceptible_topic else "each run's planned hook (focus, not correctness)",
+            "topic_match": ("mock ground truth" if any(r.get("truth") for r in runs) else
+                            "keywords" if cfg.susceptible_topic else "each run's planned hook (focus, not correctness)"),
             "note": "Speed and Their-topic are relative to the best team; points are estimates under these baselines.",
         },
         "per_run": per_run,

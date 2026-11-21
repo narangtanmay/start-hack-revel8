@@ -72,7 +72,8 @@ def _osint(scenario_id: str, target_ids: list[str], budget: float, out_dir: str)
     return 0
 
 
-def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool, keep_going: bool) -> int:
+def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool, keep_going: bool,
+         policy: str = "controller", mock: bool = False, seed: int = 0, runs_dir: str = "runs") -> int:
     import json
     from pathlib import Path
 
@@ -85,9 +86,19 @@ def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool,
     if scenario == "eval" and not allow_eval:
         print("Refusing to use an EVAL session without --allow-eval (only 3 scored runs exist).", file=sys.stderr)
         return 2
-    llm = LocalLLMClient(timeout=120.0)
+    if mock and scenario == "eval":
+        print("--mock only simulates practice targets.", file=sys.stderr)
+        return 2
+    llm = LocalLLMClient(timeout=300.0)
     dossier_path = Path("dossiers") / f"{target}.json"
-    with Revel8Client() as api:
+    if mock:
+        from .mock_target import MockRevel8Client
+
+        client_cm = MockRevel8Client(seed=seed)
+        label = label or f"mock-{policy}-s{seed}"
+    else:
+        client_cm = Revel8Client()
+    with client_cm as api:
         if dossier_path.exists() and scenario != "eval":
             dossier = VerifiedDossier.model_validate_json(dossier_path.read_text(encoding="utf-8"))
             print(f"dossier: loaded {dossier_path} ({len(dossier.facts)} facts)")
@@ -100,10 +111,12 @@ def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool,
             if not t:
                 print(f"Unknown target {target!r}.", file=sys.stderr)
                 return 1
-            dossier, stats = build_dossier(Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
+            from .research import live_dossier
+
+            dossier, stats = live_dossier(Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
             write_dossier(dossier, stats)
         cfg = RunConfig(target_id=target, scenario_id=scenario, max_touches=touches, label=label,
-                        stop_at_first_incident=not keep_going)
+                        stop_at_first_incident=not keep_going, policy=policy, runs_dir=Path(runs_dir))
         runner = Runner(cfg, api, llm, dossier)
         print(f"report: {(cfg.runs_dir / (runner.state.run_id + '.html')).resolve()}")
 
@@ -117,9 +130,36 @@ def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool,
 
         runner.save = save_and_render  # type: ignore[method-assign]
         state = runner.run()
+        if mock and state.session_id:
+            state.truth = api.truth(state.session_id)
+            runner.save()
     print(json.dumps(estimate_score(state.__dict__), indent=1))
     print(f"report: {render_index(cfg.runs_dir).resolve()}")
     return 0 if state.status == "done" else 1
+
+
+def _research(scenario_id: str, target_ids: list[str], budget: float) -> int:
+    from .osint import Target, write_dossier
+    from .research import live_dossier
+
+    try:
+        with Revel8Client() as client:
+            scenarios = client.get_scenarios()
+    except Revel8APIError as error:
+        print(f"Could not load scenarios. {error}", file=sys.stderr)
+        return 1
+    sc = next((s for s in scenarios if isinstance(s, dict) and s.get("id") == scenario_id), None)
+    if not sc or not sc.get("open"):
+        print(f"Scenario {scenario_id!r} not found or not open.", file=sys.stderr)
+        return 1
+    targets = [Target(str(t["id"]), str(t["name"]), str(t.get("role", "")), str(sc.get("company", "")))
+               for t in sc.get("targets", []) if isinstance(t, dict) and (not target_ids or t.get("id") in target_ids)]
+    for t in targets:
+        dossier, stats = live_dossier(t, budget_s=budget)
+        path = write_dossier(dossier, stats)
+        print(f"{t.id}: {len(dossier.facts)} facts, {len(getattr(dossier, 'themes', []))} themes, "
+              f"{len(dossier.hypotheses)} hooks -> {path}")
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -138,13 +178,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--label", default="")
     run.add_argument("--allow-eval", action="store_true")
     run.add_argument("--keep-going", action="store_true", help="Continue after the first incident.")
+    run.add_argument("--policy", choices=["controller", "llm"], default="controller",
+                     help="controller: explicit belief state + escalation policy (default); llm: the LLM alone decides.")
+    run.add_argument("--mock", action="store_true", help="Offline: use the rule-based mock target, no API touches.")
+    run.add_argument("--seed", type=int, default=0, help="Mock target seed.")
+    run.add_argument("--runs-dir", default="runs")
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     rep.add_argument("--public-out", default="", help="Also write a public snapshot (landing pages not rendered) here.")
+    res = sub.add_parser("research", help="Research v2: person-first multi-lane OSINT using every Token Factory key.")
+    res.add_argument("--scenario", default="practice")
+    res.add_argument("--target", action="append", default=[], help="Target id (repeatable). Default: all.")
+    res.add_argument("--budget", type=float, default=180.0, help="Seconds per target (whole research).")
     args = parser.parse_args(argv)
 
+    if args.command == "research":
+        return _research(args.scenario, args.target, args.budget)
+
     if args.command == "run":
-        return _run(args.target, args.scenario, args.touches, args.label, args.allow_eval, args.keep_going)
+        return _run(args.target, args.scenario, args.touches, args.label, args.allow_eval, args.keep_going,
+                    args.policy, args.mock, args.seed, args.runs_dir)
     if args.command == "report":
         from .report import render_index
 

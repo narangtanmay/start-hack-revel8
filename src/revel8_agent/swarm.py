@@ -89,8 +89,10 @@ def run_one(task: Task, api_key: str, log=print) -> dict[str, Any]:
             t = next((x for x in sc.get("targets", []) if x.get("id") == task.target), None)
             if not t:
                 return {"target": task.target, "status": "error", "error": f"unknown target {task.target!r}"}
-            dossier, stats = build_dossier(
-                Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
+            from .research import live_dossier
+
+            dossier, stats = live_dossier(
+                Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm, log=log)
             write_dossier(dossier, stats)
         cfg = RunConfig(target_id=task.target, scenario_id=task.scenario, max_touches=task.touches,
                         label=task.label, stop_at_first_incident=not task.keep_going)

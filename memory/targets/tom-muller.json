@@ -1,0 +1,237 @@
+{
+ "name": "Tom Müller",
+ "sessions": [
+  {
+   "run": "20261121-231336-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:13:36+00:00",
+   "scenario": "practice",
+   "hook_id": "own1",
+   "pretext": "Discussing sovereign cloud and compliance as a competitive edge for revel8's enterprise expansion",
+   "persona": "Senior Security Consultant at CloudTrust Advisory",
+   "touches": 10,
+   "reply_rate": 0.1,
+   "silence": 9,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261121-231452-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:14:52+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "I am reaching out because of your upcoming roundtable at AI House Davos 2026 on AI in cyber defense. As a fellow practitioner in AI-driven security, I'd like to share some insights and possibly collab",
+   "persona": "Research Lead at CyberGuard Research Collective",
+   "touches": 10,
+   "reply_rate": 0.4,
+   "silence": 6,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261121-231838-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:18:38+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "I'm a producer for a cybersecurity podcast and I'm putting together a segment on live deepfake demonstrations for enterprise defense. I saw that revel8 showcased a live deepfake at TechEx London in Fe",
+   "persona": "Cybersecurity podcast producer & freelance tech journalist at independent",
+   "touches": 10,
+   "reply_rate": 0.3,
+   "silence": 7,
+   "brushoffs": 2,
+   "incidents": []
+  },
+  {
+   "run": "20261121-232112-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:21:12+00:00",
+   "scenario": "practice",
+   "hook_id": "h5",
+   "pretext": "Apply for a Founders Associate Intern role at revel8, which Tom is actively hiring for.",
+   "persona": "Aspiring Founder Associate at none",
+   "touches": 10,
+   "reply_rate": 0.1,
+   "silence": 9,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261121-232435-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:24:35+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "I'm coordinating a short video interview with Tom about the live deepfake demo at TechEx London. We'd like to feature it in an article for a cybersecurity publication.",
+   "persona": "Editorial Coordinator at CyberScope Media",
+   "touches": 10,
+   "reply_rate": 0.5,
+   "silence": 5,
+   "brushoffs": 4,
+   "incidents": []
+  },
+  {
+   "run": "20261121-232951-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:29:51+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Tom's high-profile roundtable at AI House Davos 2026 on AI in cyber defense is a recent, credible event that positions him as a thought leader. I'll leverage this to connect as a fellow speaker/organi",
+   "persona": "Organizer & Host at CyberFront Meetups",
+   "touches": 10,
+   "reply_rate": 0.6,
+   "silence": 4,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261121-233319-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:33:19+00:00",
+   "scenario": "practice",
+   "hook_id": "h3",
+   "pretext": "Tom, I'm a talent scout from a Munich-based recruiting agency focused on early-stage startups. I saw revel8's recent seed round and the intern openings for Growth & Strategy and Founders Associate rol",
+   "persona": "Senior Talent Scout at TalentBridge Munich",
+   "touches": 10,
+   "reply_rate": 0.3,
+   "silence": 7,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261121-234140-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:41:40+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "I saw the live vishing demo at it-sa and was struck by how realistic the voice cloning was—how do you balance realism with ethical concerns in your simulations?",
+   "persona": "Security Awareness Manager at SecureHub GmbH",
+   "touches": 10,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t8 (llm-judge (estimate))"
+   ]
+  },
+  {
+   "run": "20261121-234558-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:45:58+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "I saw the live vishing demo at it-sa and was struck by how realistic the voice cloning was—how do you balance realism with ethical concerns in your simulations?",
+   "persona": "Security Awareness Manager at SecureSense GmbH",
+   "touches": 3,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261121-225941-tom-DeepSeek-V4-Flash",
+   "at": "2026-11-21T21:59:41+00:00",
+   "scenario": "practice",
+   "hook_id": "h5",
+   "pretext": "You are the co-founder of revel8 and are actively hiring for intern roles in Munich starting February 2026. A candidate with an impressive AI background has applied, and I want to share their profile ",
+   "persona": "Talent Acquisition Consultant at TalentBridge Munich",
+   "touches": 10,
+   "reply_rate": 0.5,
+   "silence": 5,
+   "brushoffs": 3,
+   "incidents": []
+  },
+  {
+   "run": "20261121-230842-tom-DeepSeek-V4.1-Flash",
+   "at": "2026-11-21T22:08:42+00:00",
+   "scenario": "practice",
+   "hook_id": "own1",
+   "pretext": "As an ISO 27001 Lead Auditor running a sovereign-cloud readiness review for security-training vendors, I need to confirm revel8's STACKIT hosting and data-residency posture ahead of a procurement shor",
+   "persona": "Lead Auditor, Sovereign Cloud & ISO 27001 at Alpenblick Compliance & Audit GmbH",
+   "touches": 7,
+   "reply_rate": 0.43,
+   "silence": 4,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261121-231510-tom-Gemma-4-31B-IT",
+   "at": "2026-11-21T22:15:10+00:00",
+   "scenario": "practice",
+   "hook_id": "own1",
+   "pretext": "A representative from a specialized European cybersecurity compliance consultancy is reaching out to discuss a potential strategic partnership to bundle revel8's training with their compliance audit s",
+   "persona": "Head of Strategic Partnerships at EuroCert Secure",
+   "touches": 1,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261121-231045-tom-MiniCPM-V-4.7-35B-A3B",
+   "at": "2026-11-21T22:10:45+00:00",
+   "scenario": "practice",
+   "hook_id": "h5",
+   "pretext": "Following up on the intern hiring push at revel8 - I have a candidate profile that might fit the AI Solution Engineer Intern role perfectly.",
+   "persona": "Senior Recruiter at TechTalent Munich",
+   "touches": 11,
+   "reply_rate": 0.0,
+   "silence": 11,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261121-231056-tom-Qwen3.8-27B",
+   "at": "2026-11-21T22:10:56+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "A partnership outreach regarding a cross-promotion and data-sharing initiative for the AI House Davos 2026 'Empowering Defenders' roundtable, specifically targeting the 'AI as Defender' narrative.",
+   "persona": "Head of Strategic Partnerships at CyberSight Analytics",
+   "touches": 10,
+   "reply_rate": 0.2,
+   "silence": 8,
+   "brushoffs": 1,
+   "incidents": []
+  }
+ ],
+ "corrections": [
+  {
+   "run": "20261121-231452-tom-DeepSeek-V4-Flash",
+   "text": "Hi Lena,  Thanks for reaching out. The Davos roundtable took place in January, so I'm not sure which briefing you mean. Can you tell me what it's for and who the audience is? A link to CyberGuard's published work would also help."
+  },
+  {
+   "run": "20261121-231452-tom-DeepSeek-V4-Flash",
+   "text": "Hi Lena,  Thanks for reaching out. The Davos roundtable took place in January, so I'm not sure which briefing you mean. Can you tell me what it's for and who the audience is? A link to CyberGuard's published work would also help.  Email is easier for me. Pleas"
+  },
+  {
+   "run": "20261121-232112-tom-DeepSeek-V4-Flash",
+   "text": "Hi Lena,  Thanks for your interest in revel8. We don't currently have a Founders Associate Intern role. Our open positions are listed on our careers page. Please apply there through the official process, with your CV attached.  B"
+  },
+  {
+   "run": "20261121-232435-tom-DeepSeek-V4-Flash",
+   "text": "Hi Sarah,  thanks for reaching out. Which event do you mean exactly? We were at Gartner SRM in London in September, and last week was Unicon in Berlin. Please send me the dates and the angle of the feature, plus the pla"
+  },
+  {
+   "run": "20261121-232435-tom-DeepSeek-V4-Flash",
+   "text": "Hi Sarah,  That doesn't match our calendar. We weren't at a TechEx booth in London in February, and your first mail said 'last week'. I also don't share setup or tooling details in PDFs. Wh"
+  },
+  {
+   "run": "20261121-232435-tom-DeepSeek-V4-Flash",
+   "text": "Hi Sarah,  That doesn't match our calendar. We weren't at a TechEx booth in London in February, and your first mail said 'last week'. I also don't share setup or tooling details in PDFs. What we do publicly is on o"
+  },
+  {
+   "run": "20261121-234140-tom-DeepSeek-V4-Flash",
+   "text": "Hi Laura,  We don't have a fixed questionnaire to send out. The scoping call covers company size, teams in scope, industry and works-council setup, so the contact form on revel8.ai is "
+  }
+ ],
+ "rules": [
+  "deferring",
+  "wants_artifact",
+  "wants_pdf",
+  "handoff",
+  "wants_plain_text",
+  "offers_input",
+  "verifying",
+  "invites_ask",
+  "no_office_files"
+ ],
+ "disclosed": [
+  {
+   "run": "20261121-234140-tom-DeepSeek-V4-Flash",
+   "touch": 8,
+   "text": "1. Report rate versus click rate, plus the time from the first report to the first containment step. 2. Repeat-exposure behaviour. Do the same roles fail less often on comparable scenarios over time? 3. Behaviour on higher-risk scenarios, for example a payment-change request by phone, not only email"
+  }
+ ]
+}

@@ -13,6 +13,22 @@ class VerifiedFact(BaseModel):
     source_url: str
     verbatim_quote: str
     recency: str
+    # research v2 (optional, backward compatible)
+    lane: str = ""                                                   # web | news | media | social | academic | expansion
+    published: str = ""                                              # source publish date if the search engine knew it
+    corroborated_by: list[str] = Field(default_factory=list)        # other source URLs saying the same thing
+    conflicts_with: list[str] = Field(default_factory=list)         # fact ids that contradict this one
+    conflict_note: str = ""
+    source_kind: str = ""          # social | own_article | aggregator | news | web (classified by source domain)
+
+
+class Theme(BaseModel):
+    """What the person keeps talking about: counted over their own posts, talks and interviews."""
+
+    topic: str
+    count: int
+    latest: str = ""
+    fact_ids: list[str] = Field(default_factory=list)
 
 
 class HookHypothesis(BaseModel):
@@ -22,6 +38,17 @@ class HookHypothesis(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     is_own_angle: bool = False
     supporting_fact_ids: list[str] = Field(default_factory=list)
+    # Hook v2: an evidence-backed attack angle (optional, backward compatible)
+    open_signal: str = ""                 # verbatim quote showing they are open to this right now (checked in source)
+    timing: str = ""                      # current | upcoming | this-year | undated | past (from supporting facts)
+    sender_archetype: str = ""            # who would naturally contact them about this
+    natural_ask: str = ""                 # the small, natural thing they would do for that sender
+    incident_path: str = ""               # disclosure | action | credentials
+    first_line: str = ""                  # opener grounded in one cited fact
+    verify_risk: str = ""                 # what they could check about the sender, and how to stay plausible
+    avoid: list[str] = Field(default_factory=list)   # claims not to make (past as upcoming, conflicting facts)
+    score: float = 0.0                    # deterministic ranking score (see research.score_hook)
+    score_breakdown: dict = Field(default_factory=dict)
 
 
 class VerifiedDossier(BaseModel):
@@ -31,6 +58,8 @@ class VerifiedDossier(BaseModel):
     company: str
     facts: list[VerifiedFact] = Field(default_factory=list)
     hypotheses: list[HookHypothesis] = Field(default_factory=list)
+    themes: list[Theme] = Field(default_factory=list)
+    anchors: list[str] = Field(default_factory=list)  # identity anchors used to tell this person from namesakes
 
 
 class SenderInfo(BaseModel):
