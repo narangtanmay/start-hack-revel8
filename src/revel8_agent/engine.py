@@ -736,7 +736,8 @@ class Runner:
                     feedback = "; ".join(errors)
                     self.log(f"touch {touch}: draft rejected by gate: {feedback}")
                 else:
-                    raise RuntimeError(f"Could not produce a valid draft: {feedback}")
+                    if a.get("decision") != "STOP":
+                        raise RuntimeError(f"Could not produce a valid draft: {feedback}")
                 step["action"] = a
                 if a.get("decision") == "STOP":
                     self.log(f"touch {touch}: agent decided to STOP: {a.get('rationale')}")
