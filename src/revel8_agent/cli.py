@@ -177,7 +177,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     res = sub.add_parser("research", help="Research v2: person-first multi-lane OSINT using every Token Factory key.")
     res.add_argument("--scenario", default="practice")
     res.add_argument("--target", action="append", default=[], help="Target id (repeatable). Default: all.")
-    res.add_argument("--budget", type=float, default=300.0, help="Seconds per target.")
+    res.add_argument("--budget", type=float, default=90.0, help="Seconds per target (whole research, incl. snowball and hooks).")
     res.add_argument("--anchor", action="append", default=[], help="Extra identity anchor (repeatable).")
     args = parser.parse_args(argv)
 

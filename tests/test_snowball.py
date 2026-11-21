@@ -3,9 +3,17 @@ from datetime import datetime
 from revel8_agent.osint import Target
 from revel8_agent.research import Identity
 from revel8_agent.schemas import VerifiedFact
-from revel8_agent.snowball import find_gaps, parse_leads, plan_round, run_snowball
+from revel8_agent.snowball import (
+    clean_free_queries,
+    find_gaps,
+    gap_queries,
+    good_anchor,
+    parse_leads,
+    plan_round,
+    run_snowball,
+)
 
-T = Target("robert", "Robert Seilbeck", "Co-Founder & CTO", "revel8")
+T = Target("robert", "Robert Seilbeck", "Co-Founder & CTO, revel8", "revel8")
 TODAY = datetime(2026, 11, 21)
 
 
@@ -22,50 +30,72 @@ FACTS = [
 ]
 
 
-def test_parse_leads_keeps_only_literal_entities_and_ranks_upcoming_events_first() -> None:
+def test_parse_leads_keeps_literal_new_entities_with_event_only_timing() -> None:
     raw = [
         {"kind": "organisation", "name": "Merantix Capital", "fact_ids": ["r3"]},
         {"kind": "event", "name": "Cyber Night Berlin", "fact_ids": ["r2"]},
         {"kind": "event", "name": "it-sa 2026", "fact_ids": ["r1"]},
-        {"kind": "person", "name": "Jane Invented", "fact_ids": ["r3"]},   # not in the facts
-        {"kind": "event", "name": "revel8"},                                 # the company alone
-        {"kind": "gadget", "name": "Peak"},                                  # unknown kind
-        {"kind": "event", "name": "IT-SA 2026"},                             # duplicate after folding
+        {"kind": "person", "name": "Jane Invented"},          # not in the facts
+        {"kind": "event", "name": "revel8"},                  # the company alone
+        {"kind": "event", "name": "Berlin"},                  # generic place
+        {"kind": "gadget", "name": "Peak"},                   # unknown kind
+        {"kind": "event", "name": "IT-SA 2026"},              # duplicate after folding
     ]
     leads = parse_leads(raw, FACTS, T, TODAY)
-    assert {lead.name for lead in leads} == {"it-sa 2026", "Merantix Capital", "Cyber Night Berlin"}
-    assert leads[0].name == "it-sa 2026" and leads[0].timing == "upcoming"
-    assert all(lead.timing == "past" for lead in leads[1:])
+    assert [(lead.name, lead.timing) for lead in leads] == [
+        ("it-sa 2026", "upcoming"),           # upcoming event first
+        ("Merantix Capital", "current"),      # an investor relationship is ongoing, not "past"
+        ("Cyber Night Berlin", "past"),       # past event last
+    ]
+    again = parse_leads(raw, FACTS, T, TODAY, exclude={"merantix capital", "it-sa 2026"})
+    assert [lead.name for lead in again] == ["Cyber Night Berlin"]
+
+
+def test_generic_anchors_and_queries_are_rejected() -> None:
+    assert not good_anchor("CTO", T) and not good_anchor("Berlin", T) and not good_anchor("revel8", T)
+    assert good_anchor("Celonis", T) and good_anchor("TU München", T) and good_anchor("Julius Muth", T)
+    kept = clean_free_queries(T, ['"Robert Seilbeck" cybersecurity', '"Robert Seilbeck" Berlin talk',
+                                  "Celonis", '"Robert Seilbeck" DaMoN 2014', ""])
+    assert kept == ['"Robert Seilbeck" Celonis', '"Robert Seilbeck" DaMoN 2014']
 
 
 def test_find_gaps_counts_only_upcoming_events() -> None:
     gaps = find_gaps(FACTS, TODAY)
-    assert "upcoming_event" not in gaps                         # it-sa on 2026-12-08 is upcoming
+    assert "upcoming_event" not in gaps                        # it-sa on 2026-12-08 is upcoming
     assert {"network", "hiring", "interest", "tooling"} <= set(gaps)
-    assert "upcoming_event" in find_gaps(FACTS[1:], TODAY)     # only past talks left
+    assert "upcoming_event" in find_gaps(FACTS[1:], TODAY)    # only past talks left
 
 
-def test_plan_round_orders_leads_then_gaps_and_skips_done_queries() -> None:
+def test_gap_queries_look_at_next_year_late_in_the_year() -> None:
+    assert gap_queries(T, "upcoming_event", TODAY)[0] == '"Robert Seilbeck" speaker 2027'
+    assert gap_queries(T, "upcoming_event", datetime(2026, 3, 1))[0] == '"Robert Seilbeck" speaker 2026 OR 2027'
+    assert gap_queries(T, "hiring", TODAY)[0].startswith("site:linkedin.com/posts")
+
+
+def test_plan_round_spreads_gap_queries_over_rounds_and_never_repeats() -> None:
     leads = parse_leads([{"kind": "event", "name": "it-sa 2026", "fact_ids": ["r1"]}], FACTS, T, TODAY)
-    done = {'"robert seilbeck" "it-sa 2026"'}
-    qs = plan_round(T, leads, ["network"], ["triathlon"], done, max_queries=10, today=TODAY)
-    assert qs[0].startswith('"Robert Seilbeck" Mitgründer')    # the lead's first query was already run
-    assert '"Robert Seilbeck" triathlon' in qs                  # free query gets the full name added
-    assert any(q.startswith('"it-sa 2026" Seilbeck agenda') for q in qs)
-    assert len(qs) == len(set(qs))
-    again = plan_round(T, leads, ["network"], ["triathlon"], done, max_queries=10, today=TODAY)
-    assert again == []                                          # everything is now in `done`
+    done: set[str] = set()
+    r1 = plan_round(T, leads, ["network", "hiring"], ['"Robert Seilbeck" Celonis'], done, max_queries=4, today=TODAY)
+    assert r1 == ['"Robert Seilbeck" "it-sa 2026"', '"Robert Seilbeck" advisor OR mentor OR Beirat',
+                  'site:linkedin.com/posts "Robert Seilbeck" hiring', '"Robert Seilbeck" Celonis']
+    r2 = plan_round(T, [], ["network", "hiring"], [], done, max_queries=4, today=TODAY)
+    assert r2 == ['"Robert Seilbeck" co-founder OR Mitgründer', '"Robert Seilbeck" "we\'re hiring" OR "join our team"']
+    assert plan_round(T, [], ["network", "hiring"], [], done, today=TODAY) == []
 
 
 class _FakeLLM:
     def __init__(self, replies: list[dict]) -> None:
         self.replies = replies
+        self.prompts: list[str] = []
+        self.listings: list[str] = []
 
-    def chat(self, *_args, **_kwargs):
+    def chat(self, messages, **_kwargs):
+        self.prompts.append(messages[0]["content"])
+        self.listings.append(messages[1]["content"])
         return self.replies.pop(0) if self.replies else {}
 
 
-def test_run_snowball_adds_facts_and_stops_when_a_round_adds_too_few() -> None:
+def test_run_snowball_builds_on_the_last_round() -> None:
     facts = list(FACTS)
     searched: list[list[str]] = []
 
@@ -74,20 +104,28 @@ def test_run_snowball_adds_facts_and_stops_when_a_round_adds_too_few() -> None:
         return ["hit"]
 
     def extract_all(docs):
-        if len(searched) == 1:                                  # round 1 finds 3 new facts, round 2 finds none
-            facts.extend(_f(f"new {i}", f"Robert Seilbeck new fact number {i}") for i in range(3))
+        if len(searched) == 1:   # round 1 finds a moderator; round 2 finds nothing
+            facts.extend(_f(f"Panel moderated by Steven Perlberg {i}", f"moderated by Steven Perlberg number {i}",
+                            "network", "2026-10-28") for i in range(3))
 
     llm = _FakeLLM([
-        {"anchors": ["Nuremberg", "Invented GmbH"], "leads": [{"kind": "event", "name": "it-sa 2026"}], "queries": []},
-        {"anchors": [], "leads": [], "queries": ["sailing"]},
+        {"anchors": ["Nuremberg", "Berlin"], "leads": [{"kind": "event", "name": "it-sa 2026"}], "queries": []},
+        {"anchors": [], "leads": [{"kind": "event", "name": "it-sa 2026"},
+                                  {"kind": "person", "name": "Steven Perlberg"}], "queries": []},
     ])
     st: dict = {"search": [{"query": '"Robert Seilbeck" revel8'}]}
-    new_docs = run_snowball(T, llm, Identity(T), facts, st, run_queries=run_queries, to_docs=lambda hits: ["doc"],
+    ident = Identity(T)
+    new_docs = run_snowball(T, llm, ident, facts, st, run_queries=run_queries, to_docs=lambda hits: ["doc"],
                             extract_all=extract_all, left=lambda: 200.0, log=lambda _m: None)
+
     assert len(searched) == 2 and new_docs == ["doc", "doc"]
-    assert st["snowball"][0]["new_facts"] == 3 and st["snowball"][1]["new_facts"] == 0
     assert '"Robert Seilbeck" "it-sa 2026"' in searched[0]
-    assert st["anchors_added"] == []                            # "Nuremberg" is in a fact, not a quote
+    assert "ALREADY FOLLOWED (do not repeat): it-sa 2026" in llm.prompts[1]
+    assert llm.listings[1].startswith("[r1] (network, 2026-10-28) Panel moderated by Steven Perlberg")
+    assert [lead["name"] for lead in st["snowball"][1]["leads"]] == ["Steven Perlberg"]
+    assert '"Robert Seilbeck" "Steven Perlberg"' in searched[1]
+    assert st["anchors_rejected"] == ["Berlin"] and "Berlin" not in ident.anchors   # "Nuremberg": not in a quote
+    assert st["snowball"][0]["new_facts"] == 3 and st["snowball"][1]["new_facts"] == 0
 
 
 def test_run_snowball_respects_budget() -> None:

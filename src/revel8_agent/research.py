@@ -420,7 +420,10 @@ def _doc_id(url: str) -> str:
     return "d_" + hashlib.sha1(url.encode()).hexdigest()[:10]
 
 
-def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 300.0, max_docs: int = 45,
+_CONSOLIDATE_S = 20.0  # kept free at the end for conflicts + themes (in parallel) and hooks
+
+
+def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 90.0, max_docs: int = 45,
              anchors: list[str] | None = None, log=print) -> tuple[VerifiedDossier, dict]:
     pool = pool or LLMPool()
     start = time.monotonic()
@@ -500,12 +503,13 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 300.0,
                     log(f"[{t.id}] fetch budget reached")
             return docs
 
-        def extract_all(docs: list[Doc]) -> None:
+        def extract_all(docs: list[Doc], reserve: float = 45.0) -> None:
+            """Extract until `reserve` seconds remain (round 1 keeps room for the snowball)."""
             n = len(pool)
             with ThreadPoolExecutor(max(4, 3 * n)) as ex:
                 futs = {ex.submit(extract, pool.lane(i % n), t, d): d for i, d in enumerate(docs)}
                 try:
-                    for fut in as_completed(futs, timeout=max(15.0, left() - 45)):
+                    for fut in as_completed(futs, timeout=max(5.0, left() - reserve)):
                         d = futs[fut]
                         src = st["sources"].setdefault(d.url, {"title": d.title, "kind": "page", "lane": d.lane})
                         src.update(proposed=0, verified=0, rejected=0)
@@ -547,7 +551,8 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 300.0,
 
         t2 = time.monotonic()
         docs += run_snowball(t, pool.lane(0), ident, facts, st, run_queries=run_queries, to_docs=to_docs,
-                             extract_all=extract_all, left=left, log=log, max_docs=max(10, max_docs // 2))
+                             extract_all=lambda d: extract_all(d, reserve=_CONSOLIDATE_S + 3), left=left, log=log,
+                             max_docs=max(10, max_docs // 2), reserve_s=_CONSOLIDATE_S)
         st["timings"]["round2_s"] = round(time.monotonic() - t2, 1)
         log(f"[{t.id}] expansion done -> {len(facts)} verified facts ({time.monotonic() - start:.0f}s)")
 
@@ -558,9 +563,31 @@ def research(t: Target, pool: LLMPool | None = None, *, budget_s: float = 300.0,
     merged.sort(key=lambda f: (_SOURCE_RANK.get(f.lane, 5), f.category == "company_news"))
     for i, f in enumerate(merged, 1):
         f.id = f"f{i}"
-    n_conf = mark_conflicts(pool.lane(1), t.name, merged)
-    themes = find_themes(pool.lane(2), t.name, merged)
-    hooks = rank_hooks(pool.lane(3), t, merged, themes)
+    # Conflicts and themes are independent: run them together; hooks need both. Each waits only as long as
+    # the budget allows (at least a few seconds), so a slow model cannot push research past its deadline.
+    t3 = time.monotonic()
+    ex = ThreadPoolExecutor(2)
+    f_conf = ex.submit(mark_conflicts, pool.lane(1), t.name, merged)
+    f_themes = ex.submit(find_themes, pool.lane(2), t.name, merged)
+    try:
+        n_conf = f_conf.result(timeout=max(5.0, left() - 12))
+    except TimeoutError:
+        n_conf = 0
+        log(f"[{t.id}] conflict check over budget; skipped")
+    try:
+        themes = f_themes.result(timeout=max(3.0, left() - 12))
+    except TimeoutError:
+        themes = []
+        log(f"[{t.id}] themes over budget; skipped")
+    ex.shutdown(wait=False, cancel_futures=True)
+    ex = ThreadPoolExecutor(1)
+    try:
+        hooks = ex.submit(rank_hooks, pool.lane(3), t, merged, themes).result(timeout=max(12.0, left()))
+    except TimeoutError:
+        hooks = []
+        log(f"[{t.id}] hook ranking over budget; no hooks")
+    ex.shutdown(wait=False, cancel_futures=True)
+    st["timings"]["consolidate_s"] = round(time.monotonic() - t3, 1)
 
     lanes: dict[str, dict] = {}
     for q in st["search"]:
