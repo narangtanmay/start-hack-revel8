@@ -140,6 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--keep-going", action="store_true", help="Continue after the first incident.")
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
+    rep.add_argument("--public-out", default="", help="Also write a public snapshot (landing pages not rendered) here.")
     args = parser.parse_args(argv)
 
     if args.command == "run":
@@ -149,6 +150,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         path = render_index().resolve()
         print(path)
+        if args.public_out:
+            from pathlib import Path
+
+            print(render_index(Path("runs"), Path(args.public_out), public=True).resolve())
         if args.open:
             import webbrowser
 
