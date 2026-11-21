@@ -14,18 +14,32 @@ cp .env.example .env
 `docker-compose.yml` overrides `LOCAL_LLM_BASE_URL` to `http://ollama:11434/v1`
 inside the network, so you don't set that yourself.
 
-## 2. Build & start the long-running services
+## 2. Pick your LLM
+
+The agent prefers the **hosted LLM** (`LLM_BASE_URL` / `LLM_MODEL` / `LLM_API_KEY`)
+and falls back to a local Ollama only if those are unset.
+
+**Default — the shared 48GB AMD cloud (recommended):** just fill the `LLM_*`
+values in `.env`. 48GB VRAM runs `qwen3:32b`-class models comfortably, so no
+local LLM container is needed. Start only the web dashboard:
 
 ```bash
 docker compose build
-docker compose up -d ollama web
-docker compose exec ollama ollama pull "${LOCAL_LLM_MODEL:-qwen3:32b}"
+docker compose up -d web
 ```
 
-> **Mac note:** Docker on macOS runs Ollama CPU-only, so a 32B model is slow.
-> For real runs either pull a smaller model (e.g. `qwen3:8b`) and set
-> `LOCAL_LLM_MODEL`, point `LOCAL_LLM_BASE_URL` at a host Ollama
-> (`http://host.docker.internal:11434/v1`), or use the hosted `LLM_*` endpoint.
+**Optional — a local Ollama** (e.g. offline, or self-hosting on a GPU box).
+It lives behind a profile so it never starts by default:
+
+```bash
+docker compose --profile local-llm up -d ollama web
+docker compose exec ollama ollama pull "${LOCAL_LLM_MODEL:-qwen3:8b}"
+# leave LLM_* unset so the agent uses LOCAL_LLM_* (-> the ollama service)
+```
+
+> On macOS, in-container Ollama is CPU-only (slow), which is exactly why the
+> AMD cloud is the default. To use a host/remote Ollama instead of the
+> container, set `LOCAL_LLM_BASE_URL` (e.g. `http://host.docker.internal:11434/v1`).
 
 ## 3. Run the agent (one-off commands)
 

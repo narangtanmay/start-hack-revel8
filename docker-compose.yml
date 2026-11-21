@@ -1,22 +1,28 @@
 # Full containerised stack for the Revel8 agent.
 #
-#   cp .env.example .env            # fill in REVEL8_API_KEY, SEARCH_API_KEY, ...
+#   cp .env.example .env            # REVEL8_API_KEY, SEARCH_API_KEY, LLM_* (AMD cloud)
 #   docker compose build
-#   docker compose up -d ollama web
-#   docker compose exec ollama ollama pull "$LOCAL_LLM_MODEL"   # e.g. qwen3:32b (large)
+#   docker compose up -d web        # default: agent uses the hosted 48GB AMD LLM
 #   docker compose run --rm agent osint --scenario practice
 #   docker compose run --rm agent run --target julius --touches 10
 #   open http://localhost:8080      # live dashboard (runs/)
 #
+#   # optional local LLM instead of the AMD cloud:
+#   docker compose --profile local-llm up -d ollama web
+#
 # Services:
-#   ollama  - the local LLM the agent talks to (LOCAL_LLM_BASE_URL -> ollama)
+#   ollama  - optional local LLM (profile: local-llm); default is the hosted AMD cloud
 #   agent   - the Python agent; run CLI commands with `docker compose run --rm agent <cmd>`
 #   web     - nginx serving the runs/ dashboard at :8080
 name: revel8
 
 services:
+  # Optional local LLM. The team's default is the hosted 48GB AMD cloud
+  # (LLM_* in .env), which the agent prefers, so this service is opt-in:
+  #   docker compose --profile local-llm up -d ollama
   ollama:
     image: ollama/ollama:0.5.7
+    profiles: ["local-llm"]
     volumes:
       - ollama_models:/root/.ollama
     ports:
@@ -38,11 +44,9 @@ services:
       - path: .env
         required: false
     environment:
-      # Inside the network the local LLM is the ollama service, not localhost.
+      # Only used if you run the local-llm profile AND leave LLM_* unset;
+      # with LLM_* in .env the agent uses the hosted AMD cloud and ignores this.
       LOCAL_LLM_BASE_URL: http://ollama:11434/v1
-    depends_on:
-      ollama:
-        condition: service_healthy
     volumes:
       - ./runs:/app/runs          # run state + rendered dashboard (shared with web)
       - ./dossiers:/app/dossiers  # cached OSINT dossiers
