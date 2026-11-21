@@ -141,7 +141,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     rep.add_argument("--public-out", default="", help="Also write a public snapshot (landing pages not rendered) here.")
+    sub.add_parser("rejudge", help="Re-check LLM-judged incidents in runs/ with the current judge (withdraws, never deletes).")
     args = parser.parse_args(argv)
+
+    if args.command == "rejudge":
+        from pathlib import Path
+
+        from .engine import rejudge_run
+        from .llm_client import LocalLLMClient
+
+        llm = LocalLLMClient(timeout=120.0)
+        total = sum(rejudge_run(f, llm) for f in sorted(Path("runs").glob("*.json")))
+        print(f"withdrawn: {total}")
+        return 0
 
     if args.command == "run":
         return _run(args.target, args.scenario, args.touches, args.label, args.allow_eval, args.keep_going)

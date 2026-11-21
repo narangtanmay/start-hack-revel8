@@ -117,6 +117,36 @@ border-radius:12px;padding:10px 14px;font-size:13px;font-weight:550}
 iframe{width:100%;border:0;display:block;background:#fff}
 .frame{border-top:1px solid var(--border)}
 .empty-state{padding:48px;text-align:center;color:var(--muted)}
+.tabs{display:flex;gap:4px;margin-left:18px}.tabs a{padding:6px 10px;border-radius:8px;color:var(--text-2);font-size:13px}
+.tabs a:hover{background:var(--surface-2);text-decoration:none}.tabs a.on{background:var(--surface-2);color:var(--text);font-weight:600}
+.steps{margin:0;padding-left:20px;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+.hook{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.hook-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.muted-p{color:var(--text-2);font-size:13px;margin:6px 0}
+.evidence,.facts-list,.rejected,.hits{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-direction:column;gap:10px;font-size:13px}
+.facts-list li{display:flex;gap:10px}
+blockquote{margin:6px 0 4px;padding:6px 10px;border-left:3px solid var(--s1);background:var(--surface-2);border-radius:0 8px 8px 0;
+font-size:12.5px;color:var(--text-2)}
+.q{border-top:1px solid var(--border);padding:10px 0}.q:first-of-type{border-top:0}.snip{font-size:12.5px;color:var(--text-2);margin-top:2px}
+.hits a{font-weight:550}
+.pipeline{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.loop{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+@media(max-width:1100px){.pipeline{grid-template-columns:1fr 1fr}.loop{grid-template-columns:1fr 1fr}}
+.stage,.loop-step{position:relative;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:13px;display:flex;gap:10px}
+.loop-step{flex-direction:column;gap:4px}.stage p,.loop-step p{margin:4px 0;color:var(--text-2)}
+.stage-n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent-bg);color:var(--s1);display:grid;place-items:center;
+font-weight:700;font-size:12px}
+.det{margin:10px 0 0 28px;font-size:12.5px}.det summary{font-size:12.5px}
+.det table td,.det table th{padding:6px 8px;font-size:12.5px}
+.attempt{border-left:3px solid var(--crit);padding:4px 10px;margin:6px 0;background:var(--crit-bg);border-radius:0 8px 8px 0;color:var(--text)}
+.attempt.ok{border-left-color:var(--good);background:var(--good-bg)}
+.timing{display:inline-flex;gap:10px;margin-left:auto}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);cursor:pointer}
+#why-toggle:not(:checked) ~ .tl .why,#why-toggle:not(:checked) ~ .tl .det{display:none}
+.activity{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;max-height:520px;
+overflow:auto;background:var(--surface-2);border-radius:10px;padding:12px}
+.activity .t{color:var(--muted)}
+.wf{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.wf li{display:flex;gap:10px;align-items:flex-start}.wf .stage-n{width:20px;height:20px;font-size:11px}
+.struck{text-decoration:line-through;opacity:.6}
 .runid{white-space:nowrap}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
 """
 
@@ -127,13 +157,18 @@ def _e(x: object) -> str:
     return escape("" if x is None else str(x))
 
 
-def _page(title: str, crumbs: str, body: str, live: bool) -> str:
+_TARGETS: list[str] = []  # research pages that exist, for the nav
+
+
+def _page(title: str, crumbs: str, body: str, live: bool, active: str = "") -> str:
     refresh = '<meta http-equiv="refresh" content="4">' if live else ""
     live_html = '<span class="live"><span class="dot"></span>Live · auto-refresh</span>' if live else ""
+    tabs = [("index.html", "Overview"), ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
+    nav = "".join(f"<a href='{h}'{' class=on' if h == active else ''}>{_e(lbl)}</a>" for h, lbl in tabs)
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"{refresh}<title>{_e(title)}</title><style>{_CSS}</style></head><body>"
             f"<div class='nav'><div class='nav-in'><div class='logo'>r8</div><a class='brand' href='index.html'>revel8 agent</a>"
-            f"{crumbs}<div class='spacer'></div>{live_html}</div></div><div class='page'>{body}</div></body></html>")
+            f"<nav class='tabs'>{nav}</nav>{crumbs}<div class='spacer'></div>{live_html}</div></div><div class='page'>{body}</div></body></html>")
 
 
 def _badge(status: str) -> str:
@@ -253,12 +288,80 @@ def _is_html(body: str) -> bool:
 
 
 _REDACT = False  # public snapshots: landing pages listed (URL + fields), never rendered
+_FACTS: dict[str, dict[str, dict]] = {}  # target id -> fact id -> fact (from dossiers/), for cited-fact lookups
 
 
-def _touch(step: dict, incidents: list[dict]) -> str:
+def _secs(x: object) -> str:
+    return f"{x:g} s" if isinstance(x, (int, float)) else "—"
+
+
+def _details(step: dict, a: dict, target_id: str, hooks: dict) -> str:
+    """Everything behind one touch: full decision, cited evidence, gate attempts, judge, timings, API ids."""
+    facts = _FACTS.get(target_id, {})
+    rows = [("Decision", f"<span class='badge'>{_e(a.get('decision'))}</span> {_e(a.get('kind'))} via {_e(a.get('channel'))}"),
+            ("Objective", _e(a.get("objective"))),
+            ("Hook", f"<b>{_e(a.get('hook_id'))}</b> {_e((hooks.get(a.get('hook_id')) or {}).get('topic'))}")]
+    if a.get("discarded"):
+        rows.append(("Discarded", "<br>".join(_e(x) for x in a["discarded"])))
+    if a.get("call_goal"):
+        rows.append(("Call goal", _e(a["call_goal"])))
+    if a.get("link"):
+        lk = a["link"] if isinstance(a["link"], dict) else {"url": a["link"]}
+        rows.append(("Link", f"<span class='mono'>{_e(lk.get('url'))}</span> · page type {_e(lk.get('page_type'))}"))
+    if a.get("attachment_filename"):
+        rows.append(("Attachment", _e(a["attachment_filename"])))
+    if a.get("format"):
+        rows.append(("Email format", _e(a["format"])))
+    cited = []
+    for fid in a.get("cited_fact_ids") or []:
+        f = facts.get(fid)
+        if f:
+            cited.append(f"<div><b>[{_e(fid)}]</b> {_e(f['fact'])}<blockquote>“{_e(f['verbatim_quote'])}”</blockquote>"
+                         f"<a class='mono' href='{_e(f['source_url'])}' target='_blank' rel='noopener noreferrer'>{_e(f['source_url'])}</a></div>")
+        else:
+            cited.append(f"<div class='mono'>[{_e(fid)}] (not in the current dossier)</div>")
+    rows.append(("Facts used", "".join(cited) or "<span class='mono'>none cited</span>"))
+    att = step.get("attempts") or []
+    if att:
+        items = []
+        for x in att:
+            ok = not x.get("errors")
+            items.append(f"<div class='attempt {'ok' if ok else ''}'><b>Draft {x.get('try')}</b> · {_e(x.get('decision'))} "
+                         f"{_e(x.get('kind'))} via {_e(x.get('channel'))}"
+                         + (" — <b>passed the gate</b>" if ok else "<br>Rejected: " + _e("; ".join(x.get("errors") or [])))
+                         + "</div>")
+        rows.append(("Gate", "".join(items)))
+    else:
+        rows.append(("Gate", "<span class='mono'>passed (draft attempts were not recorded for runs before this dashboard)</span>"))
+    j = step.get("judge") or {}
+    if j:
+        flags = []
+        if "disclosure" in j:
+            flags.append(f"disclosure: <b>{'yes' if j.get('disclosure') else 'no'}</b>")
+        if "action" in j:
+            flags.append(f"action: <b>{'yes' if j.get('action') else 'no'}</b>")
+        ev = j.get("evidence")
+        ev_html = (f"<blockquote>“{_e(ev)}”</blockquote><span class='mono'>evidence "
+                   f"{'verified verbatim in their words' if j.get('evidence_verified') else 'NOT found verbatim, so ignored'}</span>"
+                   if ev else "")
+        rows.append(("Judge", f"read as <b>{_e(j.get('sentiment'))}</b>. {' · '.join(flags)}<br>{_e(j.get('reason'))}{ev_html}"))
+    tm = step.get("timing") or {}
+    if tm:
+        rows.append(("Timing", f"decide {_secs(tm.get('decide_s'))} · send + target's reaction {_secs(tm.get('send_s'))} · "
+                               f"judge {_secs(tm.get('judge_s'))}"))
+    ids = " · ".join(x for x in (f"message {step.get('message_id')}" if step.get("message_id") else "",
+                                 f"conversation {step.get('conversation_id')}" if step.get("conversation_id") else "",
+                                 f"sent {str(step.get('at', ''))[11:19]} UTC") if x)
+    rows.append(("API", f"<span class='mono'>{_e(ids)}</span>"))
+    table = "".join(f"<tr><th style='width:120px;vertical-align:top'>{k}</th><td>{v}</td></tr>" for k, v in rows)
+    return f"<details class='det'><summary>Full decision record · touch {_e(step.get('touch'))}</summary><table>{table}</table></details>"
+
+
+def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict | None = None) -> str:
     a = step.get("action") or {}
     n = step.get("touch")
-    hit = [i for i in incidents if i["touch"] == n]
+    hit = [i for i in incidents if i["touch"] == n and not i.get("superseded")]
+    old = [i for i in incidents if i["touch"] == n and i.get("superseded")]
     evs = step.get("events") or []
     replied = any(e.get("type") == "reply" for e in evs)
     cls = "hit" if hit else ("replied" if replied else "")
@@ -268,8 +371,11 @@ def _touch(step: dict, incidents: list[dict]) -> str:
         out.append(f"<div class='thead'><span class='badge'>STOP</span></div><div class='why'>{_e(a.get('rationale'))}</div></div>")
         return "".join(out)
     icon = "📞" if a.get("kind") == "call" else ("✉️" if a.get("channel") == "email" else "💬")
+    tm = step.get("timing") or {}
+    total = sum(v for v in tm.values() if isinstance(v, (int, float)))
+    tm_html = f"<span class='timing mono'>{_secs(round(total, 1))}</span>" if tm else ""
     out.append(f"<div class='thead'><span class='chan'>{icon} {_e(a.get('channel'))}</span><span class='badge'>{_e(a.get('decision'))}</span>"
-               f"<span class='badge'>{_e(a.get('objective'))}</span><span class='mono'>hook {_e(a.get('hook_id'))}</span></div>")
+               f"<span class='badge'>{_e(a.get('objective'))}</span><span class='mono'>hook {_e(a.get('hook_id'))}</span>{tm_html}</div>")
     out.append(f"<div class='why'><b>Read:</b> {_e(a.get('assessment'))}<br><b>Move:</b> {_e(a.get('rationale'))}</div>")
     if a.get("kind") == "call" and step.get("transcript") is not None:
         lines = "".join(f"<div class='line {'agent' if t['who'] == 'agent' else 'target'}'><div class='who'>"
@@ -292,8 +398,8 @@ def _touch(step: dict, incidents: list[dict]) -> str:
             page_html = (f"<details style='padding:10px 14px;border-top:1px solid var(--border)'><summary>Landing page "
                          f"<span class='mono'>{_e(page.get('url'))}</span></summary>")
             if _REDACT:
-                page_html += (f"<div class='mono' style='margin-top:8px'>fields: {_e(', '.join(page.get('fields') or []))} · "
-                              "not rendered in the public snapshot</div>")
+                page_html += (f"<div class='mono' style='margin-top:8px'>title: {_e(page.get('title'))} · fields: "
+                              f"{_e(', '.join(page.get('fields') or []))} · not rendered in the public snapshot</div>")
             elif page.get("html"):
                 page_html += f"<div class='frame' style='margin-top:10px'><iframe sandbox='' style='height:520px' srcdoc='{_e(page['html'])}'></iframe></div>"
             page_html += "</details>"
@@ -305,7 +411,7 @@ def _touch(step: dict, incidents: list[dict]) -> str:
         else:
             out.append(f"<span class='evt'>{_e(e.get('type'))} {_e(e.get('url') or e.get('filename') or e.get('fields') or '')}</span>")
     if not evs and not step.get("transcript") and not step.get("error"):
-        out.append("<div class='silent'>No reaction</div>")
+        out.append("<div class='silent'>No reaction (the target ignored it)</div>")
     if step.get("error"):
         out.append(f"<div class='err'>API error: {_e(step['error'])}</div>")
     j = step.get("judge")
@@ -314,8 +420,64 @@ def _touch(step: dict, incidents: list[dict]) -> str:
     for i in hit:
         out.append(f"<div class='incident'>✓ Incident · {_e(i['type'])}<span style='font-weight:400'>{_e(i['detail'])} "
                    f"({_e(i['source'])})</span></div>")
+    for i in old:
+        out.append(f"<div class='err' style='background:var(--surface-2);color:var(--text-2)'><span class='struck'>Incident · {_e(i['type'])}: "
+                   f"{_e(i['detail'])}</span><br>Withdrawn: {_e(i.get('superseded_reason', 're-judged with the stricter judge'))}</div>")
+    out.append(_details(step, a, target_id, hooks or {}))
     out.append("</div>")
     return "".join(out)
+
+
+def _workflow_card(state: dict) -> str:
+    """What happened in this run, in order, before and during the touches."""
+    t = state.get("target", {})
+    brief = state.get("brief") or {}
+    items = [f"<li><span class='stage-n'>1</span><div><b>Research loaded</b> — verified dossier for {_e(t.get('name'))} "
+             f"(<a href='research-{_e(t.get('id'))}.html'>see how it was built</a>); a brief of "
+             f"{len(brief.get('facts', []))} facts and {len(brief.get('hooks', []))} hooks goes to the planner.</div></li>"]
+    for x in state.get("plan_attempts") or []:
+        if x.get("rejected"):
+            items.append(f"<li><span class='stage-n'>2</span><div><b>Plan rejected</b> — persona domain "
+                         f"<span class='mono'>{_e(x.get('domain'))}</span>: {_e(x.get('rejected'))}</div></li>")
+    plan = state.get("plan") or {}
+    p = plan.get("persona") or {}
+    if plan:
+        items.append(f"<li><span class='stage-n'>2</span><div><b>Campaign planned</b> — hook {_e(plan.get('hook_id'))}, objective "
+                     f"{_e(plan.get('objective'))}, persona {_e(p.get('name'))} ({_e(p.get('organisation'))}, "
+                     f"<span class='mono'>{_e(p.get('website_domain'))}</span>, checked: not registered in DNS)</div></li>")
+    if state.get("session_id"):
+        items.append(f"<li><span class='stage-n'>3</span><div><b>Session opened</b> <span class='mono'>{_e(state['session_id'])}</span> — "
+                     f"the target remembers every contact in it</div></li>")
+    steps = [s for s in state.get("steps", []) if (s.get("action") or {}).get("decision") != "STOP"]
+    if steps:
+        replies = sum(1 for s in steps if any(e.get("type") == "reply" for e in s.get("events") or []))
+        recorded = any(s.get("attempts") for s in steps)
+        rejected = sum(1 for s in steps for x in s.get("attempts") or [] if x.get("errors"))
+        calls = sum(1 for s in steps if (s.get("action") or {}).get("kind") == "call")
+        gate = (f"{rejected} drafts rejected by the gate and rewritten" if recorded
+                else "gate rejections not recorded for this older run")
+        items.append(f"<li><span class='stage-n'>4</span><div><b>{len(steps)} touches</b> — {replies} replies, {calls} calls, "
+                     f"{gate}</div></li>")
+    live_inc = [i for i in state.get("incidents", []) if not i.get("superseded")]
+    if live_inc:
+        end = f"incident at touch {live_inc[0]['touch']} ({_e(live_inc[0]['type'])})"
+    elif state.get("error"):
+        end = "stopped by an error: " + _e(state.get("error"))
+    else:
+        end = "no incident; the touch budget was used or the agent stopped on its last touch"
+    if state.get("status") in ("done", "error"):
+        items.append(f"<li><span class='stage-n'>5</span><div><b>Run ended</b> — {end}</div></li>")
+    return f"<div class='card'><h2>Workflow of this run</h2><ul class='wf'>{''.join(items)}</ul></div>"
+
+
+def _activity_card(state: dict) -> str:
+    act = state.get("activity") or []
+    if not act:
+        return ""
+    lines = "\n".join(f"<span class='t'>{_e(str(x.get('at', ''))[11:19])}</span>  {_e(x.get('line'))}" for x in act)
+    return (f"<div class='card' style='margin-top:20px'><details><summary><b>Full agent log</b> "
+            f"<span class='mono'>· {len(act)} lines, exactly as printed while it ran</span></summary>"
+            f"<div class='activity' style='margin-top:12px'>{lines}</div></details></div>")
 
 
 def render_run(path: Path, out_dir: Path | None = None) -> Path:
@@ -327,11 +489,17 @@ def render_run(path: Path, out_dir: Path | None = None) -> Path:
             f"<p class='sub'>{_e(t.get('role'))} · scenario {_e(cfg.get('scenario_id'))} · session "
             f"<span class='mono'>{_e(state.get('session_id'))}</span> · started {_e(str(state.get('started_at', ''))[:16].replace('T', ' '))}</p>")
     error = f"<div class='card' style='border-color:var(--crit);margin-bottom:16px'><h2>Run error</h2>{_e(state['error'])}</div>" if state.get("error") else ""
-    steps = "".join(_touch(s, state.get("incidents", [])) for s in state.get("steps", []))
-    thread = (f"<div class='card'><div style='display:flex;align-items:center;gap:14px;margin-bottom:18px'><h2 style='margin:0'>Thread</h2>"
+    hooks = {h["id"]: h for h in (state.get("brief") or {}).get("hooks", [])}
+    steps = "".join(_touch(s, state.get("incidents", []), t.get("id", ""), hooks) for s in state.get("steps", []))
+    thread = (f"<div class='card'><div style='display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap'><h2 style='margin:0'>Thread</h2>"
               f"<div class='spacer' style='flex:1'></div>{_strip(state, int(cfg.get('max_touches') or 10))}</div>"
-              f"<div class='tl'>{steps or '<div class=empty-state>Planning the campaign…</div>'}</div>{_LEGEND}</div>")
-    body = head + error + _run_tiles(state) + f"<div class='grid side'><div class='grid'>{_plan_card(state)}{_research_card(state)}</div>{thread}</div>"
+              "<input type='checkbox' id='why-toggle' checked hidden><label class='toggle' for='why-toggle'>"
+              "<span class='badge'>⇄</span> Click to switch between the full record (agent reasoning + decision records) "
+              "and the conversation only</label>"
+              f"<div class='tl' style='margin-top:16px'>{steps or '<div class=empty-state>Planning the campaign…</div>'}</div>{_LEGEND}</div>")
+    body = (head + error + _run_tiles(state)
+            + f"<div class='grid side'><div class='grid'>{_workflow_card(state)}{_plan_card(state)}{_research_card(state)}</div>{thread}</div>"
+            + _activity_card(state))
     out = (out_dir or path.parent) / path.with_suffix(".html").name
     crumbs = f"<span class='crumb'>/</span><span class='crumb'>{_e(state.get('run_id'))}</span>"
     out.write_text(_page(f"{t.get('name')} · revel8 agent", crumbs, body, live), encoding="utf-8")
@@ -371,8 +539,11 @@ def _reply_bars(runs: list[dict]) -> str:
     return f"<div class='bars'>{''.join(rows)}</div><div class='axis'></div>"
 
 
-def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, public: bool = False) -> Path:
-    """Render the dashboard into runs_dir (default) or out_dir; public=True redacts landing pages."""
+def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, public: bool = False,
+                 dossiers_dir: Path = Path("dossiers")) -> Path:
+    """Render the whole dashboard into runs_dir (default) or out_dir; public=True redacts landing pages."""
+    from .report_pages import load_research, render_how, render_research
+
     global _REDACT
     _REDACT = public
     runs_dir.mkdir(parents=True, exist_ok=True)
@@ -380,6 +551,22 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     out_dir.mkdir(parents=True, exist_ok=True)
     loaded = _load(runs_dir)
     states = [st for _, st in loaded]
+
+    _TARGETS.clear()
+    _FACTS.clear()
+    researched = []
+    for dpath in sorted(dossiers_dir.glob("*.json")):
+        if dpath.name.endswith(".stats.json"):
+            continue
+        research = load_research(dpath.stem, dossiers_dir)
+        if research:
+            _TARGETS.append(dpath.stem)
+            _FACTS[dpath.stem] = {f["id"]: f for f in research["dossier"].get("facts", [])}
+            researched.append((dpath.stem, research))
+    for tid, research in researched:
+        render_research(tid, out_dir, lambda *a, _t=tid: _page(*a, active=f"research-{_t}.html"), research)
+    render_how(out_dir, lambda *a: _page(*a, active="how.html"), states, _TARGETS)
+
     for f, _ in loaded:
         render_run(f, out_dir)
     scores = [estimate_score(st) for st in states]
@@ -390,11 +577,13 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     touches = sum(st.get("touches_used", 0) for st in states)
     replies = sum(1 for st in states for s in st.get("steps", []) for e in s.get("events") or [] if e.get("type") == "reply")
     live = any(st.get("status") in ("starting", "running") for st in states)
+    withdrawn = sum(1 for st in states for i in st.get("incidents", []) if i.get("superseded"))
 
     tiles = ("<div class='grid k4' style='margin-bottom:20px'>"
              + _tile("Runs", str(n), f"{sum(st.get('status') == 'done' for st in states)} finished")
              + _tile("Runs with an incident", f"{hits}<small> / {n}</small>",
-                     f"{(100 * hits / n if n else 0):.0f}% · est. {(20 * hits / n if n else 0):.1f} of 20 incident pts")
+                     f"{(100 * hits / n if n else 0):.0f}% · est. {(20 * hits / n if n else 0):.1f} of 20 incident pts"
+                     + (f" · {withdrawn} withdrawn" if withdrawn else ""))
              + _tile("Median touches to incident", _e(median if median is not None else "—"), "fewer is better (speed, 5 pts)")
              + _tile("Replies", str(replies), f"across {touches} touches")
              + "</div>")
@@ -402,15 +591,19 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     rows = []
     for (f, st), sc in zip(loaded, scores):
         plan = st.get("plan") or {}
-        inc = (f"<span class='badge b-good'>✓ {_e(', '.join(sc['incident_types']))} @{sc['first_incident_touch']}</span>"
-               if sc["incident"] else "<span class='mono'>—</span>")
+        if sc["incident"]:
+            inc = f"<span class='badge b-good'>✓ {_e(', '.join(sc['incident_types']))} @{sc['first_incident_touch']}</span>"
+        elif any(i.get("superseded") for i in st.get("incidents", [])):
+            inc = "<span class='badge'>withdrawn</span>"
+        else:
+            inc = "<span class='mono'>—</span>"
         rows.append(f"<tr><td><a href='{_e(f.with_suffix('.html').name)}'><b>{_e(st.get('target', {}).get('name'))}</b></a>"
                     f"<div class='mono runid'>{_e(st.get('run_id'))}</div></td>"
                     f"<td>{_badge(st.get('status', ''))}</td>"
                     f"<td>{_e((plan.get('persona') or {}).get('organisation'))}<div class='mono'>{_e(plan.get('objective'))}</div></td>"
                     f"<td>{_strip(st, int(st.get('config', {}).get('max_touches') or 10))}</td>"
                     f"<td>{inc}</td><td class='num'><b>{sc['results_points']:g}</b><span class='mono'> / 25</span></td></tr>")
-    table = ("<div class='card'><h2>Runs</h2>" + ("<table><thead><tr><th>Target</th><th>Status</th><th>Persona · objective</th>"
+    table = ("<div class='card'><h2>Runs · open one to replay every touch</h2>" + ("<table><thead><tr><th>Target</th><th>Status</th><th>Persona · objective</th>"
              "<th>Touches</th><th>Incident</th><th class='num'>Est. results</th></tr></thead><tbody>" + "".join(rows)
              + "</tbody></table>" + _LEGEND if rows else "<div class='empty-state'>No runs yet. Start one with "
              "<span class='mono'>python -m revel8_agent.cli run --target julius</span></div>") + "</div>")
@@ -420,10 +613,12 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     about = ("<div class='card'><h2>How the score is estimated</h2><p style='font-size:13px;color:var(--text-2);margin:0'>"
              "Measured locally: an incident is a submitted landing page, an opened attachment, or a disclosure/action judged "
              "from the target's own words (marked “judged”). Results = 20 if the run reached an incident + up to 5 for speed "
-             "(vs. a team needing 2 contacts). Targeting, craft and the jury's 55 points are not visible here.</p></div>")
-    body = ("<h1>Overview</h1><p class='sub'>Practice runs against the revel8 targets. Open a run to replay its thread.</p>"
+             "(vs. a team needing 2 contacts). Targeting, craft and the jury's 55 points are not visible here. "
+             "<a href='how.html'>How the agent works →</a></p></div>")
+    body = ("<h1>Overview</h1><p class='sub'>Practice runs against the revel8 targets. Start with "
+            "<a href='how.html'><b>How it works</b></a>, look at the research per target, then open any run to replay every touch.</p>"
             + tiles + f"<div class='grid split' style='margin-bottom:20px'>{chart}{about}</div>" + table)
     out = out_dir / "index.html"
-    out.write_text(_page("revel8 agent · overview", "", body, live and not public), encoding="utf-8")
+    out.write_text(_page("revel8 agent · overview", "", body, live and not public, active="index.html"), encoding="utf-8")
     _REDACT = False
     return out

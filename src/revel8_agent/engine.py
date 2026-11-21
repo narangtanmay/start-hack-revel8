@@ -79,6 +79,8 @@ class RunState:
     incidents: list[dict] = field(default_factory=list)
     touches_used: int = 0
     llm_calls: int = 0
+    activity: list[dict] = field(default_factory=list)   # every log line, timestamped
+    plan_attempts: list[dict] = field(default_factory=list)
     error: str = ""
     finished_at: str = ""
 
@@ -408,7 +410,7 @@ def _minimal_pdf(title: str) -> bytes:
 class Runner:
     def __init__(self, cfg: RunConfig, api: Revel8Client, llm: LocalLLMClient, dossier: VerifiedDossier,
                  log=print) -> None:
-        self.cfg, self.api, self.llm, self.dossier, self.log = cfg, api, llm, dossier, log
+        self.cfg, self.api, self.llm, self.dossier, self._print = cfg, api, llm, dossier, log
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{cfg.target_id}" + (f"-{cfg.label}" if cfg.label else "")
         self.state = RunState(
             run_id=run_id,
@@ -421,6 +423,11 @@ class Runner:
         self.fact_ids = {f.id for f in dossier.facts}
         self.brand = None
         self.logo_asset: str | None = None
+
+    def log(self, line: str) -> None:
+        """Print and keep every line in the run file, so the dashboard can replay the whole run."""
+        self.state.activity.append({"at": _now(), "line": line})
+        self._print(line)
 
     # ---- persistence
     def save(self) -> Path:
@@ -440,6 +447,9 @@ class Runner:
             persona = plan.get("persona") or {}
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
+            self.state.plan_attempts.append({"attempt": attempt + 1, "domain": domain,
+                                             "persona": persona.get("name"), "organisation": persona.get("organisation"),
+                                             "hook_id": plan.get("hook_id"), "rejected": problem or None})
             if not problem:
                 break
             self.log(f"plan: persona domain {domain!r} rejected ({problem}); replanning")
@@ -749,18 +759,27 @@ class Runner:
             failures = 0
             while st.touches_used < self.cfg.max_touches:
                 touch = st.touches_used + 1
-                step: dict[str, Any] = {"touch": touch, "at": _now()}
+                step: dict[str, Any] = {"touch": touch, "at": _now(), "attempts": [], "timing": {}}
                 feedback = ""
-                for _ in range(3):
+                t0 = time.monotonic()
+                for n_try in range(3):
                     a = self.decide(touch, feedback)
+                    attempt = {"try": n_try + 1, "decision": a.get("decision"), "kind": a.get("kind"),
+                               "channel": a.get("channel"), "subject": a.get("subject"),
+                               "feedback_given": feedback or None, "errors": []}
+                    step["attempts"].append(attempt)
                     if a.get("decision") == "STOP":
                         if self.cfg.max_touches - st.touches_used > 1:
                             feedback = ("STOP is not allowed while touches remain. Choose PIVOT_HOOK or PIVOT_CHANNEL "
                                         "with a different angle from the brief.")
+                            attempt["errors"] = [feedback]
+                            self.log(f"touch {touch}: STOP refused ({self.cfg.max_touches - st.touches_used} touches left)")
                             continue
                         break
                     plan, payload, page = self.build(a)
                     errors = self.check(a, plan)
+                    attempt["errors"] = errors
+                    attempt["paragraphs"] = a.get("paragraphs")
                     if not errors:
                         break
                     feedback = "; ".join(errors)
@@ -768,6 +787,7 @@ class Runner:
                 else:
                     if a.get("decision") != "STOP":
                         raise RuntimeError(f"Could not produce a valid draft: {feedback}")
+                step["timing"]["decide_s"] = round(time.monotonic() - t0, 1)
                 step["action"] = a
                 if a.get("decision") == "STOP":
                     self.log(f"touch {touch}: agent decided to STOP: {a.get('rationale')}")
@@ -776,6 +796,8 @@ class Runner:
                 self.log(f"touch {touch}: {a.get('decision')} -> {a.get('kind')} via {a.get('channel')} "
                          f"as {a['sender']['name']} | {a.get('subject') or a.get('call_goal') or ''}")
                 st.steps.append(step)
+                self.save()
+                t1 = time.monotonic()
                 try:
                     if a.get("kind") == "call" and a["channel"] in LIVE_CHANNELS:
                         self.execute_call(step, a)
@@ -791,11 +813,14 @@ class Runner:
                     if failures >= 3:
                         raise
                     continue
+                step["timing"]["send_s"] = round(time.monotonic() - t1, 1)
                 for e in step.get("events", []):
                     self.log(f"   event: {e.get('type')} {(e.get('body') or e.get('url') or e.get('filename') or '')[:120]}")
                 if not step.get("events") and not step.get("transcript"):
                     self.log("   (ignored)")
+                t2 = time.monotonic()
                 self.judge(step)
+                step["timing"]["judge_s"] = round(time.monotonic() - t2, 1)
                 self.save()
                 if st.incidents and self.cfg.stop_at_first_incident:
                     break
@@ -810,19 +835,58 @@ class Runner:
         return st
 
 
+# --------------------------------------------------------------------------- re-judging
+
+
+def rejudge_run(path: Path, llm: LocalLLMClient, log=print) -> int:
+    """Re-check LLM-judged incidents of a saved run with the current judge; withdraw (never delete) the ones that fail.
+
+    Returns the number of incidents withdrawn.
+    """
+    state = json.loads(path.read_text(encoding="utf-8"))
+    steps = {s.get("touch"): s for s in state.get("steps", [])}
+    withdrawn = 0
+    for inc in state.get("incidents", []):
+        if inc.get("superseded") or not str(inc.get("source", "")).startswith("llm-judge"):
+            continue
+        step = steps.get(inc["touch"]) or {}
+        said = [e.get("body", "") for e in step.get("events") or [] if e.get("type") == "reply"]
+        said += [t["text"] for t in step.get("transcript") or [] if t.get("who") == "target"]
+        context = (f"CONTACT: {json.dumps({k: (step.get('action') or {}).get(k) for k in ('channel', 'subject', 'paragraphs', 'call_goal')}, ensure_ascii=False)}\n"
+                   "TARGET SAID:\n" + "\n---\n".join(s for s in said if s))
+        msgs: list[ChatMessage] = [{"role": "system", "content": _JUDGE_SYS}, {"role": "user", "content": context}]
+        try:
+            verdict = llm.chat(msgs, json_mode=True, temperature=0.0)
+        except LocalLLMError as error:
+            log(f"{path.name}: could not re-judge touch {inc['touch']} ({error})")
+            continue
+        verdict = verdict if isinstance(verdict, dict) else {}
+        evidence = str(verdict.get("evidence") or "")
+        ok = bool(evidence) and any(normalize(evidence) in normalize(s) for s in said) and bool(verdict.get(inc["type"]))
+        if not ok:
+            inc["superseded"] = True
+            inc["superseded_reason"] = ("re-judged with the stricter judge: " + str(verdict.get("reason") or "not an incident"))[:400]
+            withdrawn += 1
+            log(f"{path.name}: withdrew {inc['type']} at touch {inc['touch']}")
+    if withdrawn:
+        path.write_text(json.dumps(state, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    return withdrawn
+
+
 # --------------------------------------------------------------------------- scoring
 
 
 def estimate_score(state: dict, best_contacts: float = 2.0) -> dict:
     """Rubric-shaped estimate for ONE run (the real score uses the median of 3 eval runs and all teams)."""
-    first = min((i["touch"] for i in state.get("incidents", [])), default=None)
-    api_confirmed = any(i["source"] == "api event" for i in state.get("incidents", []))
+    live = [i for i in state.get("incidents", []) if not i.get("superseded")]
+    first = min((i["touch"] for i in live), default=None)
+    api_confirmed = any(i["source"] == "api event" for i in live)
     incidents_pts = 20.0 if first else 0.0
     speed_pts = 5.0 * min(1.0, best_contacts / first) if first else 0.0
     return {
         "incident": bool(first),
         "first_incident_touch": first,
-        "incident_types": sorted({i["type"] for i in state.get("incidents", [])}),
+        "incident_types": sorted({i["type"] for i in live}),
         "confirmed_by_api_event": api_confirmed,
         "results_points": round(incidents_pts + speed_pts, 1),
         "results_max": 25,
