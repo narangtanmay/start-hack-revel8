@@ -58,8 +58,8 @@ def _shell(brand: Brand, lang: Lang, title: str, logo_asset: str, inner: str) ->
         f'<tr><td style="padding:16px 32px 8px;">{inner}</td></tr>'
         '<tr><td style="padding:16px 32px 24px;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;'
         'color:#6b7280;">'
-        f'{escape(t["automated"])}<br>{escape(brand.postal_address)}<br>{escape(brand.register_line)}'
-        "</td></tr></table></td></tr></table></body></html>"
+        + "<br>".join(escape(x) for x in (t["automated"], brand.postal_address, brand.register_line) if x)
+        + "</td></tr></table></td></tr></table></body></html>"
     )
 
 

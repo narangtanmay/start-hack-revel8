@@ -117,3 +117,47 @@ def test_gate_rejects_template_on_real_domain(dossier):
 def test_unknown_brand():
     with pytest.raises(ValueError):
         get_brand("nope")
+
+
+def test_lookalike_brand_derives_registrable_domain():
+    from revel8_agent.templates import lookalike_brand
+
+    brand = lookalike_brand("STACKIT Marketplace", real_domains=["stackit.cloud"], color="#0A6E6E")
+    assert brand.domain == "stackit-marketplace-portal.de"
+    assert brand.sender_address == "no-reply@stackit-marketplace-portal.de"
+    assert brand.postal_address == "" and brand.color_dark.startswith("#")
+
+
+@pytest.mark.parametrize("domain", ["stackit.cloud", "login.stackit.cloud", "STACKIT.cloud."])
+def test_lookalike_brand_refuses_real_domain(domain):
+    from revel8_agent.templates import lookalike_brand
+
+    with pytest.raises(ValueError):
+        lookalike_brand("STACKIT", real_domains=["stackit.cloud"], color="#0A6E6E", domain=domain)
+
+
+def test_lookalike_brand_without_address_has_clean_footer(dossier):
+    from revel8_agent.templates import lookalike_brand
+
+    brand = lookalike_brand("Peak Partners", real_domains=["peak.capital"], color="#1D4ED8")
+    body = vendor_notice(
+        brand, logo_asset="a_1", recipient_name="Robert", headline="Update", paragraphs=["Text."],
+        cta_label="Open", cta_url=f"https://{brand.domain}/x",
+    )
+    assert "<br><br>" not in body and "<br></td>" not in body
+    page = signin_page(brand, url=f"https://{brand.domain}/auth", logo_asset="a_1")
+    assert "<br><br>" not in page.html
+
+
+def test_org_domains_from_dossier():
+    from revel8_agent.schemas import VerifiedDossier, VerifiedFact
+    from revel8_agent.templates import org_domains_from_dossier
+
+    def fact(url):
+        return VerifiedFact(id=url, fact="f", category="c", source_url=url, verbatim_quote="q", recency="r")
+
+    d = VerifiedDossier(
+        target_id="robert", target_name="Robert", role="CTO", company="revel8",
+        facts=[fact("https://www.revel8.ai/about"), fact("https://tech.eu/2025/x"), fact("https://blog.revel8.ai/p")],
+    )
+    assert org_domains_from_dossier(d, extra=["stackit.cloud"]) == {"revel8.ai", "stackit.cloud"}

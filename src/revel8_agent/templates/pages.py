@@ -83,7 +83,8 @@ def _page(brand: Brand, lang: Lang, title: str, logo_asset: str, heading: str, s
         f'<p style="margin:0 0 24px;font-size:14px;line-height:1.5;color:#6b7280;">{escape(sub)}</p>'
         f'<form method="post" action="">{form}</form></div>'
         '<p style="margin:24px 0;font-size:12px;line-height:1.6;color:#6b7280;text-align:center;">'
-        f'{escape(brand.postal_address)}<br>{escape(t["privacy"])} · {escape(t["imprint"])}</p>'
+        + (f"{escape(brand.postal_address)}<br>" if brand.postal_address else "")
+        + f'{escape(t["privacy"])} · {escape(t["imprint"])}</p>'
         "</div></body></html>"
     )
 

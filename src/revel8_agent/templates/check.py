@@ -14,7 +14,7 @@ from pathlib import Path
 from ..gate import validate_contact_plan
 from ..schemas import ContactPlan, SenderInfo, VerifiedDossier
 from .assets import DEFAULT_ASSET_DIR, render_logo
-from .brand import BRANDS, Brand
+from .brand import BRANDS, Brand, lookalike_brand
 from .lint import lint_html, lint_text
 from .mail import colleague_note, shared_doc_notice, vendor_notice
 from .pages import document_gate_page, mfa_page, signin_page
@@ -119,8 +119,12 @@ def main(argv: list[str] | None = None) -> int:
         print("No Chrome or Edge found; running checks without screenshots.", file=sys.stderr)
         render = False
 
+    # One lookalike of an organisation a target knows, as the planner would build from a dossier.
+    partner = lookalike_brand(
+        "STACKIT Marketplace", real_domains=["stackit.cloud", "stackit.de"], color="#0A6E6E"
+    )
     failures = 0
-    for brand in BRANDS.values():
+    for brand in [*BRANDS.values(), partner]:
         logo_uri = ""
         if render:
             logo_uri = render_logo(brand, DEFAULT_ASSET_DIR).resolve().as_uri()
