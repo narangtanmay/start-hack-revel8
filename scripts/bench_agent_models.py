@@ -28,7 +28,8 @@ def main() -> int:
     ap.add_argument("--model", required=True)
     ap.add_argument("--targets", default="julius,tom,robert")
     ap.add_argument("--touches", type=int, default=10)
-    ap.add_argument("--decider", default="controller")
+    ap.add_argument("--decider", default="controller", choices=["controller", "llm", "rules"],
+                    help="rules = Tanmay's RuleBasedPolicy (cli --policy)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--real", action="store_true",
                     help="Use the real Revel8 practice API (spends practice touches) instead of the mock target.")
@@ -74,7 +75,7 @@ def main() -> int:
         try:
             mode = [] if args.real else ["--mock", "--seed", str(args.seed)]
             code = cli.main(["run", "--target", target, *mode, "--touches", str(args.touches),
-                             "--decider", args.decider, "--runs-dir", str(out_dir), "--label", slug])
+                             *(["--policy"] if args.decider == "rules" else ["--decider", args.decider]), "--runs-dir", str(out_dir), "--label", slug])
         except Exception as e:  # noqa: BLE001
             code = f"crash: {type(e).__name__}: {e}"
         latest = max(out_dir.glob(f"*{target}*.json"), key=lambda p: p.stat().st_mtime, default=None)
