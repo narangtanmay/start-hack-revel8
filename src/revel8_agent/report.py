@@ -345,6 +345,9 @@ def _ledger_badges_html(ledger: object) -> str:
     return f"<div class='ledger'><span class='ledger-lbl'>Ledger:</span>{''.join(pills)}</div>"
 
 
+_REDACT = False  # public snapshots: landing pages listed (URL + fields), never rendered
+
+
 def _touch(step: dict, incidents: list[dict]) -> str:
     a = step.get("action") or {}
     n = step.get("touch")
@@ -384,7 +387,10 @@ def _touch(step: dict, incidents: list[dict]) -> str:
         if page:
             page_html = (f"<details style='padding:10px 14px;border-top:1px solid var(--border)'><summary>Landing page "
                          f"<span class='mono'>{_e(page.get('url'))}</span></summary>")
-            if page.get("html"):
+            if _REDACT:
+                page_html += (f"<div class='mono' style='margin-top:8px'>fields: {_e(', '.join(page.get('fields') or []))} · "
+                              "not rendered in the public snapshot</div>")
+            elif page.get("html"):
                 page_html += f"<div class='frame' style='margin-top:10px'><iframe sandbox='' style='height:520px' srcdoc='{_e(page['html'])}'></iframe></div>"
             page_html += "</details>"
         out.append(f"<div class='msg'><div class='msg-h'>{' '.join(head)}</div>{content}{page_html}</div>")
@@ -411,7 +417,7 @@ def _touch(step: dict, incidents: list[dict]) -> str:
     return "".join(out)
 
 
-def render_run(path: Path) -> Path:
+def render_run(path: Path, out_dir: Path | None = None) -> Path:
     state = json.loads(path.read_text(encoding="utf-8"))
     t = state.get("target", {})
     live = state.get("status") in ("starting", "running")
@@ -425,7 +431,7 @@ def render_run(path: Path) -> Path:
               f"<div class='spacer' style='flex:1'></div>{_strip(state, int(cfg.get('max_touches') or 10))}</div>"
               f"<div class='tl'>{steps or '<div class=empty-state>Planning the campaign…</div>'}</div>{_LEGEND}</div>")
     body = head + error + _run_tiles(state) + f"<div class='grid side'><div class='grid'>{_plan_card(state)}{_research_card(state)}</div>{thread}</div>"
-    out = path.with_suffix(".html")
+    out = (out_dir or path.parent) / path.with_suffix(".html").name
     crumbs = f"<span class='crumb'>/</span><span class='crumb'>{_e(state.get('run_id'))}</span>"
     out.write_text(_page(f"{t.get('name')} · revel8 agent", crumbs, body, live), encoding="utf-8")
     return out
@@ -464,12 +470,17 @@ def _reply_bars(runs: list[dict]) -> str:
     return f"<div class='bars'>{''.join(rows)}</div><div class='axis'></div>"
 
 
-def render_index(runs_dir: Path = Path("runs")) -> Path:
+def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, public: bool = False) -> Path:
+    """Render the dashboard into runs_dir (default) or out_dir; public=True redacts landing pages."""
+    global _REDACT
+    _REDACT = public
     runs_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = out_dir or runs_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
     loaded = _load(runs_dir)
     states = [st for _, st in loaded]
     for f, _ in loaded:
-        render_run(f)
+        render_run(f, out_dir)
     scores = [estimate_score(st) for st in states]
     n = len(states)
     hits = sum(sc["incident"] for sc in scores)
@@ -511,6 +522,7 @@ def render_index(runs_dir: Path = Path("runs")) -> Path:
              "(vs. a team needing 2 contacts). Targeting, craft and the jury's 55 points are not visible here.</p></div>")
     body = ("<h1>Overview</h1><p class='sub'>Practice runs against the revel8 targets. Open a run to replay its thread.</p>"
             + tiles + f"<div class='grid split' style='margin-bottom:20px'>{chart}{about}</div>" + table)
-    out = runs_dir / "index.html"
-    out.write_text(_page("revel8 agent · overview", "", body, live), encoding="utf-8")
+    out = out_dir / "index.html"
+    out.write_text(_page("revel8 agent · overview", "", body, live and not public), encoding="utf-8")
+    _REDACT = False
     return out
