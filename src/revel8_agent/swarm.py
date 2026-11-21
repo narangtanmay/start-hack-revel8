@@ -56,9 +56,15 @@ def assign_keys(n_tasks: int, keys: list[str]) -> list[str]:
 
 
 def parallelism(n_tasks: int, n_keys: int, requested: int | None = None) -> int:
-    """How many workers to run at once, bounded by keys, tasks and the API cap."""
-    want = requested if requested and requested > 0 else min(n_keys, REVEL8_PARALLEL_CAP)
-    return max(1, min(want, REVEL8_PARALLEL_CAP, n_tasks, max(1, n_keys)))
+    """How many workers to run at once, bounded by tasks and the API cap.
+
+    By default also bounded by the number of keys (one rate-limit bucket each). An explicit
+    ``requested`` may exceed the key count: a self-hosted vLLM server has one key but batches
+    concurrent requests, so several workers can share it.
+    """
+    if requested and requested > 0:
+        return max(1, min(requested, REVEL8_PARALLEL_CAP, n_tasks))
+    return max(1, min(n_keys, REVEL8_PARALLEL_CAP, n_tasks))
 
 
 def run_one(task: Task, api_key: str, log=print) -> dict[str, Any]:

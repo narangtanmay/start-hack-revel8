@@ -1,0 +1,108 @@
+{
+  "label": "tokenfactory-deepseek-v4-flash",
+  "url": "https://radeon-global.anruicloud.com/api/v1",
+  "model": "DeepSeek-V4-Flash",
+  "json_mode": true,
+  "started_utc": "2026-11-21T21:01:58.546314+00:00",
+  "finished_utc": "2026-11-21T21:02:23.836518+00:00",
+  "seq_median_ttft_s": 1.2698674589992152,
+  "seq_median_total_s": 2.287981583001965,
+  "seq_median_tok_per_s": 93.37876575543177,
+  "par_n": 6,
+  "par_wall_s": 17.877742624998064,
+  "par_aggregate_tok_per_s": 30.59670403997995,
+  "sequential": [
+    {
+      "ok": true,
+      "ttft_s": 1.3991285410011187,
+      "total_s": 2.287981583001965,
+      "completion_tokens": 83,
+      "tok_per_s": 93.37876575543177,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"A direct phone call to Finance is a normal escalation after two unanswered invoice emails, and the public Series A context makes the invoice plausible.\", \"pressure\": 2"
+    },
+    {
+      "ok": true,
+      "ttft_s": 1.2632957919995533,
+      "total_s": 3.097661916999641,
+      "completion_tokens": 85,
+      "tok_per_s": 46.33753253593032,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"A direct call to the finance head is a natural escalation after two unanswered emails, especially with a time-sensitive invoice pretext tied to their public funding ne"
+    },
+    {
+      "ok": true,
+      "ttft_s": 1.2698674589992152,
+      "total_s": 2.026415624997753,
+      "completion_tokens": 86,
+      "tok_per_s": 113.67419004511365,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"Escalate from email to a direct phone call using the same invoice pretext, citing urgency and a 'final reminder before escalation to collections' to prompt action.\", \""
+    }
+  ],
+  "parallel": [
+    {
+      "ok": true,
+      "ttft_s": 2.1083640409997315,
+      "total_s": 17.825395915999252,
+      "completion_tokens": 90,
+      "tok_per_s": 5.72627202870025,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"Call as a vendor finance contact following up on the unpaid invoice referenced in the earlier emails; mention the Series A funding to imply urgency and legitimacy.\", \""
+    },
+    {
+      "ok": true,
+      "ttft_s": 1.308568832999299,
+      "total_s": 17.30134133300089,
+      "completion_tokens": 86,
+      "tok_per_s": 5.3774290855442,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"Call to confirm the invoice status and mention the CFO's office asked for a quick verbal confirmation before we escalate to the legal team.\", \"pressure\": 2, \"reason\": "
+    },
+    {
+      "ok": true,
+      "ttft_s": 1.3074287499985076,
+      "total_s": 17.10102354099945,
+      "completion_tokens": 87,
+      "tok_per_s": 5.508562246359003,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"Invoice follow-up is time-sensitive; a direct call adds human urgency and breaks the email silence without raising suspicion.\", \"pressure\": 2, \"reason\": \"After two ope"
+    },
+    {
+      "ok": true,
+      "ttft_s": 2.0900783329998376,
+      "total_s": 17.873327916000562,
+      "completion_tokens": 100,
+      "tok_per_s": 6.335830873998503,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"phone\", \"warrant\": \"Call the finance office line during local business hours, posing as a vendor's accounts-receivable clerk following up on an overdue invoice referenced in the earlier e"
+    },
+    {
+      "ok": true,
+      "ttft_s": 16.4397087920006,
+      "total_s": 17.53639637500237,
+      "completion_tokens": 94,
+      "tok_per_s": 85.71265094723749,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\n  \"channel\": \"phone\",\n  \"warrant\": \"The invoice follow-up has been opened twice without reply, so a direct call adds urgency and a personal touch that emails lack.\",\n  \"pressure\": 2,\n  \"reason\": \"Tw"
+    },
+    {
+      "ok": true,
+      "ttft_s": 3.345833750001475,
+      "total_s": 17.8208295000004,
+      "completion_tokens": 90,
+      "tok_per_s": 6.2176184058642425,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "{\"channel\": \"email\", \"warrant\": \"Send a third, slightly more specific email referencing an internal-sounding invoice number and a 'final reminder' from the accounts team, but keep it polite and non-ur"
+    }
+  ]
+}
