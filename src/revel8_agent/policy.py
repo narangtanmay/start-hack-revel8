@@ -204,6 +204,25 @@ class RuleBasedPolicy:
         unused_msg_channels = [c for c in message_channels if c not in used_channels]
         unused_live_channels = [c for c in live_channels if c not in used_channels]
         unused_hooks = [h for h in ranked_hooks if str(h["id"]) not in used_hooks]
+        last_replied_channel = next(
+            (
+                _step_channel(s)
+                for s in reversed(history)
+                if _step_channel(s)
+                and any(isinstance(e, dict) and e.get("type") == "reply" for e in (s.get("events") or []))
+            ),
+            None,
+        )
+
+        def _fallback_channel() -> str:
+            if unused_msg_channels:
+                return unused_msg_channels[0]
+            if last_replied_channel and not (last_replied_channel == "sms" and last_channel == "sms"):
+                return last_replied_channel
+            non_sms = [c for c in message_channels if c != "sms"]
+            if last_channel == "sms" and non_sms:
+                return _cycle_next(non_sms, last_channel, used_channels)
+            return _cycle_next(message_channels, last_channel, used_channels)
 
         def build_move(
             move_type: MoveType,
@@ -231,14 +250,14 @@ class RuleBasedPolicy:
             """Low-friction pivot used instead of an early STOP: unused hook/channel first, else cycle."""
             if unused_hooks:
                 hook_id = str(unused_hooks[0]["id"])
-                channel = unused_msg_channels[0] if unused_msg_channels else last_channel
+                channel = _fallback_channel()
             elif unused_msg_channels:
                 hook_id, channel = last_hook_id, unused_msg_channels[0]
             elif len(ranked_hooks) > 1:
                 hook_id = _cycle_next([str(h["id"]) for h in ranked_hooks], last_hook_id, used_hooks)
-                channel = last_channel
+                channel = _fallback_channel()
             else:
-                hook_id, channel = last_hook_id, _cycle_next(message_channels, last_channel, used_channels)
+                hook_id, channel = last_hook_id, _fallback_channel()
             move_type: MoveType = "PIVOT_HOOK" if hook_id != last_hook_id else "PIVOT_CHANNEL"
             return build_move(
                 move_type,
@@ -394,7 +413,7 @@ class RuleBasedPolicy:
 
         if unused_hooks:
             new_hook = str(unused_hooks[0]["id"])
-            new_chan = unused_msg_channels[0] if unused_msg_channels else last_channel
+            new_chan = _fallback_channel()
             return build_move(
                 "PIVOT_HOOK",
                 new_hook,

@@ -222,6 +222,34 @@ def test_rule_based_policy_stays_on_engaged_reply() -> None:
     assert move["hook_id"] == "h_curr"
 
 
+def test_rule_based_policy_never_repeats_sms_and_prefers_replied_channel() -> None:
+    policy = RuleBasedPolicy()
+    brief = _sample_brief()
+    plan = _sample_plan(hook_id="h_curr")
+    # Reproduces the julius sequence: T1 email reply, then silence across linkedin/slack/teams/sms.
+    steps = [
+        _step(1, "email", "h_curr", "suspicious"),
+        _step(2, "linkedin_message", "h_alt", "silent"),
+        _step(3, "slack", "h_alt", "silent"),
+        _step(4, "teams_chat", "h_past", "silent"),
+        _step(5, "sms", "h_past", "silent"),
+    ]
+    m6 = policy.choose_next_move(brief, steps, touch=6, max_touches=10, plan=plan)
+    assert m6["channel"] != "sms"
+    assert m6["channel"] == "email"
+
+    # Even with zero prior replies anywhere, never send two SMS in a row.
+    all_silent = [
+        _step(1, "email", "h_curr", "silent"),
+        _step(2, "linkedin_message", "h_curr", "silent"),
+        _step(3, "slack", "h_alt", "silent"),
+        _step(4, "teams_chat", "h_past", "silent"),
+        _step(5, "sms", "h_past", "silent"),
+    ]
+    m6_silent = policy.choose_next_move(brief, all_silent, touch=6, max_touches=10, plan=plan)
+    assert m6_silent["channel"] != "sms"
+
+
 def test_hook_with_timing_marks_year_only_and_undated_events_uncertain() -> None:
     facts = {
         "davos_yr": VerifiedFact(
