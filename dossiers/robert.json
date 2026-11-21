@@ -1,0 +1,584 @@
+{
+  "target_id": "robert",
+  "target_name": "Robert Seilbeck",
+  "role": "Co-Founder & CTO, revel8",
+  "company": "revel8",
+  "facts": [
+    {
+      "id": "f1",
+      "fact": "Robert Seilbeck is a co-founder of revel8, a company that defends against AI-supported cyberattacks using 'human firewalls'.",
+      "category": "current_project",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen.html",
+      "verbatim_quote": "Wie die revel8-Gründer Robert Seilbeck, Tom Müller und Julius Muth KI-gestützte Cyberattacken mithilfe „menschlicher Schutzschilde“ abwehren und Unternehmen zu mehr Cyberresilienz verhelfen.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f2",
+      "fact": "Robert Seilbeck is Co-Founder & CTO of revel8, a Berlin-based cybersecurity startup.",
+      "category": "role",
+      "source_url": "https://www.menlotimes.com/post/revel8-levels-up-its-fight-against-ai-powered-cyberattacks",
+      "verbatim_quote": "Revel8, a Berlin-based cybersecurity startup training employees with realistic attack simulations of the latest AI cyber threats, led by Robert Seilbeck, Tom Müller, and Julius Muth",
+      "recency": "unknown"
+    },
+    {
+      "id": "f3",
+      "fact": "revel8 secured a €5.7 million seed round led by Peak, with participation from Fortino Capital, Merantix Capital, and business angels.",
+      "category": "company_news",
+      "source_url": "https://www.menlotimes.com/post/revel8-levels-up-its-fight-against-ai-powered-cyberattacks",
+      "verbatim_quote": "has secured €5.7 million seed round led by Peak, with participation from Fortino Capital, Merantix Capital, and business angels including Mario Götze, Sergej Epp (CISO, Sysdig), Michael Schrank (CISO, Adidas), Rogier Fischer (Co-founder & CEO, Hadrian), and Alexander Rinke (CEO, Celonis)",
+      "recency": "unknown"
+    },
+    {
+      "id": "f4",
+      "fact": "Robert Seilbeck is a co-founder of Berlin-based cybersecurity startup revel8.",
+      "category": "role",
+      "source_url": "https://tech.eu/2025/09/25/revel8-nets-eur7-million-to-fight-ai-powered-cyberattacks/",
+      "verbatim_quote": "Founded by Julius Muth, Tom Müller, and Robert Seilbeck after observing gaps in defences against AI-based impersonation, revel8 aims to train “human firewalls” at scale.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f5",
+      "fact": "revel8 raised a €5.7 million seed round, bringing total funding to €7 million since its 2024 founding.",
+      "category": "company_news",
+      "source_url": "https://tech.eu/2025/09/25/revel8-nets-eur7-million-to-fight-ai-powered-cyberattacks/",
+      "verbatim_quote": "Berlin-based cybersecurity startup revel8 has raised a €5.7 million seed round, bringing total funding to €7 million since its 2024 founding.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f6",
+      "fact": "revel8's mission is to safeguard organizations from deepfake cyberattacks by fostering lasting human resilience.",
+      "category": "current_project",
+      "source_url": "https://tech.eu/2025/09/25/revel8-nets-eur7-million-to-fight-ai-powered-cyberattacks/",
+      "verbatim_quote": "The company’s mission is to safeguard organizations from deepfake cyberattacks by fostering lasting human resilience.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f7",
+      "fact": "revel8's platform is AI-native and deepfake-first, rapidly replicating new social-engineering methods and using OSINT to tailor simulations to each employee.",
+      "category": "tooling",
+      "source_url": "https://tech.eu/2025/09/25/revel8-nets-eur7-million-to-fight-ai-powered-cyberattacks/",
+      "verbatim_quote": "its AI-native, deepfake-first platform rapidly replicates new social-engineering methods and uses OSINT to tailor simulations to each employee.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f8",
+      "fact": "revel8 provides adaptive, role-aware training playlists that evolve with behaviour and performance.",
+      "category": "current_project",
+      "source_url": "https://tech.eu/2025/09/25/revel8-nets-eur7-million-to-fight-ai-powered-cyberattacks/",
+      "verbatim_quote": "Individuals receive adaptive, role-aware training “playlists” that evolve with behaviour and performance, turning the human layer into an active line of defense through multi-channel, in-the-moment exercises.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f9",
+      "fact": "The new funding will enable revel8 to scale its team, enhance enterprise capabilities, and accelerate global expansion.",
+      "category": "company_news",
+      "source_url": "https://tech.eu/2025/09/25/revel8-nets-eur7-million-to-fight-ai-powered-cyberattacks/",
+      "verbatim_quote": "The new funding will enable Revel8 to scale its team, enhance enterprise capabilities, and accelerate global expansion.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f10",
+      "fact": "Robert Seilbeck is a co-founder of revel8, an AI-native cybersecurity platform.",
+      "category": "role",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Julius Muth, Tom Müller, and Robert Seilbeck founded revel8 after seeing how unprepared organizations were for AI-based impersonation.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f11",
+      "fact": "Robert Seilbeck is a former Celonis employee.",
+      "category": "background",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "revel8 was founded by Celonis alumni Julius Muth, Tom Müller, and Robert Seilbeck",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f12",
+      "fact": "Robert Seilbeck co-founded revel8 in 2024.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Founded in 2024 and headquartered in Berlin, with a relocation to Munich planned for early 2026, revel8 is building Europe’s leading AI-native cybersecurity awareness platform.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f13",
+      "fact": "revel8 raised €5.7 million in a seed round led by Peak, with participation from Fortino Capital, Merantix Capital, and business angels including Mario Götze, Sergej Epp, Michael Schrank, Rogier Fischer, and Alexander Rinke.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "The round is led by Peak, with participation from Fortino Capital, Merantix Capital, and business angels including Mario Götze, Sergej Epp (CISO, Sysdig), Michael Schrank (CISO, Adidas), Rogier Fischer (Co-founder & CEO, Hadrian) and Alexander Rinke (CEO, Celonis).",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f14",
+      "fact": "revel8 has secured €7 million in total funding since its founding in 2024.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Together with earlier pre-seed funding led by Merantix Capital, the company has now secured €7 million in total since its founding in 2024.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f15",
+      "fact": "revel8 counts FC Bayern, OBI, and Stihl among its customers.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Founded by former Celonis employees, revel8 today counts FC Bayern, OBI and Stihl among its customers.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f16",
+      "fact": "revel8 is among the first cybersecurity providers on the Stackit marketplace from Schwarz Group.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "The company is among the first cybersecurity providers on the Stackit marketplace from Schwarz Group, offering enterprises a European cloud option.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f17",
+      "fact": "revel8's goal is to train 10 million 'human firewalls.'",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Their goal is to train 10 million ‘human firewalls.’",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f18",
+      "fact": "revel8 uses AI-native, deepfake-first simulations and OSINT-driven personalization to train employees against AI-powered cyberattacks.",
+      "category": "tooling",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Its AI-native, deepfake-first cyber platform replicates new attack methods in hours and, by leveraging open-source intelligence (OSINT), tailors simulations to each employee’s context.",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f19",
+      "fact": "revel8 plans to relocate from Berlin to Munich in early 2026.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-secures-eu7-million-to-fight-ai-powered-cyberattacks",
+      "verbatim_quote": "Founded in 2024 and headquartered in Berlin, with a relocation to Munich planned for early 2026",
+      "recency": "2025-09-25"
+    },
+    {
+      "id": "f20",
+      "fact": "Robert Seilbeck is CTO of Revel8, a Berlin-based cybersecurity startup founded in 2024.",
+      "category": "role",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Hinter der Idee stecken die beiden Gründer und Co-CEOs Julius Muth und Tom Müller sowie CTO Robert Seilbeck.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f21",
+      "fact": "Revel8 was founded in 2024 by Julius Muth, Tom Müller, and Robert Seilbeck after their time at Celonis.",
+      "category": "background",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Im Jahr 2024 gründeten sie Revel8 nach gemeinsamer Zeit bei Celonis.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f22",
+      "fact": "Revel8 has raised 7 million euros from investors.",
+      "category": "company_news",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Das 2024 gegründete Start-up wächst rasant – und hat inzwischen 7 Millionen Euro von Investoren eingesammelt.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f23",
+      "fact": "Revel8 develops AI-based training methods that replace mandatory cybersecurity e-learning courses.",
+      "category": "current_project",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Es entwickelt KI-basierte Trainingsmethoden, die Pflichtkurse ersetzen sollen.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f24",
+      "fact": "Revel8's training approach involves simulated attacks via email, phone, or video conference, with immediate explanation if an employee falls for it.",
+      "category": "current_project",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Statt langweiliger E-Learning-Videos oder Compliance-Schulungen bekommen Mitarbeitende über das Jahr verteilt simulierte Angriffe zugespielt, per E-Mail, Telefon oder sogar als Videokonferenz. Fällt der Mitarbeitende darauf rein, folgt eine direkte Erklärung.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f25",
+      "fact": "Revel8's system uses advanced AI models that clone voices, understand conversations, and react in real time.",
+      "category": "tooling",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Das System bei Revel8 beruht auf hoch entwickelten KI-Modellen. Sie klonen Stimmen, verstehen Gespräche und reagieren in Echtzeit.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f26",
+      "fact": "Revel8 develops its models at the Berlin AI campus together with international experts.",
+      "category": "network",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Am Berliner KI-Campus entwickelt das Team gemeinsam mit internationalen Fachleuten seine Modelle weiter und bekommt so selbst anspruchsvolle Deepfake-Szenarien in den Griff.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f27",
+      "fact": "Revel8's team consists of around 30 permanent employees plus interns.",
+      "category": "company_news",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Mittlerweile umfasst das Revel8 Team rund 30 feste Mitarbeiter plus Praktikanten.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f28",
+      "fact": "Revel8 expects license revenue to exceed one million euros this year and triple the next year.",
+      "category": "company_news",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Dieses Jahr soll der Lizenzumsatz eine Mio. Euro übersteigen, im nächsten soll sich der Wert verdreifachen.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f29",
+      "fact": "Revel8's first version was bought by a Munich law firm after the team sent 100 inquiries to small law firms and architecture offices.",
+      "category": "company_news",
+      "source_url": "https://www.berliner-wirtschaft.de/branchentrends/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Als sie ihre Lösung im Bereich Cybersecurity anboten, zeigten mehrere Unternehmen Interesse, und eine Münchener Kanzlei kaufte eine erste Version.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f30",
+      "fact": "Revel8 is a Berlin-based startup that trains employees with simulated cyberattacks.",
+      "category": "current_project",
+      "source_url": "https://berliner-wirtschaft.de/storys/revel8-probt-die-zukunft-der-cyberabwehr",
+      "verbatim_quote": "Revel8 setzt Mitarbeitende gezielt simulierten Cyberangriffen aus, damit sie im Ernstfall richtig reagieren.",
+      "recency": "2026-01-12"
+    },
+    {
+      "id": "f31",
+      "fact": "Robert Seilbeck joined revel8 full-time in October 2024 after ten years at Celonis.",
+      "category": "background",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Im Oktober stieß Robert nach zehn Jahren bei Celonis fest zum revel8-Team dazu.",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f32",
+      "fact": "revel8 is a Berlin-based startup founded in 2024 that provides a software platform to protect people and companies against AI-powered cyberattacks using 'human firewalls'.",
+      "category": "current_project",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Das 2024 gegründete Start-up betreibt eine Software-Plattform, um Menschen und damit auch Unternehmen gegen solche Bedrohungen zu schützen.",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f33",
+      "fact": "revel8's customers include FC Bayern, OBI, and several DAX corporations, and the platform trains tens of thousands of employees.",
+      "category": "company_news",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Heute nutzen Unternehmen wie der FC Bayern, OBI und mehrere DAX-Konzerne die Plattform. Mitunter trainiert revel8 dabei zehntausende Mitarbeitende.",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f34",
+      "fact": "revel8 closed a seed financing round of 5.7 million euros in September 2025, led by Berlin VC Peak Capital, with participation from Fortino Capital and others.",
+      "category": "company_news",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Im September 2025 schloss revel8 die Seed-Finanzierungsrunde mit einem Gesamtvolumen von 5,7 Millionen Euro, angeführt vom Berliner VC Peak Capital. Zudem investierten u.a. Fortino Capital und weitere",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f35",
+      "fact": "revel8's breakthrough came with the company Stihl, whose then-CISO was immediately enthusiastic and supported the team.",
+      "category": "company_news",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Der Durchbruch kam mit dem Unternehmen Stihl. Der damalige CISO war sofort begeistert und unterstützte das Team nach Kräften.",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f36",
+      "fact": "revel8's seed financing came through an early initiative by Merantix Capital, not through classic fundraising.",
+      "category": "company_news",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Unsere Seed-Finanzierung kam nicht durch klassisches Fundraising zustande, sondern dank einer frühzeitigen Initiative von Merantix Capital, die unsere Vision verstanden und teilten",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f37",
+      "fact": "revel8 has around 20 cybersecurity professionals, including several former CISOs, as business angels on board.",
+      "category": "network",
+      "source_url": "https://www.starting-up.de/ideen/unternehmer-typen/revel8-mit-human-firewalls-gegen-ki-angriffe.html",
+      "verbatim_quote": "Einen wichtigen Beitrag dazu leisten rund 20 Profis aus dem Cybersecurity-Umfeld, darunter mehrere ehemalige CISOs, die als Business Angels mit an Bord sind.",
+      "recency": "2025-12-08"
+    },
+    {
+      "id": "f38",
+      "fact": "revel8 is an AI-native security awareness and human risk management platform founded in 2024 in Munich, Germany.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "revel8 (legal name revel8 GmbH, formerly Company Shield) is an AI-native security awareness and human risk management platform founded in Munich in 2024.",
+      "recency": "2024"
+    },
+    {
+      "id": "f39",
+      "fact": "revel8 runs multi-channel attack simulations across email, SMS, WhatsApp, voice, messenger, and deepfake video.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "It runs continuous, multi-channel attack simulations across email, SMS, WhatsApp, voice (vishing), messenger and deepfake video, adapted to each organisation's real attack surface using live threat intelligence and OSINT.",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f40",
+      "fact": "revel8 is hosted in Germany on STACKIT (Schwarz Group) sovereign cloud.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "It is hosted in Germany on STACKIT (Schwarz Group), ISO/IEC 27001:2022 certified, GDPR compliant, and a member of the Allianz für Cyber-Sicherheit (BSI).",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f41",
+      "fact": "revel8 has ~50 employees and headquarters at Sandstraße 3, 80335 Munich, Germany.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "HeadquartersSandstraße 3, 80335 Munich, Germany\nTeam size~50 employees",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f42",
+      "fact": "revel8's platform includes the Threat Composer, an AI engine that turns a one-line brief into a ready-to-run multi-channel simulation.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "Threat ComposerThe AI engine behind the Playlist. Turns a one-line brief into a ready-to-run multi-channel simulation in minutes, grounded in OSINT context and auto-translated per region.",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f43",
+      "fact": "revel8 offers deepfake video simulations where clones join live meetings.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "deepfake video (clones that join live meetings)",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f44",
+      "fact": "revel8's Call Center Security module pentests customer-service AI agents with live agentic prompt-injection techniques.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "Call Center SecurityPentests customer-service AI agents with live agentic prompt-injection techniques (maps the attack surface, flags weak points, tests them)",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f45",
+      "fact": "revel8's Mitigation Center recommends and launches the highest-impact countermeasure.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "The Mitigation Center recommends and launches the highest-impact countermeasure, and flags where a technical fix removes the human dependency entirely.",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f46",
+      "fact": "revel8 is works-council compatible by default with anonymised group reporting and minimum group size of 5.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "Works-council compatible by defaultAnonymised group reporting, minimum group size of 5, BetrVG-ready templates.",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f47",
+      "fact": "revel8's customers include BEUMER Group, STIHL, OBI, Allianz Partners, and TSG 1899 Hoffenheim.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "Manufacturing & industrialBEUMER Group, STIHL, Neuman Aluminium\nConsumer goods & retailOBI, Tonies, Woom, Bürger, Vitra, Natuzzi\nFinancial services & insuranceAllianz Partners, Taunus Sparkasse",
+      "recency": "2026-08"
+    },
+    {
+      "id": "f48",
+      "fact": "revel8 analysed 100,000+ real-world security simulations in a 2025 review, including 10,000+ vishing simulations.",
+      "category": "other",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "Simulations analysed100,000+Real-world security simulations reviewed by revel8's threat team (2025 review), including 10,000+ vishing simulations.",
+      "recency": "2025"
+    },
+    {
+      "id": "f49",
+      "fact": "revel8's ClickFix site open rate was 10.7% across ~30,000 ClickFix simulations in Q1 2026 analysis.",
+      "category": "other",
+      "source_url": "https://www.revel8.ai/grounding",
+      "verbatim_quote": "ClickFix site open rate10.7%Share of recipients who opened the phishing site across ~30,000 ClickFix simulations (Q1 2026 analysis).",
+      "recency": "2026 Q1"
+    },
+    {
+      "id": "f50",
+      "fact": "Robert Seilbeck is the CTO of revel8, building a modern platform that protects enterprises against AI-powered attacks.",
+      "category": "role",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Robert Seilbeck is the CTO of revel8, building a modern platform that protects enterprises against AI-powered attacks by combining deep database engineering with real-world security needs.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f51",
+      "fact": "Robert Seilbeck spent nearly a decade at Celonis architecting and leading the teams behind SaolaDB, the core analytical engine used by global enterprises.",
+      "category": "background",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "After nearly a decade at Celonis architecting and leading the teams behind SaolaDB - the core analytical engine used by global enterprises - he brings rare hands-on experience in high-performance data systems, large-scale cloud architecture, and engineering leadership.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f52",
+      "fact": "At revel8, Robert Seilbeck focuses on turning cutting-edge AI and process data into reliable, secure, and scalable products that security and IT teams can trust.",
+      "category": "current_project",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "At revel8, Robert focuses on turning cutting-edge AI and process data into reliable, secure, and scalable products that security and IT teams can trust.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f53",
+      "fact": "revel8 was founded in 2024 (previously named Company Shield) by three founders who met at Celonis.",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "we founded revel8 (previously Company Shield) in 2024 to empower businesses and individuals to build resilience against the increasing number and sophistication of cyber threats.",
+      "recency": "2024"
+    },
+    {
+      "id": "f54",
+      "fact": "revel8 is a Berlin-based team with a mission to protect humans as the weakest link in cybersecurity.",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "We are a Berlin-based team (previously named Company Shield) united by a mission to protect humans as they remain the weakest link in cybersecurity.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f55",
+      "fact": "revel8 aims to create 10 Million Human Firewalls by 2028.",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "So, we are determined to create 10 Million Human Firewalls by 2028!",
+      "recency": "2028"
+    },
+    {
+      "id": "f56",
+      "fact": "revel8 has grown to a team of 30 employees, referred to as 'revels'.",
+      "category": "company_news",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "As of today, we have grown to a proud team of 30 revels, who are relentlessly working on helping our customers to be one step ahead of cyber criminals.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f57",
+      "fact": "revel8's mission is to protect companies from deepfake cyber attacks by building lasting human resilience.",
+      "category": "current_project",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Our mission is to protect your company from deepfake cyber attacks by building lasting human resilience.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f58",
+      "fact": "revel8 builds a platform that protects people against GenAI attacks.",
+      "category": "current_project",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "Wir bei revel8 bauen die Plattform, die Menschen gegen GenAI-Angriffe schützt.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f59",
+      "fact": "Robert Seilbeck has a global perspective shaped by time in Hong Kong, Singapore, and Madrid.",
+      "category": "background",
+      "source_url": "https://revel8-f04e95.webflow.io/about",
+      "verbatim_quote": "His global perspective - shaped by time in Hong Kong, Singapore, and Madrid - fuels revel8’s expansion into modern, AI-driven cybersecurity.",
+      "recency": "unknown"
+    },
+    {
+      "id": "f60",
+      "fact": "revel8 is now officially listed in the STACKIT Marketplace and fully hosted on STACKIT's sovereign cloud infrastructure.",
+      "category": "company_news",
+      "source_url": "https://www.revel8.ai/blog/revel8-is-now-live-on-the-stackit-marketplace---cybersecurity-awareness-built-for-europe",
+      "verbatim_quote": "revel8 is now officially listed in the STACKIT Marketplace - and fully hosted on STACKIT's sovereign cloud infrastructure.",
+      "recency": "2025-07-24"
+    },
+    {
+      "id": "f61",
+      "fact": "Robert Seilbeck is the author of the press release announcing revel8's availability on the STACKIT Marketplace.",
+      "category": "role",
+      "source_url": "https://www.revel8.ai/blog/revel8-is-now-live-on-the-stackit-marketplace---cybersecurity-awareness-built-for-europe",
+      "verbatim_quote": "Robert Seilbeck · July 24, 2025 · Press Releases",
+      "recency": "2025-07-24"
+    },
+    {
+      "id": "f62",
+      "fact": "revel8 is a next-generation platform for cybersecurity awareness training built with AI, real-time threat data, and OSINT-based attack simulation.",
+      "category": "current_project",
+      "source_url": "https://www.revel8.ai/blog/revel8-is-now-live-on-the-stackit-marketplace---cybersecurity-awareness-built-for-europe",
+      "verbatim_quote": "revel8 is a next-generation platform for cybersecurity awareness training - built to address modern threats with the help of artificial intelligence, real-time threat data, and OSINT-based attack simulation.",
+      "recency": "2025-07-24"
+    },
+    {
+      "id": "f63",
+      "fact": "Robert Seilbeck is CTO of revel8.",
+      "category": "role",
+      "source_url": "https://luma.com/wkvstt4t",
+      "verbatim_quote": "Robert Seilbeck (CTO, revel8)",
+      "recency": "2025-09-18"
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "topic": "Scaling the team and enterprise capabilities after the €5.7M seed round",
+      "rationale": "The recent seed funding is a major milestone, and the stated goal is to scale the team and enhance enterprise capabilities. As CTO, Robert is likely focused on hiring and product development to support this growth.",
+      "confidence": 0.9,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f3",
+        "f9",
+        "f27"
+      ]
+    },
+    {
+      "id": "h2",
+      "topic": "Global expansion and relocation to Munich in early 2026",
+      "rationale": "The company is planning to relocate from Berlin to Munich, which is a significant operational change. This move is tied to global expansion plans and likely a top priority for the leadership team.",
+      "confidence": 0.85,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f9",
+        "f19"
+      ]
+    },
+    {
+      "id": "h3",
+      "topic": "Deepfake-first simulations and AI-native platform development",
+      "rationale": "As CTO, Robert is deeply involved in the technical development of the platform, which is AI-native and deepfake-first. This is a core differentiator and likely a current focus for innovation.",
+      "confidence": 0.8,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f7",
+        "f18",
+        "f25"
+      ]
+    },
+    {
+      "id": "h4",
+      "topic": "Achieving the 10 million human firewalls goal",
+      "rationale": "The company has an ambitious mission to train 10 million human firewalls by 2028. This is a long-term goal that drives product strategy and customer acquisition, making it a key priority.",
+      "confidence": 0.75,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f17",
+        "f55"
+      ]
+    },
+    {
+      "id": "h5",
+      "topic": "Customer traction with major brands like FC Bayern and STIHL",
+      "rationale": "Recent customer wins and partnerships are commercially important for credibility and growth. As CTO, Robert may be focused on ensuring the platform meets the needs of these high-profile clients.",
+      "confidence": 0.7,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "f15",
+        "f35",
+        "f47"
+      ]
+    },
+    {
+      "id": "own1",
+      "topic": "Building on the STACKIT sovereign cloud partnership for enterprise trust",
+      "rationale": "The partnership with STACKIT and hosting on sovereign cloud is a strategic differentiator for European enterprises concerned about data sovereignty. As CTO, Robert likely prioritizes this to win enterprise deals and expand in regulated markets.",
+      "confidence": 0.65,
+      "is_own_angle": true,
+      "supporting_fact_ids": [
+        "f16",
+        "f40",
+        "f60"
+      ]
+    }
+  ]
+}
