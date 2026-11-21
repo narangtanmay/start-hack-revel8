@@ -392,7 +392,9 @@ def rank_hooks(llm: LocalLLMClient, t: Target, facts: list[VerifiedFact]) -> lis
     listing = "\n".join(f"[{f.id}] ({f.category}, {f.recency}) {f.fact}" for f in facts)
     msgs: list[ChatMessage] = [
         {"role": "system", "content": _HOOKS_SYS.format(name=t.name, role=t.role, company=t.company)},
-        {"role": "user", "content": f"VERIFIED FACTS:\n{listing}"},
+        {"role": "user", "content": f"TODAY: {time.strftime('%Y-%m-%d')} (events before today are past: "
+                                    f"use them only as background, never as an upcoming occasion)\n"
+                                    f"VERIFIED FACTS:\n{listing}"},
     ]
     try:
         out = llm.chat(msgs, json_mode=True, temperature=0.3)
@@ -499,7 +501,7 @@ def build_dossier(
     all_docs = docs + snippet_docs[:10]
     verified: list[VerifiedFact] = []
     seen_quotes: set[str] = set()
-    pool = ThreadPoolExecutor(10)
+    pool = ThreadPoolExecutor(int(os.getenv("LLM_PARALLEL", "4")))
     futures = {pool.submit(extract_facts, llm, t, d): d for d in all_docs}
     try:
         for fut in as_completed(futures, timeout=max(5.0, left() - 15)):

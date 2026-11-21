@@ -96,16 +96,18 @@ class LocalLLMClient:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        for attempt in range(3):
+        for attempt in range(6):
             try:
                 response = self._client.post("chat/completions", json=payload)
             except httpx.TimeoutException:
                 raise LocalLLMError("Local LLM request timed out.") from None
             except httpx.RequestError:
                 raise LocalLLMError("Local LLM request failed.") from None
-            if response.status_code not in {429, 502, 503, 504} or attempt == 2:
+            if response.status_code not in {429, 502, 503, 504} or attempt == 5:
                 break
-            time.sleep(2 * (attempt + 1))
+            retry_after = response.headers.get("retry-after", "")
+            delay = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else min(30.0, 2.0 * 2**attempt)
+            time.sleep(delay)
         if not response.is_success:
             raise LocalLLMError(
                 f"Local LLM returned HTTP {response.status_code}.",
