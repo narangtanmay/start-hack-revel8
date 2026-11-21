@@ -120,20 +120,27 @@ def timing(recency: str, today: datetime | None = None) -> str:
     if m:
         y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3) or 28)
     else:
-        m2 = re.search(r"(?:(\d{1,2})\.?\s+)?([a-z]{3})[a-z]*\.?\s+(?:(\d{1,2}),?\s+)?(20\d\d)", r)
-        if m2 and m2.group(2) in _MONTHS:
-            y, mo, d = int(m2.group(4)), _MONTHS[m2.group(2)], int(m2.group(1) or m2.group(3) or 28)
+        ms = re.search(r"(?:(?:\d{1,2}\s*[-–]\s*)?(\d{1,2})/)?(\d{1,2})/(20\d\d)\b", r)
+        if ms and 1 <= int(ms.group(2)) <= 12:
+            y, mo, d = int(ms.group(3)), int(ms.group(2)), int(ms.group(1) or 28)
         else:
-            q = re.search(r"(20\d\d)\s*q([1-4])|q([1-4])\s*(20\d\d)", r)
-            if q:
-                y = int(q.group(1) or q.group(4))
-                mo, d = int(q.group(2) or q.group(3)) * 3, 28
+            m2 = re.search(
+                r"(?:(?:\d{1,2}\s*[-–]\s*)?(\d{1,2})\.?\s+)?([a-z]{3})[a-z]*\.?\s+(?:(?:\d{1,2}\s*[-–]\s*)?(\d{1,2}),?\s+)?(20\d\d)",
+                r,
+            )
+            if m2 and m2.group(2) in _MONTHS:
+                y, mo, d = int(m2.group(4)), _MONTHS[m2.group(2)], int(m2.group(1) or m2.group(3) or 28)
             else:
-                yr = re.search(r"\b(20\d\d)\b", r)
-                if not yr:
-                    return "undated"
-                y = int(yr.group(1))
-                return "past" if y < today.year else ("upcoming" if y > today.year else "this-year")
+                q = re.search(r"(20\d\d)\s*q([1-4])|q([1-4])\s*(20\d\d)", r)
+                if q:
+                    y = int(q.group(1) or q.group(4))
+                    mo, d = int(q.group(2) or q.group(3)) * 3, 28
+                else:
+                    yr = re.search(r"\b(20\d\d)\b", r)
+                    if not yr:
+                        return "undated"
+                    y = int(yr.group(1))
+                    return "past" if y < today.year else ("upcoming" if y > today.year else "this-year")
     try:
         when = datetime(y, max(1, min(12, mo)), max(1, min(28, d)))
     except ValueError:
