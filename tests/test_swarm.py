@@ -23,6 +23,7 @@ def test_parallelism_bounded_by_tasks_keys_and_cap():
     assert parallelism(3, 4, requested=2) == 2         # explicit cap honoured
     assert parallelism(5, 1) == 1            # single key
     assert parallelism(10, 8, requested=99) == REVEL8_PARALLEL_CAP  # never exceeds 6
+    assert parallelism(5, 1, requested=4) == 4  # self-hosted: one key, server batches workers
 
 
 def test_load_keys_parses_comma_list(monkeypatch):
