@@ -118,3 +118,147 @@ def test_cli_run_ablation_flags(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert cli.main(["run", "--target", "julius", "--no-ledger-gate", "--shadow-twin"]) == 0
     assert captured == {"target": "julius", "use_ledger_gate": False, "use_shadow_twin": True}
+
+
+# ---- plan() schema validation, policy binding, gate wiring (offline) ----------------------------
+from revel8_agent import engine  # noqa: E402
+from revel8_agent.schemas import CampaignPlan, HookHypothesis, VerifiedFact  # noqa: E402
+
+_PERSONA = {"name": "Event Desk", "organisation": "Workshop Crew", "role": "Coordinator",
+            "email": "desk@workshop-crew.test", "phone": "+49 89 1234", "website_domain": "workshop-crew.test"}
+
+
+class _ScriptedLLM:
+    def __init__(self, responses: list[dict]) -> None:
+        self.responses, self.calls = list(responses), []
+
+    def chat(self, messages, *, json_mode=False, temperature=None):
+        self.calls.append(list(messages))
+        return self.responses.pop(0)
+
+
+def _hooked(dossier: VerifiedDossier) -> VerifiedDossier:
+    dossier.facts.append(VerifiedFact(id="f2", fact="Ships a new product", category="role", source_url="https://x.test",
+                                      verbatim_quote="Ships a new product", recency="2026-12-10"))
+    dossier.hypotheses = [
+        HookHypothesis(id="h_low", topic="a", rationale="r", confidence=0.2, supporting_fact_ids=["f2"]),
+        HookHypothesis(id="h_top", topic="b", rationale="r", confidence=0.9, is_own_angle=True, supporting_fact_ids=["f2"]),
+    ]
+    return dossier
+
+
+def _plan_runner(dossier, tmp_path, monkeypatch, responses):
+    monkeypatch.setattr(engine, "domain_is_registered", lambda _d: False)
+    llm = _ScriptedLLM(responses)
+    runner = Runner(RunConfig(target_id=dossier.target_id, runs_dir=tmp_path), MagicMock(), llm, _hooked(dossier),
+                    log=lambda *_a, **_k: None)
+    return runner, llm
+
+
+def test_plan_valid_passes_without_retry(dossier, tmp_path, monkeypatch) -> None:
+    good = {"hook_id": "h_low", "objective": "credentials", "persona": dict(_PERSONA)}
+    runner, llm = _plan_runner(dossier, tmp_path, monkeypatch, [good])
+    runner.plan()
+    assert len(llm.calls) == 1
+    assert runner.state.plan["hook_id"] == "h_low" and runner.state.plan["objective"] == "credentials"
+
+
+def test_plan_normalizes_hook_alias_without_retry(dossier, tmp_path, monkeypatch) -> None:
+    runner, llm = _plan_runner(dossier, tmp_path, monkeypatch,
+                               [{"hook": "h_top", "objective": "action", "persona": dict(_PERSONA)}])
+    runner.plan()
+    assert len(llm.calls) == 1
+    assert runner.state.plan["hook_id"] == "h_top"
+
+
+def test_plan_invalid_retries_once_with_feedback(dossier, tmp_path, monkeypatch) -> None:
+    bad = {"hook_id": "", "objective": "win", "persona": dict(_PERSONA)}
+    good = {"hook_id": "h_low", "objective": "action", "persona": dict(_PERSONA)}
+    runner, llm = _plan_runner(dossier, tmp_path, monkeypatch, [bad, good])
+    runner.plan()
+    assert len(llm.calls) == 2
+    assert "previous plan was invalid" in llm.calls[1][1]["content"]
+    assert runner.state.plan["hook_id"] == "h_low" and runner.state.plan["objective"] == "action"
+
+
+def test_plan_still_invalid_fills_hook_and_objective_deterministically(dossier, tmp_path, monkeypatch) -> None:
+    bad = {"hook_id": None, "objective": None, "persona": dict(_PERSONA)}
+    runner, llm = _plan_runner(dossier, tmp_path, monkeypatch, [bad, dict(bad)])
+    runner.plan()
+    assert len(llm.calls) == 2  # exactly one retry
+    assert runner.state.plan["hook_id"] == "h_top"  # top-ranked hook
+    assert runner.state.plan["objective"] == "disclosure"
+    CampaignPlan.model_validate(runner.state.plan)
+
+
+def test_campaign_plan_rejects_bad_fields() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        CampaignPlan.model_validate({"hook_id": "h", "objective": "win", "persona": _PERSONA})
+    with pytest.raises(ValidationError):
+        CampaignPlan.model_validate({"hook_id": "h", "objective": "action", "persona": {**_PERSONA, "name": " "}})
+
+
+def test_stop_allowed_only_on_last_touch(dossier, tmp_path) -> None:
+    runner = Runner(RunConfig(target_id=dossier.target_id, runs_dir=tmp_path, max_touches=4, use_policy=True),
+                    MagicMock(), MagicMock(), dossier, log=lambda *_a, **_k: None)
+    for used, allowed in [(0, False), (2, False), (3, True)]:
+        runner.state.touches_used = used
+        assert runner._stop_allowed() is allowed
+
+
+def test_bind_policy_overrides_action_channel_and_hook() -> None:
+    a = {"kind": "message", "channel": "email", "hook_id": "h1"}
+    move = {"channel": "slack", "hook_id": "h2"}
+    Runner._bind_policy(a, move)
+    assert (a["channel"], a["hook_id"]) == ("slack", "h2")
+    assert move == {"channel": "slack", "hook_id": "h2"}
+
+
+def test_bind_policy_incompatible_channel_syncs_policy_to_action() -> None:
+    a = {"kind": "message", "channel": "email", "hook_id": "h1"}
+    move = {"channel": "phone_call", "hook_id": "h1"}  # live channel for a message action
+    Runner._bind_policy(a, move)
+    assert a["channel"] == "email" and move["channel"] == "email"
+
+
+def test_run_binds_policy_move_to_step_action(dossier, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(engine, "domain_is_registered", lambda _d: False)
+
+    class OneMove:
+        def choose_next_move(self, brief, steps, touch, max_touches, plan):
+            return {"move_type": "PIVOT_CHANNEL", "hook_id": "h_top", "channel": "slack", "objective": "action",
+                    "ask": "x", "cited_fact_ids": ["check-in"], "promises": [], "rationale": "r",
+                    "alternatives_considered": []}
+
+    decide = {"decision": "PIVOT_CHANNEL", "rationale": "r", "discarded": [], "hook_id": "h_low", "kind": "message",
+              "channel": "email", "sender": {"name": "Event Desk", "address": "desk@workshop-crew.test"},
+              "subject": "s", "format": "plain", "paragraphs": ["Check-in opens at 9 a.m."],
+              "link": None, "attachment_filename": None, "cited_fact_ids": ["check-in"]}
+    plan = {"hook_id": "h_top", "objective": "action", "persona": dict(_PERSONA), "language": "en"}
+    api = MagicMock()
+    api.create_session.return_value = {"session_id": "s1"}
+    api.send_message.return_value = {"message_id": "m1", "events": [], "touches_used": 1}
+    llm = _ScriptedLLM([plan, decide])
+    cfg = RunConfig(target_id=dossier.target_id, runs_dir=tmp_path, max_touches=1, use_policy=True)
+    runner = Runner(cfg, api, llm, _hooked(dossier), log=lambda *_a, **_k: None, policy=OneMove())
+    runner.judge = lambda step: None  # type: ignore[method-assign]
+    state = runner.run()
+
+    step = state.steps[0]
+    assert state.status == "done", state.error
+    assert step["action"]["channel"] == step["policy"]["channel"] == "slack"
+    assert step["action"]["hook_id"] == step["policy"]["hook_id"] == "h_top"
+    assert api.send_message.call_args.args[1]["channel"] == "slack"
+
+
+def test_check_wires_session_consistency_gate(dossier, tmp_path) -> None:
+    runner = Runner(RunConfig(target_id=dossier.target_id, runs_dir=tmp_path), MagicMock(), MagicMock(), dossier,
+                    log=lambda *_a, **_k: None)
+    runner.state.plan = {"hook_id": "h", "persona": dict(_PERSONA), "language": "en"}
+    runner.state.brief = {"facts": [], "hooks": []}
+    a = {"kind": "message", "channel": "email", "format": "plain", "subject": "Hi",
+         "paragraphs": ["Your colleague Jane Doe asked me to write."], "cited_fact_ids": []}
+    plan, _payload, _page = runner.build(a)
+    assert any("Ungrounded person claim" in e for e in runner.check(a, plan))

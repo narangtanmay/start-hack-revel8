@@ -1,9 +1,9 @@
 """Data models shared by validation and trace logging."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationInfo, field_validator, model_validator
 
 
 class VerifiedFact(BaseModel):
@@ -92,6 +92,65 @@ class ReevalDecision(BaseModel):
     reason: str
     discarded_options: list[str] = Field(default_factory=list)
     updated_channel_status: dict[str, str] = Field(default_factory=dict)
+
+
+class PersonaSpec(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    organisation: str = ""
+    role: str = ""
+    email: str = ""
+    phone: str = ""
+    website_domain: str = ""
+    brand_color: str = "#1F4E8C"
+    story: str = ""
+
+    @model_validator(mode="after")
+    def _validate_required(self) -> "PersonaSpec":
+        if not self.name.strip():
+            raise ValueError("persona.name must be a non-empty string")
+        if not self.organisation.strip() and not self.role.strip():
+            raise ValueError("persona must include a non-empty organisation or role")
+        return self
+
+
+class CampaignPlan(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    hook_id: str
+    objective: Literal["credentials", "action", "disclosure"]
+    persona: PersonaSpec
+    pretext: str = ""
+    language: str = "en"
+    sequence: list[dict[str, Any]] = Field(default_factory=list)
+    fallbacks: list[str] = Field(default_factory=list)
+    rationale: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_hook_alias(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            out = dict(data)
+            if not out.get("hook_id") and out.get("hook"):
+                out["hook_id"] = out["hook"]
+            return out
+        return data
+
+    @field_validator("hook_id")
+    @classmethod
+    def _non_empty_hook_id(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("hook_id must be a non-empty string")
+        return cleaned
+
+    @model_validator(mode="after")
+    def _check_valid_hook_ids(self, info: ValidationInfo) -> "CampaignPlan":
+        valid_hook_ids = (info.context or {}).get("valid_hook_ids")
+        if valid_hook_ids and self.hook_id not in valid_hook_ids:
+            raise ValueError(f"hook_id {self.hook_id!r} must be one of {sorted(valid_hook_ids)}")
+        return self
 
 
 class RunTraceEntry(BaseModel):

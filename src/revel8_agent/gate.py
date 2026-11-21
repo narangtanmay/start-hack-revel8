@@ -5,6 +5,7 @@ from collections.abc import Collection
 from email.utils import parseaddr
 from html import unescape
 from html.parser import HTMLParser
+from typing import Any
 from urllib.parse import urlsplit
 
 from .schemas import AttachmentSpec, ContactPlan, GateVerdict, VerifiedDossier
@@ -60,6 +61,93 @@ def _normalize_domain(domain: str) -> str:
 def _is_blocked(host: str, blocked_domains: set[str]) -> bool:
     host = _normalize_domain(host)
     return any(host == domain or host.endswith(f".{domain}") for domain in blocked_domains)
+
+
+_NAME = r"[A-ZÄÖÜ][\w'’-]+\s+[A-ZÄÖÜ][\w'’-]+"
+_COLLEAGUE_RE = re.compile(rf"(?i:colleague|coworker|co-worker|teammate|kolleg(?:e|in))\s+({_NAME})")
+_UPCOMING_PITCH = ("upcoming", "next month", "register for", "join us at", "invite you to")
+_NO_ATTACHMENT_CLAIMS = ("no attachment", "kein anhang", "without attachment", "no pdf")
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", unescape(text)).casefold()
+
+
+def _draft_text(plan: ContactPlan) -> str:
+    parts = [plan.subject or ""]
+    for markup in (plan.body, plan.landing_page.html if plan.landing_page else ""):
+        parser = _DraftHTML()
+        parser.feed(markup)
+        parser.close()
+        parts.append(" ".join(parser.text))
+    return re.sub(r"\s+", " ", " ".join(parts))
+
+
+def _sent_text(step: dict[str, Any]) -> str:
+    payload = step.get("payload")
+    if not isinstance(payload, dict):
+        return ""
+    return _norm(f"{payload.get('subject') or ''} {payload.get('body') or ''}")
+
+
+def validate_session_consistency(
+    plan: ContactPlan,
+    dossier: VerifiedDossier,
+    brief: dict[str, Any],
+    steps: list[dict[str, Any]],
+    persona: dict[str, Any] | None = None,
+    hook_id: str = "",
+) -> list[str]:
+    """Deterministic entity, date and cross-turn checks. Returns rejection strings (empty when clean)."""
+    from .policy import _is_past_hook, _is_uncertain_hook
+
+    errors: list[str] = []
+    persona = persona or {}
+    text = _draft_text(plan)
+    low = _norm(text)
+
+    # 1. Ungrounded person claim
+    known = _norm(" ".join(
+        [dossier.target_name, str(persona.get("name") or ""), plan.sender.name if plan.sender else ""]
+        + [f"{f.fact} {f.verbatim_quote}" for f in dossier.facts]
+        + [f"{f.get('fact', '')} {f.get('verbatim_quote', '')}" for f in brief.get("facts") or [] if isinstance(f, dict)]
+    ))
+    orgs = [o for o in (dossier.company, str(persona.get("organisation") or "")) if o.strip()]
+    claimed = [m.group(1) for m in _COLLEAGUE_RE.finditer(text)]
+    for org in orgs:
+        claimed += [m.group(1) for m in re.finditer(
+            rf"({_NAME})\s+(?i:at|from|von|bei)\s+{re.escape(org)}", text)]
+    for name in dict.fromkeys(claimed):
+        if _norm(name) not in known:
+            errors.append(
+                f"Ungrounded person claim: {name!r} is not the target, the persona or named in the brief facts. "
+                "Do not name people you cannot source."
+            )
+
+    # 2. PAST / uncertain-date hook pitched as upcoming
+    hook = next((h for h in brief.get("hooks") or [] if isinstance(h, dict) and str(h.get("id")) == hook_id), None)
+    if hook and (_is_past_hook(hook) or _is_uncertain_hook(hook)):
+        hit = [p for p in _UPCOMING_PITCH if p in low]
+        if hit:
+            errors.append(
+                f"Past-hook upcoming pitch: hook {hook_id!r} is past or of uncertain date but the draft says "
+                f"{hit[0]!r}. Refer to it only as something that already happened."
+            )
+
+    # 3. Cross-turn commitments
+    prior = [(_sent_text(s), s.get("payload") or {}) for s in steps]
+    prior = [(t, p) for t, p in prior if t]
+    if plan.attachments and any(c in t for t, _ in prior for c in _NO_ATTACHMENT_CLAIMS):
+        errors.append("Cross-turn contradiction: an earlier message promised no attachment but this draft attaches a file.")
+    if not plan.attachments and any(c in low for c in _NO_ATTACHMENT_CLAIMS) and any(p.get("attachments") for _, p in prior):
+        errors.append("Cross-turn contradiction: an earlier message attached a file but this draft claims no attachment.")
+    if plan.landing_page:
+        fields = {f.strip().lower() for f in plan.landing_page.fields}
+        if (fields & _CREDENTIAL_FIELDS or {"email", "password"} <= fields) and any(
+            c in t for t, _ in prior for c in _NO_LOGIN_CLAIMS
+        ):
+            errors.append("Cross-turn contradiction: an earlier message promised a public/no-login page but this draft sends a credential form.")
+    return errors
 
 
 def validate_contact_plan(

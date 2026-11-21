@@ -135,6 +135,25 @@ def _alt(move_type: str, channel: str, hook_id: str, reason: str) -> dict[str, s
     }
 
 
+def _cycle_next(candidates: list[str], current: str, used: list[str]) -> str:
+    """Pick the first unused candidate, else the least-recently-used candidate distinct from current."""
+    if not candidates:
+        return current
+    unused = [c for c in candidates if c not in used]
+    if unused:
+        return unused[0]
+    others = [c for c in candidates if c != current]
+    if others:
+        def _last_idx(item: str) -> int:
+            for idx in range(len(used) - 1, -1, -1):
+                if used[idx] == item:
+                    return idx
+            return -1
+
+        return min(others, key=_last_idx)
+    return candidates[0]
+
+
 class RuleBasedPolicy:
     """Deterministic state-machine controller over brief, step history, and verdicts."""
 
@@ -208,6 +227,33 @@ class RuleBasedPolicy:
                 "alternatives_considered": alternatives,
             }
 
+        def deescalate(why: str) -> dict[str, Any]:
+            """Low-friction pivot used instead of an early STOP: unused hook/channel first, else cycle."""
+            if unused_hooks:
+                hook_id = str(unused_hooks[0]["id"])
+                channel = unused_msg_channels[0] if unused_msg_channels else last_channel
+            elif unused_msg_channels:
+                hook_id, channel = last_hook_id, unused_msg_channels[0]
+            elif len(ranked_hooks) > 1:
+                hook_id = _cycle_next([str(h["id"]) for h in ranked_hooks], last_hook_id, used_hooks)
+                channel = last_channel
+            else:
+                hook_id, channel = last_hook_id, _cycle_next(message_channels, last_channel, used_channels)
+            move_type: MoveType = "PIVOT_HOOK" if hook_id != last_hook_id else "PIVOT_CHANNEL"
+            return build_move(
+                move_type,
+                hook_id,
+                channel,
+                "Send a brief, de-escalated follow-up with a new angle; no pressure, easy to ignore.",
+                ["Keep the same persona identity", "Lower the ask and acknowledge prior contact"],
+                f"{why} Budget remains ({touch}/{max_touches}), so de-escalate via {move_type} "
+                f"to hook {hook_id or 'none'} on {channel} instead of stopping.",
+                [
+                    _alt("STOP", last_channel, last_hook_id, "Rejected: STOP is only allowed once the touch budget is exhausted."),
+                    _alt("STAY", last_channel, last_hook_id, "Rejected: repeating the same channel and hook adds friction."),
+                ],
+            )
+
         if touch > max_touches:
             return build_move(
                 "STOP",
@@ -223,35 +269,11 @@ class RuleBasedPolicy:
             )
 
         if consecutive_negative >= 2:
-            alt_hook = str(unused_hooks[0]["id"]) if unused_hooks else last_hook_id
-            alt_chan = unused_msg_channels[0] if unused_msg_channels else default_channel
-            return build_move(
-                "STOP",
-                last_hook_id,
-                last_channel,
-                "Stop outreach and record clean termination.",
-                ["Do not send additional follow-ups after repeated negative verdicts"],
-                f"Stopping after {consecutive_negative} consecutive refusing/suspicious verdicts.",
-                [
-                    _alt("PIVOT_HOOK", last_channel, alt_hook, "Rejected: repeated negative verdicts indicate further outreach is counterproductive."),
-                    _alt("PIVOT_CHANNEL", alt_chan, last_hook_id, "Rejected: switching channel after repeated refusal/suspicion increases friction."),
-                ],
-            )
+            return deescalate(f"{consecutive_negative} consecutive refusing/suspicious verdicts.")
 
         if consecutive_silent >= 3 and len(silent_channels) >= 2:
-            alt_chan = unused_msg_channels[0] if unused_msg_channels else (unused_live_channels[0] if unused_live_channels else last_channel)
-            alt_hook = str(unused_hooks[0]["id"]) if unused_hooks else last_hook_id
-            return build_move(
-                "STOP",
-                last_hook_id,
-                last_channel,
-                "Stop outreach after sustained non-response across channels.",
-                ["Close session cleanly without further touches"],
-                f"Stopping after {consecutive_silent} consecutive silent touches across {len(silent_channels)} distinct channels.",
-                [
-                    _alt("PIVOT_CHANNEL", alt_chan, last_hook_id, "Rejected: silent across multiple channels already."),
-                    _alt("PIVOT_HOOK", last_channel, alt_hook, "Rejected: sustained silence across channels warrants stopping."),
-                ],
+            return deescalate(
+                f"{consecutive_silent} consecutive silent touches across {len(silent_channels)} distinct channels."
             )
 
         if not history:
@@ -335,18 +357,7 @@ class RuleBasedPolicy:
                         _alt("STOP", last_channel, last_hook_id, "Rejected: single negative verdict and an unused channel remains."),
                     ],
                 )
-            return build_move(
-                "STOP",
-                last_hook_id,
-                last_channel,
-                "Stop outreach; no unused hook or channel remains after negative verdict.",
-                ["Close session cleanly"],
-                f"Prior touch received {last_sentiment} and no unused hook or channel remains.",
-                [
-                    _alt("STAY", last_channel, last_hook_id, "Rejected: repeating the same channel and hook after negative verdict."),
-                    _alt("ESCALATE_CALL", live_channels[0] if live_channels else "phone_call", last_hook_id, "Rejected: escalating to a call after negative verdict increases risk."),
-                ],
-            )
+            return deescalate(f"Prior touch received {last_sentiment} and no unused hook or channel remains.")
 
         # Silent path (consecutive_silent >= 1)
         if consecutive_silent == 1 and unused_msg_channels:
@@ -411,15 +422,4 @@ class RuleBasedPolicy:
                 ],
             )
 
-        return build_move(
-            "STOP",
-            last_hook_id,
-            last_channel,
-            "Stop outreach; all candidate channels and hooks exhausted without response.",
-            ["Close session cleanly"],
-            f"Consecutive silence ({consecutive_silent}) with no remaining unused channels or hooks.",
-            [
-                _alt("STAY", last_channel, last_hook_id, "Rejected: repeating exhausted channel and hook."),
-                _alt("PIVOT_CHANNEL", default_channel, last_hook_id, "Rejected: all channels already attempted."),
-            ],
-        )
+        return deescalate(f"Consecutive silence ({consecutive_silent}) with every channel and hook already tried.")

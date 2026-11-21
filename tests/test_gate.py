@@ -1,6 +1,6 @@
 import pytest
 
-from revel8_agent.gate import validate_contact_plan
+from revel8_agent.gate import validate_contact_plan, validate_session_consistency
 from revel8_agent.schemas import ContactPlan, VerifiedDossier
 
 BLOCKED = {"Company.Example.test."}
@@ -150,3 +150,72 @@ def test_allows_public_claim_when_landing_page_has_no_credential_fields(
     verdict = validate_contact_plan(plan, dossier, BLOCKED)
     assert verdict.passed
     assert verdict.errors == []
+
+
+# ---- entity / date / cross-turn consistency
+BRIEF = {
+    "facts": [{"id": "check-in", "fact": "Check-in opens at 9 a.m.", "verbatim_quote": "Check-in opens at 9 a.m."}],
+    "hooks": [
+        {"id": "h_past", "timing": "PAST (do not pitch as upcoming)"},
+        {"id": "h_unc", "timing": "uncertain-date (verify before pitching as upcoming)"},
+        {"id": "h_now", "timing": "current"},
+    ],
+}
+PERSONA = {"name": "Event Desk", "organisation": "Workshop Crew"}
+
+
+def _check(plan: ContactPlan, dossier: VerifiedDossier, steps=None, hook_id="h_now") -> list[str]:
+    return validate_session_consistency(plan, dossier, BRIEF, steps or [], PERSONA, hook_id)
+
+
+def _sent(body: str, attachments=None) -> dict:
+    return {"payload": {"body": body, "attachments": attachments or []}}
+
+
+def test_clean_draft_passes_consistency(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    assert _check(plan, dossier) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["Your colleague Jane Doe asked me to reach out.", "Jane Doe at Example Events shared the agenda."],
+)
+def test_rejects_ungrounded_person(body: str, plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.body, plan.is_html = body, False
+    assert any("Ungrounded person claim" in e and "Jane Doe" in e for e in _check(plan, dossier))
+
+
+def test_allows_person_grounded_in_facts(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    dossier.facts[0].verbatim_quote = "Check-in opens at 9 a.m. with Jane Doe."
+    plan.body, plan.is_html = "Your colleague Jane Doe asked me to reach out.", False
+    assert _check(plan, dossier) == []
+
+
+@pytest.mark.parametrize("hook_id", ["h_past", "h_unc"])
+@pytest.mark.parametrize("phrase", ["upcoming", "next month", "register for", "join us at", "invite you to"])
+def test_rejects_past_hook_pitched_as_upcoming(
+    hook_id: str, phrase: str, plan: ContactPlan, dossier: VerifiedDossier
+) -> None:
+    plan.body, plan.is_html = f"We would like to {phrase} the summit.", False
+    assert any("Past-hook upcoming pitch" in e for e in _check(plan, dossier, hook_id=hook_id))
+    assert not any("Past-hook" in e for e in _check(plan, dossier, hook_id="h_now"))
+
+
+def test_rejects_attachment_after_no_attachment_promise(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    errors = _check(plan, dossier, steps=[_sent("Just a quick note, no attachment needed.")])
+    assert any("Cross-turn contradiction" in e and "attach" in e for e in errors)
+
+
+def test_rejects_no_attachment_claim_after_attachment_sent(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.attachments, plan.body, plan.is_html = [], "Kein Anhang diesmal.", False
+    errors = _check(plan, dossier, steps=[_sent("See file", [{"filename": "a.pdf"}])])
+    assert any("Cross-turn contradiction" in e for e in errors)
+
+
+def test_rejects_credential_form_after_no_login_promise(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.attachments = []
+    assert plan.landing_page is not None
+    plan.landing_page.fields = ["email", "password"]
+    errors = _check(plan, dossier, steps=[_sent("It is a public page, no login.")])
+    assert any("Cross-turn contradiction" in e and "credential" in e for e in errors)
+    assert _check(plan, dossier, steps=[_sent("Hello again.")]) == []

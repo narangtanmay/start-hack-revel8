@@ -157,8 +157,9 @@ def test_rule_based_policy_pivots_on_silence_and_stops_after_three_silent_across
         max_touches=10,
         plan=plan,
     )
-    assert m4["move_type"] == "STOP"
-    assert len(m4["alternatives_considered"]) >= 1
+    assert m4["move_type"] in ("PIVOT_HOOK", "PIVOT_CHANNEL")
+    assert "de-escalate" in m4["rationale"]
+    assert any(a["move_type"] == "STOP" for a in m4["alternatives_considered"])
 
 
 def test_rule_based_policy_pivots_then_stops_on_refusing_or_suspicious() -> None:
@@ -177,8 +178,31 @@ def test_rule_based_policy_pivots_then_stops_on_refusing_or_suspicious() -> None
         max_touches=10,
         plan=plan,
     )
-    assert m3["move_type"] == "STOP"
+    assert m3["move_type"] in ("PIVOT_HOOK", "PIVOT_CHANNEL")
     assert "consecutive" in m3["rationale"].lower()
+    assert len(m3["alternatives_considered"]) >= 1
+
+
+def test_rule_based_policy_cycles_when_all_hooks_and_channels_tried() -> None:
+    policy = RuleBasedPolicy()
+    brief = _sample_brief()
+    plan = _sample_plan(hook_id="h_curr")
+    hooks = ["h_curr", "h_alt", "h_past"]
+    channels = ["email", "linkedin_message", "slack", "teams_chat", "sms"]
+    steps = [_step(i + 1, channels[i], hooks[min(i, 2)], "refusing") for i in range(5)]
+    move = policy.choose_next_move(brief, steps, touch=6, max_touches=10, plan=plan)
+    assert move["move_type"] in ("PIVOT_HOOK", "PIVOT_CHANNEL")
+    assert (move["hook_id"], move["channel"]) != ("h_past", "sms")
+    assert move["rationale"] and move["alternatives_considered"]
+
+
+def test_rule_based_policy_stops_only_when_budget_exhausted() -> None:
+    policy = RuleBasedPolicy()
+    brief = _sample_brief()
+    plan = _sample_plan(hook_id="h_curr")
+    steps = [_step(1, "email", "h_curr", "refusing"), _step(2, "slack", "h_alt", "refusing")]
+    assert policy.choose_next_move(brief, steps, touch=3, max_touches=3, plan=plan)["move_type"] != "STOP"
+    assert policy.choose_next_move(brief, steps, touch=4, max_touches=3, plan=plan)["move_type"] == "STOP"
 
 
 def test_rule_based_policy_stays_on_engaged_reply() -> None:
@@ -398,22 +422,21 @@ def test_runner_stop_allowed_rules(dossier: VerifiedDossier, tmp_path: Path) -> 
 
     assert runner._stop_allowed() is False
 
+    # Negative / silent streaks no longer unlock STOP while budget remains.
     runner.state.steps = [_step(1, "email", "h1", "refusing"), _step(2, "slack", "h1", "suspicious")]
-    assert runner._stop_allowed() is True
-
-    runner.state.steps = [
-        _step(1, "email", "h1", "silent"),
-        _step(2, "slack", "h1", "silent"),
-        _step(3, "linkedin_message", "h1", "silent"),
-    ]
-    assert runner._stop_allowed() is True
-
-    runner.state.steps = [_step(1, "email", "h1", "silent"), _step(2, "slack", "h1", "silent")]
+    runner.state.touches_used = 2
     assert runner._stop_allowed() is False
+
+    runner.state.touches_used = 4
+    assert runner._stop_allowed() is False
+    runner.state.touches_used = 5  # next touch is 6 of 6
+    assert runner._stop_allowed() is True
 
     cfg_pol = RunConfig(target_id=dossier.target_id, max_touches=6, runs_dir=tmp_path, use_policy=True)
     runner_pol = Runner(cfg_pol, MagicMock(), MagicMock(), dossier, log=lambda *_a, **_k: None)
     assert isinstance(runner_pol.policy, RuleBasedPolicy)
+    assert runner_pol._stop_allowed() is False
+    runner_pol.state.touches_used = 5
     assert runner_pol._stop_allowed() is True
 
 

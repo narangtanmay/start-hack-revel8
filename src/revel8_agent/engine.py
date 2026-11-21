@@ -25,12 +25,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from pydantic import ValidationError
+
 from .api_client import Revel8APIError, Revel8Client
-from .gate import _META_TEXT, validate_contact_plan
+from .gate import _META_TEXT, validate_contact_plan, validate_session_consistency
 from .llm_client import ChatMessage, LocalLLMClient, LocalLLMError
 from .osint import normalize
-from .policy import Policy, RuleBasedPolicy
-from .schemas import AttachmentSpec, ContactPlan, LandingPageSpec, SenderInfo, VerifiedDossier
+from .policy import Policy, RuleBasedPolicy, _rank_hooks
+from .schemas import AttachmentSpec, CampaignPlan, ContactPlan, LandingPageSpec, SenderInfo, VerifiedDossier
 from .templates import (
     colleague_note,
     document_gate_page,
@@ -462,7 +464,7 @@ class Runner:
                 f"TOUCH BUDGET: {self.cfg.max_touches}\n"
                 f"Channels: {MESSAGE_CHANNELS + LIVE_CHANNELS}")
         for attempt in range(3):
-            plan = _llm_json(self.llm, self.state, _PLAN_SYS, user, temperature=0.7)
+            plan = self._validated_plan(user)
             persona = plan.get("persona") or {}
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
@@ -482,6 +484,34 @@ class Runner:
         self.log(f"plan: hook={plan.get('hook_id')} objective={plan.get('objective')} "
                  f"persona={persona.get('name')} ({persona.get('organisation')}, {domain})")
         self.save()
+
+    def _validated_plan(self, user: str) -> dict:
+        """LLM plan validated against CampaignPlan; one retry with feedback, then deterministic fill."""
+        hooks = self.state.brief.get("hooks") or []
+        ctx = {"valid_hook_ids": [str(h["id"]) for h in hooks if isinstance(h, dict) and h.get("id")]}
+        plan: dict = {}
+        for attempt in range(2):
+            plan = _llm_json(self.llm, self.state, _PLAN_SYS, user, temperature=0.7)
+            try:
+                CampaignPlan.model_validate(plan, context=ctx)
+                break
+            except ValidationError as error:
+                problems = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'plan'}: {e['msg']}" for e in error.errors())
+                self.log(f"plan: schema validation failed ({problems})")
+                if attempt == 0:
+                    user += (f"\nYour previous plan was invalid: {problems}. Return hook_id (one of the HOOKS ids), "
+                             "objective (credentials|action|disclosure) and persona.name.")
+        # Deterministic fill: the plan always carries a usable hook_id and objective.
+        if plan.get("hook") and not plan.get("hook_id"):
+            plan["hook_id"] = plan["hook"]
+        ranked = _rank_hooks(list(hooks))
+        if not str(plan.get("hook_id") or "").strip() or (
+            ctx["valid_hook_ids"] and plan["hook_id"] not in ctx["valid_hook_ids"]
+        ):
+            plan["hook_id"] = str(ranked[0]["id"]) if ranked else ""
+        if plan.get("objective") not in ("credentials", "action", "disclosure"):
+            plan["objective"] = "disclosure"
+        return plan
 
     def _domain_problem(self, domain: str) -> str:
         if not re.fullmatch(r"(?:[a-z0-9-]+\.)+[a-z]{2,}", domain or ""):
@@ -665,6 +695,10 @@ class Runner:
 
     def check(self, a: dict, plan: ContactPlan) -> list[str]:
         errors = list(validate_contact_plan(plan, self.dossier, self.blocked).errors)
+        errors += validate_session_consistency(
+            plan, self.dossier, self.state.brief, self.state.steps, self.state.plan.get("persona"),
+            str(a.get("hook_id") or self.state.plan.get("hook_id") or ""),
+        )
         for text in (a.get("opening_line") or "", a.get("call_goal") or ""):
             if _META_TEXT.search(text):
                 errors.append("Call text contains simulator or instruction-override language.")
@@ -768,29 +802,23 @@ class Runner:
                                      "source": "llm-judge (estimate)" if judged else "api event"})
         self.log(f"   *** INCIDENT at touch {touch}: {kind} - {detail[:100]}")
 
+    @staticmethod
+    def _bind_policy(a: dict, policy_move: dict) -> None:
+        """Make step['action'] and step['policy'] agree on channel and hook_id (policy wins when compatible)."""
+        hook_id = str(policy_move.get("hook_id") or "")
+        if hook_id:
+            a["hook_id"] = hook_id
+        channel = str(policy_move.get("channel") or "")
+        valid = channel in MESSAGE_CHANNELS + LIVE_CHANNELS
+        is_call = a.get("kind") == "call"
+        if valid and (channel in LIVE_CHANNELS) == is_call:
+            a["channel"] = channel
+        elif a.get("channel"):
+            policy_move["channel"] = a["channel"]  # incompatible kind/channel: log what is really sent
+
     def _stop_allowed(self) -> bool:
-        if self.cfg.use_policy or self.cfg.max_touches - self.state.touches_used <= 1:
-            return True
-        executed = [
-            s for s in self.state.steps
-            if s.get("decision") != "STOP" and (s.get("action") or {}).get("decision") != "STOP"
-        ]
-        sentiments = [str((s.get("judge") or {}).get("sentiment") or "").lower() for s in executed]
-        consec_neg = 0
-        for sent in reversed(sentiments):
-            if sent in ("refusing", "suspicious"):
-                consec_neg += 1
-            else:
-                break
-        if consec_neg >= 2:
-            return True
-        consec_silent = 0
-        for sent in reversed(sentiments):
-            if sent == "silent":
-                consec_silent += 1
-            else:
-                break
-        return consec_silent >= 3
+        # STOP only once the budget is spent: the current touch is touches_used + 1.
+        return self.state.touches_used + 1 >= self.cfg.max_touches
 
     # ---- main loop
     def run(self) -> RunState:
@@ -832,7 +860,9 @@ class Runner:
                 t0 = time.monotonic()
                 for n_try in range(3):
                     a = self.decide(touch, feedback, policy_move=policy_move)
-                    attempt = {"try": n_try + 1, "decision": a.get("decision"), "kind": a.get("kind"),
+                    if policy_move and a.get("decision") != "STOP":
+                        self._bind_policy(a, policy_move)
+                    attempt ={"try": n_try + 1, "decision": a.get("decision"), "kind": a.get("kind"),
                                "channel": a.get("channel"), "subject": a.get("subject"),
                                "feedback_given": feedback or None, "errors": []}
                     step["attempts"].append(attempt)
@@ -873,6 +903,8 @@ class Runner:
                     else:
                         if a["channel"] in LIVE_CHANNELS:
                             a["channel"] = payload["channel"] = "email"
+                            if policy_move:
+                                policy_move["channel"] = "email"
                         self.execute_message(step, payload, page)
                 except Revel8APIError as error:
                     step["error"] = str(error)
