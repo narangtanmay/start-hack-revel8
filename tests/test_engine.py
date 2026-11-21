@@ -263,3 +263,34 @@ def test_check_wires_session_consistency_gate(dossier, tmp_path) -> None:
          "paragraphs": ["Your colleague Jane Doe asked me to write."], "cited_fact_ids": []}
     plan, _payload, _page = runner.build(a)
     assert any("Ungrounded person claim" in e for e in runner.check(a, plan))
+
+
+def test_stop_at_first_incident_ignores_llm_judge_estimates(dossier, tmp_path) -> None:
+    decide = {"decision": "STAY", "rationale": "r", "discarded": [], "hook_id": "h_top", "kind": "message",
+              "channel": "email", "sender": {"name": "Event Desk", "address": "desk@workshop-crew.test"},
+              "subject": "s", "format": "plain", "paragraphs": ["Check-in opens at 9 a.m."],
+              "link": None, "attachment_filename": None, "cited_fact_ids": ["check-in"]}
+    plan = {"hook_id": "h_top", "objective": "credentials", "persona": dict(_PERSONA), "language": "en"}
+    api = MagicMock()
+    api.create_session.return_value = {"session_id": "s1"}
+    api.send_message.side_effect = [
+        {"message_id": "m1", "events": [{"type": "reply", "body": "I looked at the page."}], "touches_used": 1},
+        {"message_id": "m2", "events": [{"type": "page.submitted", "fields": ["email"]}], "touches_used": 2},
+    ]
+    llm = _ScriptedLLM([plan, decide, decide])
+    cfg = RunConfig(target_id=dossier.target_id, runs_dir=tmp_path, max_touches=3, stop_at_first_incident=True)
+    runner = Runner(cfg, api, llm, _hooked(dossier), log=lambda *_a, **_k: None)
+
+    def fake_judge(step):
+        if step["touch"] == 1:
+            runner._incident(1, "action", "I looked at the page.", judged=True)
+        elif step["touch"] == 2:
+            runner._incident(2, "credentials", "submitted ['email']", judged=False)
+
+    runner.judge = fake_judge  # type: ignore[method-assign]
+    state = runner.run()
+
+    assert state.status == "done", state.error
+    # Did NOT abort at touch 1 on llm-judge (estimate); stopped at touch 2 on API-confirmed page.submitted.
+    assert state.touches_used == 2
+    assert any(i["source"] == "api event" and i["touch"] == 2 for i in state.incidents)

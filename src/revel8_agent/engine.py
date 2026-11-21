@@ -930,7 +930,7 @@ class Runner:
                 self.judge(step)
                 step["timing"]["judge_s"] = round(time.monotonic() - t2, 1)
                 self.save()
-                if st.incidents and self.cfg.stop_at_first_incident:
+                if self.cfg.stop_at_first_incident and any(i.get("source") == "api event" for i in st.incidents):
                     break
             st.status = "done"
         except Exception as error:  # noqa: BLE001 - always leave a readable run file behind
