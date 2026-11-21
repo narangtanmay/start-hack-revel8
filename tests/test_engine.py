@@ -13,6 +13,7 @@ TODAY = datetime(2026, 11, 21)
 
 @pytest.mark.parametrize("recency,expected", [
     ("2026-10-28", "past"), ("2026-07", "past"), ("July 16, 2026", "past"), ("16 July 2026", "past"),
+    ("19-23/01/2026", "past"), ("23/01/2026", "past"), ("01/2026", "past"), ("January 19-23, 2026", "past"),
     ("2026 Q1", "past"), ("2025", "past"), ("2026-12-10", "upcoming"), ("2027-03", "upcoming"),
     ("upcoming", "upcoming"), ("2026", "this-year"), ("unknown", "undated"),
 ])
