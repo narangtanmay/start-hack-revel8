@@ -2,12 +2,14 @@
 
 > **Measured 2026-11-21** (see `docs/selfhost-benchmark-2026-11-21.md`): GPUs are gfx1100 (RDNA3), 48 GiB each,
 > 1 pt per GPU-hour (instance pts). Token Factory has its own 1 pt/day cap, but 104 calls used only 0.026 pt (about 4k calls/day). Qwen3-32B-AWQ on 1 GPU managed only ~4 tok/s, against
-> ~93 tok/s for Token Factory DeepSeek-V4-Flash. Avoid AWQ on these GPUs and prefer BF16 with tensor parallel.
+> ~93 tok/s for Token Factory DeepSeek-V4-Flash. **4 GPUs, BF16, TP=4 (Hackathon pool): ~20 tok/s, 5 s/call, and 6 parallel
+> calls in 5.3 s** (Token Factory: 17.9 s). Avoid AWQ on these GPUs and keep JSON mode on (it skips Qwen3's thinking).
 > The easiest path is the console's **Model API** deploy type: paste a `vllm serve ...` command
-> and it returns an HTTPS endpoint plus an API key (ready in about 6 minutes).
+> and it returns an HTTPS endpoint plus an API key (ready in about 4–6 minutes). For the **Hackathon** pool,
+> click *Custom Model* first; that pool has **no auto-delete**, so destroy the instance yourself.
 
-Token Factory gives one credit a day. Instead, rent a 1/2/4-GPU instance and serve
-your own model with vLLM; the agent only needs an OpenAI-compatible URL.
+Instead of Token Factory, you can rent a 1/2/4-GPU instance and serve your own model with
+vLLM; the agent only needs an OpenAI-compatible URL.
 
 **Tensor parallel, not shared memory.** Each GPU keeps its own VRAM. With
 `--tensor-parallel-size 4`, vLLM gives each GPU a quarter of the weights, so you
