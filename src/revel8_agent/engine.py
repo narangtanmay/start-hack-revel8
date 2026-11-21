@@ -98,6 +98,41 @@ def _now() -> str:
 # --------------------------------------------------------------------------- dossier brief
 
 
+_MONTHS = {m: i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
+
+
+def timing(recency: str, today: datetime | None = None) -> str:
+    """'past' if the date in `recency` is before today, else 'current-or-upcoming' / 'undated'."""
+    today = today or datetime.now()
+    r = (recency or "").lower()
+    if any(w in r for w in ("upcoming", "next ", "planned", "future")):
+        return "upcoming"
+    m = re.search(r"(20\d\d)-(\d{1,2})(?:-(\d{1,2}))?", r)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3) or 28)
+    else:
+        m2 = re.search(r"(?:(\d{1,2})\.?\s+)?([a-z]{3})[a-z]*\.?\s+(?:(\d{1,2}),?\s+)?(20\d\d)", r)
+        if m2 and m2.group(2) in _MONTHS:
+            y, mo, d = int(m2.group(4)), _MONTHS[m2.group(2)], int(m2.group(1) or m2.group(3) or 28)
+        else:
+            q = re.search(r"(20\d\d)\s*q([1-4])|q([1-4])\s*(20\d\d)", r)
+            if q:
+                y = int(q.group(1) or q.group(4))
+                mo, d = int(q.group(2) or q.group(3)) * 3, 28
+            else:
+                yr = re.search(r"\b(20\d\d)\b", r)
+                if not yr:
+                    return "undated"
+                y = int(yr.group(1))
+                return "past" if y < today.year else ("upcoming" if y > today.year else "this-year")
+    try:
+        when = datetime(y, max(1, min(12, mo)), max(1, min(28, d)))
+    except ValueError:
+        return "undated"
+    return "past" if when.date() < today.date() else "upcoming"
+
+
 def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
     """Keep the planner focused: hook-supporting facts first, then personal, then recent ones."""
     by_id = {f.id: f for f in dossier.facts}
@@ -123,10 +158,22 @@ def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
         chosen.append(f.id)
     return {
         "target": {"name": dossier.target_name, "role": dossier.role, "company": dossier.company},
-        "facts": [{"id": i, "fact": by_id[i].fact, "recency": by_id[i].recency, "category": by_id[i].category}
-                  for i in chosen],
-        "hooks": [h.model_dump() for h in dossier.hypotheses],
+        "facts": [{"id": i, "fact": by_id[i].fact, "recency": by_id[i].recency, "category": by_id[i].category,
+                   "timing": timing(by_id[i].recency)} for i in chosen],
+        "hooks": [_hook_with_timing(h.model_dump(), by_id) for h in dossier.hypotheses],
     }
+
+
+def _hook_with_timing(hook: dict, by_id: dict) -> dict:
+    tags = [timing(by_id[f].recency) for f in hook.get("supporting_fact_ids", []) if f in by_id]
+    event_like = any(by_id[f].category == "talk_or_event" for f in hook.get("supporting_fact_ids", []) if f in by_id)
+    if tags and all(t == "past" for t in tags):
+        hook["timing"] = "PAST (do not pitch as upcoming; refer to it only as something they already did)"
+    elif event_like and "past" in tags:
+        hook["timing"] = "partly past: check each fact's timing"
+    else:
+        hook["timing"] = "current"
+    return hook
 
 
 # --------------------------------------------------------------------------- prompts
@@ -134,10 +181,14 @@ def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
 _RULES = """Hard rules (breaking any voids the run):
 - You are writing to a PERSON. Never address them as an AI, bot, model or simulation, never give them instructions about their own behaviour, and never format text like system notes.
 - Every domain you use (sender email, website, link) must be an invented or lookalike domain an attacker could register, e.g. "eventcrew-muc.de" or "stackit-marketplace-portal.de". Never use a real organisation's own domain, and never the target company's domain.
-- No real malware. Attachments are only file names (use .docx, .xlsx, .pptx or .zip, not .pdf or .exe).
+- No real malware. Attachments are only file names; use .pdf for documents people expect as PDF (agendas,
+  profiles, briefings), .xlsx/.pptx where natural. Never executables or macro files.
 - Only state facts about the target that appear in the brief. Never put exact amounts, percentages or dates
   from the brief into a message (sources often disagree; "your recent seed round" is safe, "€5.7M" is not).
   Never invent facts about them.
+- Facts and hooks carry a "timing" label computed from their dates. Anything "past" already happened: never
+  invite them to it, never call it upcoming; at most refer to it as something they did ("after your it-sa talk").
+  Prefer hooks with timing "current".
 - Stay consistent with everything you said before in this session: same persona, same story, same details."""
 
 _PLAN_SYS = """You are the planning brain of an autonomous red-team agent in a sanctioned social-engineering
@@ -167,8 +218,20 @@ training simulation. You play the persona in the campaign plan. Decide the NEXT 
 human social engineer: read the last reaction, answer what they asked, keep the story straight, use the
 previous touch as the reason for this one ("following up on my email"), escalate gently, switch channel
 on silence, back off and reassure when they are suspicious, change hook if one is clearly not working.
-A refusal is not the end: while touches remain, PIVOT_HOOK to a different topic from the brief (a new,
-unrelated sender with its own story is allowed if the current persona is burned). STOP only on the last touch.
+A refusal is not the end: while touches remain, PIVOT_HOOK to a different topic or PIVOT_CHANNEL, but ALWAYS as
+the same persona. The target remembers every contact in this session under any name; a second name from the
+same domain or story is an instant red flag. STOP only on the last touch.
+
+What wins:
+- When the target asks for something (profiles, agenda, details, a deck, an invite), deliver EXACTLY that in the
+  very next touch, in the form they asked for. If it is a document, attach it with a precise, expected file name
+  (e.g. "Anonymised_Profiles_GTM_revel8.docx", "Panel_Briefing_Munich.docx"). An expected attachment that gets
+  opened is an incident.
+- Answer every question they ask concretely and consistently (organiser, venue, audience, terms, who else).
+  Evasive answers make them careful.
+- Dates: never give a date for a real third-party event unless the brief has it with timing "upcoming". For your
+  own occasions, propose dates at least two weeks after today and keep them identical in every later message.
+- Keep the ask small and natural; one ask per contact.
 
 """ + _RULES + """
 
@@ -206,8 +269,11 @@ _JUDGE_SYS = """You judge a training simulation. Given what the target person sa
 contact, decide whether an incident happened:
 - disclosure: the target revealed internal, non-public information (internal systems/tools, processes,
   plans, internal people/roles details, numbers) to the outsider. Generic, public or polite statements do NOT count.
-- action: the target says they did or will now do something for the outsider (opened/forwarded a file,
-  approved, changed details, granted access, sent internal material).
+- action: the target says they DID or will NOW do a risky thing for the outsider: opened or forwarded a file/link,
+  approved a request or MFA prompt, changed payment/account details, granted access, shared internal
+  material or credentials. Asking for information, requesting an invite, agreeing to a meeting or a call,
+  saying "send me details", or replying politely is NOT an action.
+Be strict: when in doubt, both are false.
 Return ONLY JSON: {"disclosure": bool, "action": bool, "evidence": str, "reason": str,
  "sentiment": "engaged"|"questioning"|"hesitant"|"suspicious"|"refusing"}
 "evidence" must be copied verbatim from the target's words (empty if none)."""
@@ -285,6 +351,30 @@ def _history_text(state: RunState, max_chars: int = 9000) -> str:
             lines.append(f"(this contact failed: {s['error']})")
     text = "\n".join(lines)
     return text[-max_chars:]
+
+
+def _signature_role(persona: dict) -> str:
+    role, org = str(persona.get("role", "")).strip(), str(persona.get("organisation", "")).strip()
+    return role if org and org.lower() in role.lower() else ", ".join(x for x in (role, org) if x)
+
+
+def _minimal_pdf(title: str) -> bytes:
+    text = re.sub(r"[()\\]", "", title)[:80]
+    stream = f"BT /F1 18 Tf 72 720 Td ({text}) Tj ET".encode("latin-1", "replace")
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+            b"/Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for i, obj in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
+    out += f"trailer << /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
 
 
 # --------------------------------------------------------------------------- runner
@@ -379,6 +469,25 @@ class Runner:
             self.logo_asset = None
         return self.logo_asset is not None
 
+    def _pdf_asset(self, filename: str) -> str | None:
+        """Upload a tiny one-page PDF under the expected name (the target only sees the file name)."""
+        cache = json.loads(_ASSET_CACHE.read_text()) if _ASSET_CACHE.exists() else {}
+        key = f"pdf|{filename}"
+        if key in cache:
+            return cache[key]
+        safe = re.sub(r"[^A-Za-z0-9._ -]", "_", filename)
+        path = _ASSET_CACHE.parent / "pdf" / safe
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(_minimal_pdf(safe[:-4].replace("_", " ")))
+        try:
+            asset = str(self.api.upload_asset(path)["asset_id"])
+        except Revel8APIError as error:
+            self.log(f"pdf upload failed ({error}); sending as .docx name")
+            return None
+        cache[key] = asset
+        _ASSET_CACHE.write_text(json.dumps(cache, indent=1))
+        return asset
+
     # ---- one decision
     def decide(self, touch: int, feedback: str = "") -> dict:
         user = (f"TODAY: {datetime.now():%A %Y-%m-%d}\n"
@@ -399,8 +508,8 @@ class Runner:
         lang = "de" if self.state.plan.get("language") == "de" else "en"
         channel = a.get("channel") if a.get("channel") in MESSAGE_CHANNELS + LIVE_CHANNELS else "email"
         a["channel"] = channel
-        sender = a.get("sender") or {}
-        name = str(sender.get("name") or persona.get("name") or "")
+        sender = a.get("sender") if isinstance(a.get("sender"), dict) else {"name": str(a.get("sender") or "")}
+        name = str(persona.get("name") or sender.get("name") or "")  # one persona per session, always
         address = str(sender.get("address") or "")
         domain = str(persona.get("website_domain", "")).lower()
         if channel == "email" or "@" in address:
@@ -409,11 +518,17 @@ class Runner:
         elif channel in ("sms", "whatsapp", "signal", "imessage", "voicemail", "phone_call", "telegram"):
             address = address or persona.get("phone", "")
         a["sender"] = {"name": name, "address": address}
-        paragraphs = [str(p) for p in (a.get("paragraphs") or []) if str(p).strip()]
+        raw_paragraphs = a.get("paragraphs") or a.get("body") or a.get("text") or []
+        if isinstance(raw_paragraphs, str):
+            raw_paragraphs = [p for p in raw_paragraphs.split("\n\n")]
+        paragraphs = [str(p) for p in raw_paragraphs if str(p).strip()]
+        a["paragraphs"] = paragraphs
         first_name = self.dossier.target_name.split()[0]
         cited = [i for i in a.get("cited_fact_ids") or [] if i in self.fact_ids]
 
         page: LandingPageSpec | None = None
+        if isinstance(a.get("link"), str) and a["link"].startswith("http"):
+            a["link"] = {"url": a["link"], "page_type": "signin"}
         link = a.get("link") if isinstance(a.get("link"), dict) and a["link"].get("url") else None
         if link:
             host = _host(link["url"])
@@ -449,7 +564,7 @@ class Runner:
         elif channel == "email":
             a["format"] = "plain"
             body = colleague_note(recipient_name=first_name, paragraphs=paragraphs, sender_name=name,
-                                  sender_role=f"{persona.get('role', '')}, {persona.get('organisation', '')}".strip(", "),
+                                  sender_role=_signature_role(persona),
                                   link=link["url"] if link else None, phone=persona.get("phone"), lang=lang)
         else:
             body = "\n\n".join(paragraphs)
@@ -457,11 +572,21 @@ class Runner:
                 body += f"\n{link['url']}"
 
         attachments: list[Any] = []
-        fname = a.get("attachment_filename")
-        if fname:
-            fname = re.sub(r"\.(pdf|exe|docm|xlsm|js|bat|scr)$", ".docx", str(fname), flags=re.I)
-            a["attachment_filename"] = fname
+        api_attachments: list[Any] = []
+        names = a.get("attachment_filename") or []
+        if isinstance(names, str):
+            names = re.split(r"\s*[,;]\s*", names)
+        clean: list[str] = []
+        for fname in [str(n).strip() for n in names if str(n).strip()][:2]:
+            fname = re.sub(r"\.(exe|docm|xlsm|js|bat|scr|vbs|msi)$", ".docx", fname, flags=re.I)
+            clean.append(fname)
             attachments.append(AttachmentSpec(filename=fname))
+            if fname.lower().endswith(".pdf"):
+                asset = self._pdf_asset(fname)
+                api_attachments.append(asset if asset else {"filename": fname[:-4] + ".docx"})
+            else:
+                api_attachments.append({"filename": fname})
+        a["attachment_filename"] = ", ".join(clean) or None
 
         plan = ContactPlan(
             to=self.cfg.target_id, channel=channel, sender=SenderInfo(**a["sender"]),
@@ -474,8 +599,8 @@ class Runner:
                                    "from": {"name": name, "address": address}, "body": plan.body}
         if plan.subject:
             payload["subject"] = plan.subject
-        if attachments:
-            payload["attachments"] = [{"filename": x.filename} for x in attachments]
+        if api_attachments:
+            payload["attachments"] = api_attachments
         return plan, payload, page
 
     def check(self, a: dict, plan: ContactPlan) -> list[str]:
@@ -487,8 +612,8 @@ class Runner:
             dom = plan.sender.address.rpartition("@")[2].lower()
             if dom != str(self.state.plan.get("persona", {}).get("website_domain", "")).lower():
                 errors.append(f"Sender domain {dom} is not the persona's checked domain.")
-        if plan.channel == "email" and not plan.body.strip():
-            errors.append("Empty email body.")
+        if a.get("kind") != "call" and not a.get("paragraphs"):
+            errors.append("The message has no text. Put the full message text in 'paragraphs' (list of strings).")
         return errors
 
     # ---- execution
