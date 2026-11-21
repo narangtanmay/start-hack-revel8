@@ -47,6 +47,8 @@ ESCALATE_CALL = "ESCALATE_CALL"   # follow up with a live call
 PIVOT_CHANNEL = "PIVOT_CHANNEL"   # silence here -> try another channel
 PIVOT_HOOK = "PIVOT_HOOK"         # the angle isn't landing -> change it
 DE_ESCALATE = "DE_ESCALATE"       # suspicion rising -> soften, add legitimacy
+ELICIT = "ELICIT"                 # they're talking: ask ONE internal question the story needs (disclosure)
+DELIVER = "DELIVER"               # they asked for a document: send exactly that, attached (an opened file = action)
 STOP = "STOP"                     # burned, or nothing left worth spending on
 
 # A believable escalation ladder: low-pressure/async first, live voice last.
@@ -60,6 +62,49 @@ _SUSPICION_CUES = re.compile(
     re.IGNORECASE,
 )
 _QUESTION_CUES = re.compile(r"\?|\b(can you|could you|what|which|when|how|why|where)\b", re.IGNORECASE)
+# What the target tells us about HOW they are willing to engage. Learned from our
+# practice logs: the twins say exactly what they will and won't do ("no login",
+# "send a PDF", "paste it in the mail", "we can go over it on the call"). A human
+# attacker obeys those cues; ignoring them is what kept our early runs at zero.
+PREFERENCE_CUES: dict[str, re.Pattern[str]] = {
+    "no_login": re.compile(r"(another|a|any|without (?:a|any)) log-?in|rather not (?:create|sign|log)|"
+                           r"no (?:log-?in|account)|won'?t (?:sign|log) in|kein(?:en)? (?:login|account)", re.I),
+    "wants_pdf": re.compile(r"\bpdf\b", re.I),
+    "no_office_files": re.compile(r"won'?t open (?:word|the attachment|attachments|office)|word file|"
+                                  r"not open(?:ing)? (?:the )?attachments?", re.I),
+    "wants_plain_text": re.compile(r"(?:in|into) the (?:mail|e-?mail)(?: body)?|paste|plain[- ]text|"
+                                   r"here (?:in the|by) (?:e-?)?mail|mail body|direkt in der mail", re.I),
+    "call_ok": re.compile(r"on the call|quick(?:ly)? (?:call|chat)|call me|give me a (?:call|ring)|"
+                          r"go over it (?:quickly )?on|kurz telefonieren", re.I),
+    "no_reminders": re.compile(r"(?:don'?t|do not|no) (?:send )?(?:further |more |any )?(?:reminders|nudges|follow-?ups)|"
+                               r"stop (?:sending|contacting)", re.I),
+    "deferring": re.compile(r"next week|travell?ing|on the road|at my desk|come back to you|get back to you|"
+                            r"nächste woche|unterwegs", re.I),
+    "offers_input": re.compile(r"here'?s my (?:input|take)|my (?:short )?take|happy to (?:just )?(?:send|share|give)|"
+                               r"short take|my input|my notes|i'?d (?:lead|frame|say)", re.I),
+    "invites_ask": re.compile(r"what (?:would|do) you need|how can i help|happy to help|what'?s the next step|"
+                              r"let'?s (?:do it|continue|go ahead)|sounds good|works for me|was brauchst du", re.I),
+    # They push us to someone else ("send it to people@", "best handled by our team") -> the thread is dying in
+    # writing; a person would call now while they still remember us. (Tom, real practice run 2026-11-21.)
+    "handoff": re.compile(r"(?:send|forward|direct) (?:it|this|them|the \w+)? ?(?:over )?to [\w.+-]+@|"
+                          r"best (?:handled|sent|directed) (?:by|to)|loop in (?:our|the)|"
+                          r"(?:our|the) (?:people|hr|talent|recruiting|procurement|security|it) team (?:will|can|handles)|"
+                          r"will get back to you if (?:there is|there's) interest|careers page|apply (?:via|through|on)|"
+                          r"through (?:our|the) (?:website|careers|official)|official channels?", re.I),
+    # They ask us for a document ("please send the one-pager with the agenda") -> deliver it attached.
+    "wants_artifact": re.compile(r"(?:send|share|forward|attach|mail) (?:me |us |over |it )?(?:the |a |an |your |that )?"
+                                 r"(?:\w+[ -]){0,3}(?:one-?pager|agenda|deck|slides|pdf|document|doc|profile|profiles|"
+                                 r"proposal|brief|briefing|draft|outline|summary|overview|questions|questionnaire|"
+                                 r"report|invite|details|cv|resume|contract|terms|attachment|file|study|summary|"
+                                 r"results|benchmark|paper|whitepaper)\b|"
+                                 r"(?:as|in) (?:a |an )?(?:plain |normal |regular )?(?:pdf|attachment)|"
+                                 r"look at it when it arrives", re.I),
+    # They signal there is more to tell ("happy to go into it", "long answer") -> keep them talking.
+    "offers_more": re.compile(r"happy to (?:go|get) into|long answer|more (?:detail|on that)|could tell you more|"
+                              r"another time|in more depth|go deeper", re.I),
+    "verifying": re.compile(r"(?:check|verify|confirm)\b.{0,60}\b(?:public|directly|channels|website|reference)|"
+                            r"public website|legal entity|who funds", re.I),
+}
 _WARM_CUES = re.compile(r"\b(sure|happy to|of course|sounds good|will do|thanks|great|no problem|let me)\b", re.IGNORECASE)
 
 
@@ -94,6 +139,10 @@ class BeliefState:
     open_loops: list[str] = field(default_factory=list)           # their questions we still owe answers to
     current_hook: str = ""
     last_signal: str = "none"
+    preferences: set[str] = field(default_factory=set)            # stated constraints/openings, see PREFERENCE_CUES
+    elicited: int = 0                                             # how many ELICIT moves we've spent
+    holds: int = 0                                                # consecutive HOLD moves (rapport without an ask)
+    calls_made: int = 0                                           # live calls placed this session
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -102,7 +151,8 @@ class BeliefState:
             "channel_status": dict(self.channel_status), "silent_streak": dict(self.silent_streak),
             "hook_resonance": {k: round(v, 2) for k, v in self.hook_resonance.items()},
             "open_loops": list(self.open_loops), "current_hook": self.current_hook,
-            "last_signal": self.last_signal,
+            "last_signal": self.last_signal, "preferences": sorted(self.preferences),
+            "elicited": self.elicited, "holds": self.holds, "calls_made": self.calls_made,
         }
 
 
@@ -171,10 +221,16 @@ def update_belief(belief: BeliefState, sig: Signal, hook_id: str, *, reply_senti
         belief.warmth = _clamp(belief.warmth + 0.15 * max(0.0, reply_sentiment) + 0.05)
         belief.suspicion = _clamp(belief.suspicion + max(0.0, -reply_sentiment))
         belief.hook_resonance[hook_id] = _clamp(belief.hook_resonance.get(hook_id, 0.0) + 0.15 * (reply_sentiment + 0.2))
+        belief.open_loops = []  # a fresh reply supersedes what we owed before
         if _QUESTION_CUES.search(text):
             loop = text.strip()[:140]
-            if loop and loop not in belief.open_loops:
+            if loop:
                 belief.open_loops.append(loop)
+        for name, cue in PREFERENCE_CUES.items():
+            if cue.search(text):
+                belief.preferences.add(name)
+                if name in ("no_reminders", "verifying"):
+                    belief.suspicion = _clamp(belief.suspicion + 0.15)
         belief.last_signal = "replied (suspicious)" if reply_sentiment < 0 else "replied (receptive)"
         if belief.suspicion >= 0.8:
             belief.channel_status[ch] = "burned"
@@ -246,6 +302,74 @@ def choose_move(belief: BeliefState, *, last_channel: str, touches_left: int, al
                         rejected=["ESCALATE_*: pressing a suspicious target confirms the attack",
                                   "STOP: still recoverable while warmth is " + f"{w:.2f}"])
 
+    prefs = belief.preferences
+    talking = status == "replied" and w >= 0.3
+    phone_status = belief.channel_status.get("phone_call")
+    ever_replied = any(v in ("replied", "opened") for v in belief.channel_status.values())
+    total_silences = sum(belief.silent_streak.values())
+
+    # 2a. Silence-to-call. The API guarantees a call is answered ("the person always picks up"), so after a
+    #     written contact goes unanswered, a call referencing it is the strongest believable follow-up.
+    #     (Real practice 2026-11-21: Robert ignored 10/10 async contacts on 5 channels; we never called.)
+    if (allow_live and not ever_replied and total_silences >= 1 and phone_status in (None, "untried")
+            and last_channel not in LIVE_CHANNELS and touches_left >= 1):
+        return Decision(ESCALATE_CALL, "phone_call", confidence=0.8,
+                        reason=f"{total_silences} written contact(s) ignored and no reply anywhere; a call is always "
+                               "answered, so call and reference the message by its topic",
+                        rejected=["PIVOT_CHANNEL(async): another inbox is another silence",
+                                  "HOLD: a second nudge in the same channel rarely moves a silent target"])
+
+    # 2a'. They asked for a document -> deliver exactly that now, attached under the expected name. An opened
+    #      attachment is an action incident; a requested one is the most likely to be opened. Checked before the
+    #      handoff rule: "send it to robert@..." on a call is a request for the file, not a handoff (v2 Robert).
+    if talking and "wants_artifact" in prefs and s < 0.5 and not {"wants_plain_text", "no_office_files"} <= prefs:
+        prefs.discard("wants_artifact")
+        prefs.discard("handoff")
+        return Decision(DELIVER, last_channel if last_channel not in LIVE_CHANNELS else "email", confidence=0.8,
+                        reason="they asked us to send a document; deliver exactly that now, attached, with one line on "
+                               "why to look at it today",
+                        rejected=["HOLD: answering around their request delays the one thing they asked for",
+                                  "ESCALATE_CALL: they asked for it in writing"])
+
+    # 2a''. Handoff ("send it to people@", "our team will get back to you") or a call that ended with an offer of
+    #       more ("happy to go into it") -> call (again) while the thread is still warm.
+    if (allow_live and talking and prefs & {"handoff", "offers_more"} and touches_left >= 1
+            and belief.calls_made < 3 and s < 0.5):
+        prefs.discard("handoff")
+        prefs.discard("offers_more")
+        return Decision(ESCALATE_CALL, "phone_call", confidence=0.75,
+                        reason="they are handing us off or offered to say more; a short live call keeps the thread with "
+                               "them and lets us ask follow-up questions in person",
+                        rejected=["HOLD: writing to the address they gave ends the thread with a form reply",
+                                  "PIVOT_HOOK: the angle works, the medium is the problem"])
+
+    # 2b. They are giving us substance (opinions, input, offers) -> the quickest
+    #     incident is disclosure: ask ONE internal question the story needs.
+    if talking and "offers_input" in prefs and belief.elicited < 3:
+        return Decision(ELICIT, last_channel, confidence=0.75,
+                        reason="they are volunteering input in-thread; ask one concrete internal question the story legitimately needs",
+                        rejected=["ESCALATE_PRESSURE with a link/file: they told us how they want to engage (in the mail/call)",
+                                  "HOLD: the window is open now; a nudge wastes it"])
+
+    # 2c. They keep deferring ("next week", "travelling") but are friendly ->
+    #     a real person picks up the phone instead of sending reminder #3.
+    if (talking and "deferring" in prefs and allow_live and last_channel not in LIVE_CHANNELS
+            and belief.channel_status.get("phone_call") in (None, "untried") and touches_left >= 2):
+        return Decision(ESCALATE_CALL, "phone_call", confidence=0.7,
+                        reason="friendly but deferring; written reminders read as nagging, a short call settles it live and lets us ask in person",
+                        rejected=["HOLD: another reminder mail ('please don't send further reminders')",
+                                  "PIVOT_CHANNEL(async): same deferral, different inbox"])
+
+    # 2d. They invite the ask ("what would you need from me?") or we've already spent two
+    #     touches on rapport -> make the concrete ask now. (Without this, every reply with a
+    #     "?" kept us answering questions forever: our practice runs never asked.)
+    if talking and s < 0.4 and ("invites_ask" in prefs or belief.holds >= 2):
+        return Decision(ESCALATE_PRESSURE, last_channel, confidence=0.7,
+                        reason=("they invited the ask" if "invites_ask" in prefs else
+                                f"{belief.holds} rapport touches without an ask") + "; make the concrete ask now, answering their open question in the same message",
+                        rejected=["HOLD: more rapport only costs touches (speed is scored)",
+                                  "ESCALATE_CALL: they're responsive in this channel"])
+
     # 3. They owe us nothing yet but asked something -> answer it, build rapport.
     if belief.open_loops and status == "replied" and belief.commitment < 0.4:
         return Decision(HOLD, last_channel, confidence=0.7,
@@ -310,7 +434,7 @@ Return STRICT JSON for the engine with keys:
 
 # Map the controller's rich move to the engine's existing decision vocabulary.
 _MOVE_TO_ENGINE = {
-    HOLD: "STAY", ESCALATE_PRESSURE: "STAY", ESCALATE_CALL: "ESCALATE_CALL",
+    HOLD: "STAY", ESCALATE_PRESSURE: "STAY", ELICIT: "STAY", DELIVER: "STAY", ESCALATE_CALL: "ESCALATE_CALL",
     PIVOT_CHANNEL: "PIVOT_CHANNEL", PIVOT_HOOK: "PIVOT_HOOK", DE_ESCALATE: "PIVOT_HOOK", STOP: "STOP",
 }
 
@@ -342,8 +466,35 @@ class AdvancedDecider:
         return sig
 
     def decide(self, touches_left: int) -> Decision:
-        return choose_move(self.belief, last_channel=self.last_channel,
-                           touches_left=touches_left, allow_live=self.allow_live)
+        d = choose_move(self.belief, last_channel=self.last_channel,
+                        touches_left=touches_left, allow_live=self.allow_live)
+        prev = getattr(self, "last_move", None)
+        silent_now = self.belief.last_signal == "silence"
+        # Guard 1: one de-escalation, then change approach. Three DE_ESCALATE mails into silence in v6 Tom.
+        if d.move == DE_ESCALATE and prev == DE_ESCALATE and silent_now:
+            if self.allow_live and self.belief.calls_made < 2 and self.last_channel not in LIVE_CHANNELS:
+                d = Decision(ESCALATE_CALL, "phone_call", confidence=0.6,
+                             reason="a reassurance mail met silence; one honest call instead of another mail",
+                             rejected=["DE_ESCALATE again: a second unanswered reassurance reads as pressure"])
+            else:
+                nxt = _next_channel(self.belief, tried_live_ok=False)
+                d = Decision(PIVOT_CHANNEL, nxt, confidence=0.55,
+                             reason=f"reassurance met silence; a short, low-key note on {nxt} instead",
+                             rejected=["DE_ESCALATE again on the same channel"])
+        # Guard 2: never two calls in a row (v6 Tom t7, t8: called back right after "I don't do this by phone").
+        if d.move == ESCALATE_CALL and self.last_channel in LIVE_CHANNELS and prev == ESCALATE_CALL:
+            d = Decision(DELIVER if "wants_artifact" in self.belief.preferences else HOLD, "email", confidence=0.55,
+                         reason="we just spoke on the phone; follow up in writing with what was agreed",
+                         rejected=["ESCALATE_CALL again: calling straight back is pushy"])
+        self.last_move = d.move
+        if d.move == ELICIT:
+            self.belief.elicited += 1
+        if d.move == ESCALATE_CALL:
+            self.belief.calls_made += 1
+        self.belief.holds = self.belief.holds + 1 if d.move == HOLD else 0
+        if d.move in (ESCALATE_PRESSURE, ELICIT):
+            self.belief.preferences.discard("invites_ask")  # spent; wait for a fresh invitation
+        return d
 
     def fill_prompt(self, decision: Decision) -> str:
         return FILL_SYS.format(move=decision.move, reason=decision.reason)

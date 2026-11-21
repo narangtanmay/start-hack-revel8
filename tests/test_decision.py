@@ -94,12 +94,45 @@ def test_rule_escalate_call_on_opened_but_silent():
     assert d.move == ESCALATE_CALL and d.channel_hint == "phone_call"
 
 
-def test_rule_pivot_channel_on_silence_streak():
+def test_rule_silence_goes_to_call_first():
+    # A call is always answered, so an unanswered mail is followed by a call, not another inbox.
     b = BeliefState(warmth=0.2, suspicion=0.1)
     b.channel_status["email"] = "silent"
+    b.silent_streak["email"] = 1
+    d = choose_move(b, last_channel="email", touches_left=5)
+    assert d.move == ESCALATE_CALL and d.channel_hint == "phone_call"
+
+
+def test_rule_pivot_channel_on_silence_streak_after_call_tried():
+    b = BeliefState(warmth=0.2, suspicion=0.1)
+    b.channel_status["email"] = "silent"
+    b.channel_status["phone_call"] = "replied"
     b.silent_streak["email"] = 2
     d = choose_move(b, last_channel="email", touches_left=5)
     assert d.move == PIVOT_CHANNEL and d.channel_hint != "email"
+
+
+def test_rule_handoff_reply_triggers_call():
+    b = BeliefState(warmth=0.5, suspicion=0.1)
+    update_belief(b, read_signal("email", [{"type": "reply", "body":
+                  "Thanks. Please send the intro for our People team to people@revel8.ai, they will get back to you if there is interest."}]), "h1")
+    d = choose_move(b, last_channel="email", touches_left=5)
+    assert d.move == ESCALATE_CALL
+
+
+def test_rule_offer_of_more_on_call_triggers_another_call():
+    b = BeliefState(warmth=0.5, suspicion=0.1)
+    update_belief(b, read_signal("phone_call", [], [{"who": "target", "text":
+                  "Ha, that's a long answer for a two-minute call. Happy to go into it another time."}]), "h1")
+    d = choose_move(b, last_channel="phone_call", touches_left=5)
+    assert d.move == ESCALATE_CALL
+
+
+def test_call_cap_respected():
+    b = BeliefState(warmth=0.5, suspicion=0.1, calls_made=3)
+    b.preferences.add("handoff")
+    b.channel_status["email"] = "replied"
+    assert choose_move(b, last_channel="email", touches_left=5).move != ESCALATE_CALL
 
 
 def test_rule_pivot_hook_on_poor_resonance():
@@ -129,8 +162,63 @@ def test_decider_opened_then_recommends_call():
     assert move == ESCALATE_CALL
 
 
-def test_decider_two_silences_then_pivots_channel():
+def test_decider_silence_then_calls_then_pivots_channel():
     dec = AdvancedDecider()
     dec.observe("email", "h1", [])
+    assert dec.decide(touches_left=8).move == ESCALATE_CALL
+    dec.observe("phone_call", "h1", [], [{"who": "target", "text": "Hello? Okay, send it by mail."}])
     dec.observe("email", "h1", [])
-    assert dec.decide(touches_left=8).move == PIVOT_CHANNEL
+    dec.observe("email", "h1", [])
+    assert dec.decide(touches_left=6).move == PIVOT_CHANNEL
+
+
+def test_rule_deliver_when_they_ask_for_a_document():
+    from revel8_agent.decision import DELIVER
+    b = BeliefState(warmth=0.4, suspicion=0.1)
+    update_belief(b, read_signal("email", [{"type": "reply", "body":
+                  "Thanks, that helps! Yes, please send the one-pager with the agenda and participants."}]), "h1")
+    d = choose_move(b, last_channel="email", touches_left=6)
+    assert d.move == DELIVER and d.channel_hint == "email"
+    # spent: the next reply without a new request does not deliver again
+    assert choose_move(b, last_channel="email", touches_left=5).move != DELIVER
+
+
+def test_call_request_for_plain_attachment_delivers_not_calls_again():
+    # v2 Robert, real practice: on the call he asked for the file and gave his own address.
+    from revel8_agent.decision import DELIVER
+    b = BeliefState(warmth=0.4, suspicion=0.1)
+    update_belief(b, read_signal("phone_call", [], [{"who": "target", "text":
+        "If you have something specific, send it as a plain attachment or in the mail body. "
+        "Send it to robert.seilbeck@revel8.ai. I'll look at it when it arrives, no promises on a reply."}]), "h1")
+    d = choose_move(b, last_channel="phone_call", touches_left=7)
+    assert d.move == DELIVER and d.channel_hint == "email"
+
+
+def test_careers_page_redirect_is_a_handoff_that_triggers_a_call():
+    b = BeliefState(warmth=0.5, suspicion=0.1)
+    update_belief(b, read_signal("email", [{"type": "reply", "body":
+        "Thanks, that works. Send it through the careers page and the People team will take it from there."}]), "h1")
+    assert "handoff" in b.preferences
+    assert choose_move(b, last_channel="email", touches_left=7).move == ESCALATE_CALL
+
+
+def test_guard_no_second_deescalate_into_silence():
+    dec = AdvancedDecider()
+    dec.belief.suspicion = 0.6
+    dec.belief.channel_status["email"] = "replied"
+    dec.belief.channel_status["phone_call"] = "replied"
+    dec.belief.calls_made = 2
+    dec.last_channel = "email"
+    assert dec.decide(touches_left=6).move == DE_ESCALATE
+    dec.observe("email", "h1", [])           # silence after the reassurance
+    dec.belief.suspicion = 0.6
+    assert dec.decide(touches_left=5).move != DE_ESCALATE
+
+
+def test_guard_no_back_to_back_calls():
+    dec = AdvancedDecider()
+    dec.observe("email", "h1", [])
+    assert dec.decide(touches_left=8).move == ESCALATE_CALL
+    dec.observe("phone_call", "h1", [], [{"who": "target", "text":
+        "I've said what I have to say. Send your questions to our press contact through the website."}])
+    assert dec.decide(touches_left=7).move != ESCALATE_CALL

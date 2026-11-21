@@ -1,0 +1,77 @@
+{
+ "built_at": "2026-11-21T23:48:10",
+ "archetypes": {
+  "journalist/media": {
+   "runs": 3,
+   "touches": 30,
+   "replies": 17,
+   "brushoffs": 8,
+   "incidents_api": 0,
+   "reply_rate": 0.57,
+   "brushoff_rate": 0.47
+  },
+  "customer/prospect": {
+   "runs": 4,
+   "touches": 40,
+   "replies": 28,
+   "brushoffs": 4,
+   "incidents_api": 0,
+   "reply_rate": 0.7,
+   "brushoff_rate": 0.14
+  },
+  "other": {
+   "runs": 5,
+   "touches": 43,
+   "replies": 26,
+   "brushoffs": 4,
+   "incidents_api": 0,
+   "reply_rate": 0.6,
+   "brushoff_rate": 0.15
+  },
+  "recruiter": {
+   "runs": 10,
+   "touches": 95,
+   "replies": 21,
+   "brushoffs": 11,
+   "incidents_api": 0,
+   "reply_rate": 0.22,
+   "brushoff_rate": 0.52
+  },
+  "event organiser": {
+   "runs": 3,
+   "touches": 30,
+   "replies": 14,
+   "brushoffs": 3,
+   "incidents_api": 0,
+   "reply_rate": 0.47,
+   "brushoff_rate": 0.21
+  },
+  "partner/vendor": {
+   "runs": 6,
+   "touches": 57,
+   "replies": 11,
+   "brushoffs": 5,
+   "incidents_api": 0,
+   "reply_rate": 0.19,
+   "brushoff_rate": 0.45
+  },
+  "researcher/student": {
+   "runs": 6,
+   "touches": 61,
+   "replies": 15,
+   "brushoffs": 6,
+   "incidents_api": 0,
+   "reply_rate": 0.25,
+   "brushoff_rate": 0.4
+  },
+  "applicant": {
+   "runs": 1,
+   "touches": 10,
+   "replies": 2,
+   "brushoffs": 2,
+   "incidents_api": 0,
+   "reply_rate": 0.2,
+   "brushoff_rate": 1.0
+  }
+ }
+}

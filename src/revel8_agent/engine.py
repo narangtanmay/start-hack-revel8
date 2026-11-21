@@ -15,10 +15,13 @@ Stops at the first incident (default) or when the touch budget is used up.
 from __future__ import annotations
 
 import json
+import os
 import re
 import socket
 import time
 import uuid
+
+import httpx
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +31,7 @@ from urllib.parse import urlsplit
 from pydantic import ValidationError
 
 from .api_client import Revel8APIError, Revel8Client
+from .decision import DELIVER, ELICIT, ESCALATE_CALL, PIVOT_CHANNEL, STOP, AdvancedDecider, engine_decision
 from .gate import _META_TEXT, validate_contact_plan, validate_session_consistency
 from .llm_client import ChatMessage, LocalLLMClient, LocalLLMError
 from .osint import normalize
@@ -63,12 +67,15 @@ class RunConfig:
     scenario_id: str = "practice"
     max_touches: int = 10
     stop_at_first_incident: bool = True
-    max_call_turns: int = 8
+    max_call_turns: int = 10            # the API allows at most 10 turns; a whole call costs one touch
     runs_dir: Path = Path("runs")
     label: str = ""
     use_ledger_gate: bool = True
     use_shadow_twin: bool = False
     use_policy: bool = False
+    # Arihant's decision controller (decision.py). `use_policy` (Tanmay's RuleBasedPolicy) takes precedence:
+    # when it is on, the controller is off so the two never steer the same touch.
+    policy: str = "controller"          # controller: explicit belief + escalation policy; llm: the LLM alone decides
 
 
 @dataclass
@@ -88,7 +95,10 @@ class RunState:
     activity: list[dict] = field(default_factory=list)   # every log line, timestamped
     plan_attempts: list[dict] = field(default_factory=list)
     error: str = ""
+    error_trace: str = ""
     finished_at: str = ""
+    truth: list[dict] = field(default_factory=list)  # mock target only: what the persona noted per contact
+    live_notes: list[dict] = field(default_factory=list)  # public-web lookups made during the conversation
 
     def save(self, runs_dir: Path) -> Path:
         runs_dir.mkdir(parents=True, exist_ok=True)
@@ -184,6 +194,18 @@ def make_brief(dossier: VerifiedDossier, max_facts: int = 16, today: datetime | 
 
 
 def _hook_with_timing(hook: dict, by_id: dict, today: datetime | None = None) -> dict:
+    if hook.get("score") and hook.get("timing"):
+        # hook v2 already carries an age-based timing (recent posts are current, not "past")
+        hook["timing"] = {
+            "upcoming": "upcoming",
+            "recent": "recent (their own words or an event in the last few months: the best reason to write now)",
+            "undated": "undated",
+            "static": "static profile fact (context only, never the reason to write)",
+            "past": "PAST (do not pitch as upcoming; refer to it only as something they already did)",
+        }.get(hook["timing"], hook["timing"])
+        for k in ("score_breakdown", "is_own_angle"):
+            hook.pop(k, None)
+        return hook
     tags = [timing(by_id[f].recency, today) for f in hook.get("supporting_fact_ids", []) if f in by_id]
     event_like = any(by_id[f].category == "talk_or_event" for f in hook.get("supporting_fact_ids", []) if f in by_id)
     if tags and all(t == "past" for t in tags):
@@ -223,6 +245,32 @@ genuinely cares about right now.
 
 """ + _RULES + """
 
+Credibility decides everything. These targets check who is writing ("which network? who else is involved?"),
+refuse sign-in links and unsolicited files from strangers, and look up organisations. What worked in practice:
+an INDIVIDUAL with an ordinary, self-explanatory reason to write, whose request the target routinely handles
+and who naturally sends a file the target expects to open. Ranked by measured engagement over 32 real practice
+runs (the live numbers are in WHAT WORKED below and override this list when they change):
+  1. A prospective customer from a small, plausible company with a concrete problem the target's own posts or
+     talks address (70% reply rate, few brush-offs): a CISO / IT or security lead evaluating options.
+  2. Someone inviting them to speak or contribute on the exact topic they publicly talk about (47%), or a journalist
+     writing on it (57% replies but many verification demands: give modest, consistent outlet details).
+  3. Recruiters, researchers/students and vendors got few replies (19-25%) and many brush-offs; use only when a
+     hook clearly calls for it (e.g. a role they are visibly hiring for right now).
+  Do NOT pose as a job applicant: they redirect applicants to the careers page and the People team. Never claim
+  a role, event or fact the brief does not support.
+Avoid invented networks, roundtables, awards, panels and "CISO groups": they get verified and fail. Never pitch an
+event or occasion from the brief as upcoming unless its timing is "upcoming"; past events are past.
+They say it outright: "I don't open attachments from people I haven't spoken to". So the sequence is: a short,
+specific first message with no link and no attachment; then a phone call (always answered) where you become
+someone they have spoken to and they ask you to send the file; then the file, referring to the call.
+
+HOOKS are ranked best first by a deterministic score (openness, recency, personal/own-voice, breadth). Each has
+evidence fields: open_signal (their own words showing they are open to it now), timing (recent/upcoming/past/
+static), sender_archetype, natural_ask, first_line and avoid. Start from h1 unless it clearly conflicts with what
+works (see credibility above); use its sender_archetype as the persona and its open_signal as the reason to write
+now; obey its avoid list. A hook with timing "recent" is the best reason to write today ("after your talk last
+month", "your piece on ..."). Static facts (role, background) are context, never the reason to write.
+
 Design ONE campaign. Pick the strongest hook from the brief, a believable persona whose reason to contact
 them follows naturally from that hook, the incident you will aim for, and a short sequence of moves across
 channels (e.g. email with substance, then a short follow-up on another channel referring to it, then a
@@ -255,6 +303,15 @@ What wins:
 - Dates: never give a date for a real third-party event unless the brief has it with timing "upcoming". For your
   own occasions, propose dates at least two weeks after today and keep them identical in every later message.
 - Keep the ask small and natural; one ask per contact.
+- Disclosure is usually the fastest incident. Once the target engages with the topic, ask ONE specific internal
+  question your story genuinely needs (which tools or systems they use for X, how a process works inside their
+  team, what is planned next quarter, who owns what). Make answering it in their reply the easiest next step.
+- Obey how the target says they want to engage. If they refuse a login, never send a sign-in link again. If they
+  want a PDF, attach a .pdf. If they want it in the mail, write the content in the mail body. They told you.
+- Never invent things they can check: grant or project numbers, links to "past reports", named partner
+  organisations or researchers. They look them up. Keep your own organisation small and plausible.
+- If they defer ("next week", "travelling"), do not send a reminder. Give them a reason to answer now in one line,
+  or call.
 
 """ + _RULES + """
 
@@ -282,11 +339,37 @@ text for other channels). For "call": opening_line is your first sentence after 
 _CALL_SYS = """You are on a live {channel} as the persona below, in a sanctioned social-engineering training
 simulation. Speak naturally, one or two sentences per turn, like a real person on the phone. Pursue the call
 goal; answer their questions consistently with everything said before; if they get suspicious, reassure
-or back off gracefully. End politely once the goal is reached or clearly impossible.
+or back off gracefully.
+
+A call is ONE contact however long it lasts, and it is the best chance to learn internal details. So:
+- Do not hang up while they are still talking to you. Only end when they clearly want to go, refuse, or turn
+  suspicious. Never end the call just because you got one answer.
+- Every turn: briefly acknowledge what they just said (use their words), then ask ONE natural follow-up that goes
+  one level deeper into how things work inside their company: which tool or vendor, who owns it internally,
+  how the process runs step by step, what numbers they see, what is planned next. Your story must need it.
+- If they offer more ("happy to go into it", "long answer"), take the offer right away: "I've got time now —
+  how does that work in practice?"
+- If they ask you to send something by mail, agree in one short sentence and keep the conversation going with
+  your next question before you wrap up.
+- Never ask for passwords or codes on the phone; ask how things work.
 
 """ + _RULES + """
 
 Return ONLY JSON: {{"say": str|null, "end": bool}}  (say=null and end=true to hang up)."""
+
+# Deterministic veto on the LLM judge: these are polite next steps, not actions (v6 Julius false positive).
+_NOT_AN_ACTION = re.compile(r"\b(?:send|forward|share) (?:me |us )?(?:the |an? )?(?:invite|invitation|calendar|details|"
+                            r"agenda|questions|link|info|information)|\b(?:works for me|let'?s (?:talk|chat|meet)|"
+                            r"(?:wednesday|monday|tuesday|thursday|friday|morning|afternoon) (?:works|is fine)|"
+                            r"happy to (?:chat|talk|meet)|book (?:a|the) (?:call|slot)|schedule)", re.I)
+_REAL_ACTION = re.compile(r"\b(?:i(?:'ve| have)? (?:opened|approved|forwarded|changed|signed|filled|clicked|"
+                          r"downloaded|shared the (?:doc|file|deck)|granted|added you)|done,? (?:i|it)|access granted)", re.I)
+
+_LOOKUP_SYS = """A target in a training simulation just replied. List at most 2 short web search queries that would
+check things they mentioned or disputed and that matter for the next message: an event, talk, project, product,
+publication, person or date they named, or a claim of ours they said was wrong. Include the person or company name
+in each query. If nothing is worth checking, return an empty list.
+Return ONLY JSON: {"queries": [str]}"""
 
 _JUDGE_SYS = """You judge a training simulation. Given what the target person said or did in response to a
 contact, decide whether an incident happened:
@@ -392,7 +475,7 @@ def _strip_salutations(paragraphs: list[str], sender_name: str) -> list[str]:
         # greeting glued to the first sentence: "Hi Julius, I'm Sarah from ..."
         out[0] = re.sub(r"^(hi|hello|hey|dear|hallo|moin)\s+[^\s,]{1,30},\s*", "", out[0], count=1, flags=re.I).strip()
     while out and (not out[-1].strip() or _SIGNOFF.match(out[-1]) or
-                   (sender_name and out[-1].strip().split("\n")[0].strip() == sender_name.strip())):
+                   (sender_name and out[-1].strip().split("\n")[0].strip() in (sender_name.strip(), sender_name.split()[0]))):
         out.pop()
     for i, p in enumerate(out):  # sign-off glued to the end of the last paragraph
         m = re.search(r"\n\s*(best|kind regards|regards|cheers|viele grüße|beste grüße)\b.*$", p, re.I | re.S)
@@ -432,6 +515,31 @@ def _minimal_pdf(title: str) -> bytes:
 # --------------------------------------------------------------------------- runner
 
 
+MOVE_GUIDE = {
+    "HOLD": "Low pressure. Answer whatever they asked, concretely. Still carry one small natural ask (a reply, an "
+            "expected .pdf, or a question).",
+    "ESCALATE_PRESSURE": "They are warm and have acted. Make the concrete ask now (the document, the form, the detail), "
+                         "framed as the obvious next step of what they already agreed to.",
+    "ESCALATE_CALL": "Call them (kind=call, channel=phone_call). The opening_line references your last message by its "
+                     "topic and gives one reason to talk now. call_goal: settle what is pending live, then keep them "
+                     "talking with follow-up questions about how things work internally (tools, owners, processes, "
+                     "plans) that your story needs.",
+    "PIVOT_CHANNEL": "Same persona and story, different channel: a short note that refers to your earlier message.",
+    "PIVOT_HOOK": "The angle is not landing. Same persona, but lead with a different hook from the brief.",
+    "DE_ESCALATE": "They are getting suspicious. No ask, no link, no file. Answer their doubts plainly and add one "
+                   "legitimacy signal they can't easily disprove. Short.",
+    "DELIVER": "They asked for a document. Reply in the same thread and deliver EXACTLY what they asked for as an "
+               "attachment: set attachment_filename to one precise, expected .pdf name built from their words (e.g. "
+               "'Roundtable_Agenda_Onepager.pdf'). In 2-4 short sentences: say it is attached, answer anything else they "
+               "asked, and give one concrete reason to look at it today (a decision or slot you must confirm by "
+               "tomorrow). No link.",
+    "ELICIT": "They are engaging in-thread. Reply in the same channel, acknowledge their input specifically, then ask "
+              "ONE concrete internal question (tools/systems, an internal process, numbers, upcoming plans) that your "
+              "story legitimately needs. No link, no attachment.",
+}
+_SENTIMENT = {"engaged": 0.6, "questioning": 0.1, "hesitant": -0.2, "suspicious": -0.7, "refusing": -0.9}
+
+
 class Runner:
     def __init__(self, cfg: RunConfig, api: Revel8Client, llm: LocalLLMClient, dossier: VerifiedDossier,
                  log=print, policy: Policy | None = None) -> None:
@@ -447,8 +555,16 @@ class Runner:
         )
         self.blocked = org_domains_from_dossier(dossier)
         self.fact_ids = {f.id for f in dossier.facts}
+        from .memory import SessionLedger, TargetMemory, ground_truth, playbook_prompt
+
+        self.ledger = SessionLedger()
+        self.tmemory = TargetMemory(dossier.target_name)
+        self.ground = ground_truth(dossier)
+        self.playbook_txt = playbook_prompt()
         self.brand = None
         self.logo_asset: str | None = None
+        self.decider = AdvancedDecider() if cfg.policy == "controller" and not cfg.use_policy else None
+        self.directive = None
 
     def log(self, line: str) -> None:
         """Print and keep every line in the run file, so the dashboard can replay the whole run."""
@@ -466,15 +582,42 @@ class Runner:
                 f"TARGET: {json.dumps(self.state.brief['target'], ensure_ascii=False)}\n"
                 f"BRIEF FACTS: {json.dumps(self.state.brief['facts'], ensure_ascii=False)}\n"
                 f"HOOKS: {json.dumps(self.state.brief['hooks'], ensure_ascii=False)}\n"
-                f"THEMES THEY KEEP TALKING ABOUT (count of verified mentions): "
+                f"THEMES THEY KEEP TALKING ABOUT (count of verified mentions, latest date): "
                 f"{json.dumps(self.state.brief.get('themes', []), ensure_ascii=False)}\n"
-                f"TOUCH BUDGET: {self.cfg.max_touches}\n"
+                f"GROUND TRUTH PROFILE (compressed verified facts by theme: [id | date (freshness) | source]; the "
+                f"only facts you may state about them):\n{self.ground['text']}\n"
+                + (f"{self.tmemory.prompt()}\n" if self.tmemory.prompt() else "")
+                + (f"{self.playbook_txt}\n" if self.playbook_txt else "")
+                + f"TOUCH BUDGET: {self.cfg.max_touches}\n"
                 f"Channels: {MESSAGE_CHANNELS + LIVE_CHANNELS}")
-        for attempt in range(3):
+        for attempt in range(4):
             plan = self._validated_plan(user)
+            persona = plan.get("persona") if isinstance(plan.get("persona"), dict) else {}
+            missing = [k for k in ("hook_id", "objective") if not plan.get(k)]
+            missing += [f"persona.{k}" for k in ("name", "organisation", "role") if not persona.get(k)]
+            if missing:
+                # The model sometimes drifts from the schema (e.g. returns 'moves' with full drafts and no persona).
+                self.log(f"plan: JSON missing {missing}; asking again with the exact format")
+                user += (f"\nYour previous answer did not follow the required JSON format (missing: {', '.join(missing)}). "
+                         "Return exactly the JSON object from the instructions, including the 'persona' object with "
+                         "name, organisation, role, email, phone, website_domain, brand_color and story. For an "
+                         "individual (applicant, student, freelancer), organisation is what they are (e.g. 'independent', "
+                         "their university) and website_domain may be a personal domain of their name.")
+                continue
             persona = plan.get("persona") or {}
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
+            if problem and persona.get("name"):
+                # Individuals (applicants, students) often come back without a website. Give them a personal domain
+                # of their own name that no one has registered, instead of failing the run (v4, 2026-11-21).
+                personal = self._personal_domain(str(persona["name"]))
+                if personal:
+                    self.log(f"plan: persona domain {domain!r} unusable ({problem}); using personal domain {personal}")
+                    domain, problem = personal, ""
+                    persona["website_domain"] = personal
+            org = normalize(str(persona.get("organisation", "")))
+            if not problem and normalize(self.dossier.company) and normalize(self.dossier.company) in org:
+                problem = "persona poses as the target's own company; an outsider from a plausible third party is needed"
             self.state.plan_attempts.append({"attempt": attempt + 1, "domain": domain,
                                              "persona": persona.get("name"), "organisation": persona.get("organisation"),
                                              "hook_id": plan.get("hook_id"), "rejected": problem or None})
@@ -519,6 +662,22 @@ class Runner:
         if plan.get("objective") not in ("credentials", "action", "disclosure"):
             plan["objective"] = "disclosure"
         return plan
+
+    def _personal_domain(self, name: str) -> str:
+        """An unregistered personal domain for an individual persona, e.g. lena-hofer.de."""
+        import unicodedata
+
+        ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+        parts = re.findall(r"[a-z]+", ascii_name)
+        if not parts:
+            return ""
+        stems = ["-".join(parts), "".join(parts), "-".join(parts) + "-mail", "mail-" + "".join(parts)]
+        for stem in stems:
+            for tld in ("de", "eu", "me", "net"):
+                cand = f"{stem}.{tld}"
+                if not self._domain_problem(cand):
+                    return cand
+        return ""
 
     def _domain_problem(self, domain: str) -> str:
         if not re.fullmatch(r"(?:[a-z0-9-]+\.)+[a-z]{2,}", domain or ""):
@@ -587,16 +746,124 @@ class Runner:
                 f"HOOKS: {json.dumps(self.state.brief['hooks'], ensure_ascii=False)}\n"
                 f"TARGET ID for 'to': {self.cfg.target_id}\n"
                 f"THIS IS TOUCH {touch} OF {self.cfg.max_touches}.\n"
-                f"HISTORY SO FAR:\n{_history_text(self.state) or '(nothing yet: this is the first contact)'}")
+                f"HISTORY SO FAR:\n{_history_text(self.state) or '(nothing yet: this is the first contact)'}"
+                + (f"\nLIVE RESEARCH NOTES (public web, looked up during this conversation; trust these over your "
+                   f"assumptions, never contradict them): {json.dumps(self.state.live_notes[-4:], ensure_ascii=False)}"
+                   if self.state.live_notes else ""))
         if policy_move:
             user += (
                 "\n\nPOLICY MOVE (follow this move_type, channel, hook_id, cited_fact_ids, ask, and promises): "
                 f"{json.dumps(policy_move, ensure_ascii=False)}"
             )
+        if self.decider and not policy_move:
+            if not feedback or self.directive is None:  # one controller decision per touch, kept across repairs
+                d = self.decider.decide(self.cfg.max_touches - self.state.touches_used)
+                if d.move == STOP and self.cfg.max_touches - self.state.touches_used > 1:
+                    # Burned but touches remain. Repeating emails into silence wasted 7 touches in practice
+                    # (v2 Tom, 2026-11-21). Instead: one calm repair note, each time on a channel we have not used
+                    # since the burn, giving value and asking for nothing.
+                    # Cycling repair notes across dead channels wasted 7 touches in v5 Julius, so: one repair note,
+                    # then a call (always answered: a voice rebuilds trust where text cannot), then plain email.
+                    b = self.decider.belief
+                    repairs = getattr(b, "repairs", 0)
+                    b.repairs = repairs + 1
+                    if repairs == 0:
+                        d.move, d.channel_hint = "DE_ESCALATE", "email"
+                        d.reason += ("; touches remain: one calm repair note by email, acknowledge their concern, "
+                                     "give something useful, ask for nothing")
+                    elif b.calls_made < 3:
+                        b.calls_made += 1
+                        d.move, d.channel_hint = ESCALATE_CALL, "phone_call"
+                        d.reason += ("; the written thread is dead: a short, honest call (always answered) to "
+                                     "reconnect, answer their concern and talk about the topic they care about")
+                    else:
+                        d.move, d.channel_hint = "HOLD", "email"
+                        d.reason += "; out of calls: one short, useful email that asks for nothing"
+                self.directive = d
+            d = self.directive
+            prefs = sorted(self.decider.belief.preferences)
+            user += (f"\n\nTHE MOVE FOR THIS TOUCH IS DECIDED (do not change it): {d.move} -> decision "
+                     f"{engine_decision(d.move)}, channel {d.channel_hint}.\nWhy: {d.reason}\n"
+                     f"How: {MOVE_GUIDE.get(d.move, '')}\n"
+                     f"What the target has told us about how they engage: {prefs or 'nothing yet'}")
+        if self.ledger.prompt():
+            user += "\n\n" + self.ledger.prompt()
+        if self.tmemory.data.get("corrections"):
+            user += ("\nCLAIMS THIS PERSON CORRECTED IN EARLIER SESSIONS (never repeat): " +
+                     json.dumps([c["text"] for c in self.tmemory.data["corrections"][-4:]], ensure_ascii=False))
         if feedback:
             user += f"\n\nYOUR PREVIOUS DRAFT WAS REJECTED: {feedback}\nFix it."
         system = _DECIDE_SYS.replace("{msg}", ", ".join(MESSAGE_CHANNELS)).replace("{live}", ", ".join(LIVE_CHANNELS))
-        return _llm_json(self.llm, self.state, system, user, temperature=0.7)
+        a = _llm_json(self.llm, self.state, system, user, temperature=0.7)
+        return self._enforce(a) if self.decider else a
+
+    def _enforce(self, a: dict) -> dict:
+        """The controller decides the move; the LLM only writes it. Make the draft obey the move and the
+        constraints the target stated (no login, PDF only, in the mail body)."""
+        d, prefs = self.directive, self.decider.belief.preferences
+        a["controller"] = d.to_dict()
+        a["decision"] = engine_decision(d.move)
+        if d.move == ESCALATE_CALL:
+            a["kind"], a["channel"] = "call", "phone_call"
+            last = next((s["action"] for s in reversed(self.state.steps) if s.get("action")), {})
+            topic = last.get("subject") or "my last message"
+            a["opening_line"] = a.get("opening_line") or (
+                f"Hi {self.dossier.target_name.split()[0]}, it's {self.state.plan.get('persona', {}).get('name')} "
+                f"following up on {topic}. Have you got two minutes?")
+            a["call_goal"] = a.get("call_goal") or "settle what is pending, then keep them talking about how things work internally"
+            a["call_goal"] += (" Then, while they are willing, ask follow-ups one level deeper each turn (internal tools, "
+                               "owners, processes, numbers, plans) that the story needs. Do not end early.")
+        else:
+            if a.get("kind") == "call" and d.move != ESCALATE_CALL:
+                a["kind"] = "message"
+                if a.get("channel") in LIVE_CHANNELS:
+                    a["channel"] = d.channel_hint if d.channel_hint in MESSAGE_CHANNELS else "email"
+                if not a.get("paragraphs") and a.get("opening_line"):
+                    a["paragraphs"] = [a["opening_line"]]
+            if d.move == PIVOT_CHANNEL and d.channel_hint in MESSAGE_CHANNELS:
+                a["channel"] = d.channel_hint
+            elif d.move in (ELICIT, "HOLD", "DE_ESCALATE", "ESCALATE_PRESSURE") and d.channel_hint in MESSAGE_CHANNELS:
+                a["channel"] = d.channel_hint
+        if d.move == ELICIT:
+            a["objective"], a["link"], a["attachment_filename"] = "disclosure", None, None
+        if d.move == DELIVER:
+            a["objective"], a["link"], a["kind"] = "action", None, "message"
+            if a.get("channel") in LIVE_CHANNELS:
+                a["channel"] = "email"
+            if not a.get("attachment_filename"):
+                subj = re.sub(r"^(?:re|aw|fwd?):\s*", "", str(a.get("subject") or "Document"), flags=re.I)
+                a["attachment_filename"] = re.sub(r"[^A-Za-z0-9]+", "_", subj).strip("_")[:60] + ".pdf"
+        if d.move == "DE_ESCALATE":
+            a["link"], a["attachment_filename"] = None, None
+        replies = sum(1 for s in self.state.steps
+                      if any(e.get("type") == "reply" for e in s.get("events") or []) or s.get("transcript"))
+        spoken = any(s.get("transcript") for s in self.state.steps)
+        if a.get("attachment_filename") and not spoken and d.move != DELIVER:
+            # "I don't open attachments from people I haven't spoken to" (v5 Julius t1, 2026-11-21): files go out
+            # only when they asked for one (DELIVER) or after we have talked on a call.
+            a["attachment_filename"] = None
+        if replies < 2 and isinstance(a.get("link"), dict) and a["link"].get("page_type") in ("signin", "mfa", "document", None):
+            # A sign-in page from a stranger before any rapport gets refused (v3 Tom t2, 2026-11-21).
+            a["link"] = None
+        if "no_login" in prefs and isinstance(a.get("link"), dict) and a["link"].get("page_type") in ("signin", "mfa", "document", None):
+            a["link"] = None
+        if prefs & {"wants_pdf", "no_office_files"} and a.get("attachment_filename"):
+            names = a["attachment_filename"] if isinstance(a["attachment_filename"], list) else re.split(r"\s*[,;]\s*", str(a["attachment_filename"]))
+            a["attachment_filename"] = [re.sub(r"\.(docx?|xlsx?|pptx?)$", "", n, flags=re.I).removesuffix(".pdf") + ".pdf" for n in names if n]
+        if {"wants_plain_text", "no_office_files"} <= prefs:
+            a["attachment_filename"] = None
+        if a.get("channel") != "email" and a.get("format") in ("branded_notice", "shared_doc"):
+            a["format"] = None
+        return a
+
+    def observe(self, step: dict) -> None:
+        if not self.decider or not step.get("action"):
+            return
+        a = step["action"]
+        sentiment = _SENTIMENT.get(str((step.get("judge") or {}).get("sentiment")))
+        self.decider.observe(a.get("channel", "email"), str(a.get("hook_id") or self.state.plan.get("hook_id") or ""),
+                             step.get("events") or [], step.get("transcript"), reply_sentiment=sentiment)
+        step["belief"] = self.decider.belief.to_dict()
 
     # ---- action -> ContactPlan + payloads
     def build(self, a: dict) -> tuple[ContactPlan, dict, LandingPageSpec | None]:
@@ -678,7 +945,10 @@ class Runner:
             fname = re.sub(r"\.(exe|docm|xlsm|js|bat|scr|vbs|msi)$", ".docx", fname, flags=re.I)
             clean.append(fname)
             attachments.append(AttachmentSpec(filename=fname))
-            if fname.lower().endswith(".pdf"):
+            # Declared by name (not uploaded): the API reports `attachment.opened` for declared files, which is
+            # an action incident. Real practice 2026-11-21: 14 uploaded PDF assets, 0 opened events.
+            # Set REVEL8_UPLOAD_PDFS=1 to go back to uploading a one-page PDF asset.
+            if fname.lower().endswith(".pdf") and os.getenv("REVEL8_UPLOAD_PDFS") == "1":
                 asset = self._pdf_asset(fname)
                 api_attachments.append(asset if asset else {"filename": fname})
             else:
@@ -715,7 +985,7 @@ class Runner:
                 errors.append(f"Sender domain {dom} is not the persona's checked domain.")
         from .templates import lint_text
 
-        if any(lint_text(p) for p in a.get("paragraphs") or []) or re.search(r"\[[^\]]{2,40}\]", " ".join(a.get("paragraphs") or [])):
+        if any(lint_text(p) for p in a.get("paragraphs") or []) or re.search(r"\[[^\]]{2,300}\]", " ".join(a.get("paragraphs") or [])):
             errors.append("The text contains a placeholder in square brackets. Write the real content (the link is added for you).")
         if a.get("kind") != "call" and not a.get("paragraphs"):
             errors.append("The message has no text. Put the full message text in 'paragraphs' (list of strings).")
@@ -775,6 +1045,42 @@ class Runner:
             except Revel8APIError:
                 pass
 
+    # ---- research during the conversation (eval targets are unseen: learn from what they tell us)
+    def live_lookup(self, step: dict) -> None:
+        """After a reply, look up at most two things the target mentioned or disputed (an event, project, claim)
+        on the public web, so the next contact uses checked facts instead of guesses. Bounded to ~15 s."""
+        if os.getenv("LIVE_LOOKUP", "1") != "1":
+            return
+        said = [e.get("body", "") for e in step.get("events", []) if e.get("type") == "reply"]
+        said += [t["text"] for t in step.get("transcript", []) if t["who"] == "target"]
+        said = " ".join(x for x in said if x).strip()
+        if len(said) < 40:
+            return
+        t0 = time.monotonic()
+        try:
+            out = _llm_json(self.llm, self.state, _LOOKUP_SYS,
+                            f"TARGET: {self.dossier.target_name} ({self.dossier.role}, {self.dossier.company})\n"
+                            f"THEY SAID:\n{said[:3000]}", temperature=0.0)
+        except RuntimeError:
+            return
+        queries = [str(q).strip() for q in (out.get("queries") or []) if str(q).strip()][:2]
+        if not queries:
+            return
+        from .research import brave
+
+        notes = []
+        with httpx.Client(timeout=10.0) as http:
+            for q in queries:
+                if time.monotonic() - t0 > 15:
+                    break
+                hits = brave(http, "web", q, count=4, deadline=time.monotonic() + 8)
+                notes.append({"touch": step["touch"], "query": q,
+                              "found": [f"{h['title']}: {h['snippet'][:260]} ({h['url']})" for h in hits[:3]]
+                                       or ["nothing public found: do not claim anything about it"]})
+        self.state.live_notes.extend(notes)
+        step["live_lookup"] = notes
+        self.log(f"   live lookup: {[n['query'] for n in notes]} ({time.monotonic() - t0:.1f}s)")
+
     # ---- reading the reaction
     def judge(self, step: dict) -> None:
         touch = step["touch"]
@@ -801,6 +1107,9 @@ class Runner:
         step["judge"] = verdict
         if verified and verdict.get("disclosure"):
             self._incident(touch, "disclosure", evidence, judged=True)
+        if verified and verdict.get("action") and _NOT_AN_ACTION.search(evidence) and not _REAL_ACTION.search(evidence):
+            verdict["action"] = False
+            verdict["veto"] = "scheduling / asking for an invite or details is not an action"
         if verified and verdict.get("action"):
             self._incident(touch, "action", evidence, judged=True)
 
@@ -913,6 +1222,7 @@ class Runner:
                             if policy_move:
                                 policy_move["channel"] = "email"
                         self.execute_message(step, payload, page)
+                        self.ledger.record(touch, a.get("channel", ""), a.get("subject"), a.get("paragraphs"))
                 except Revel8APIError as error:
                     step["error"] = str(error)
                     self.log(f"touch {touch}: API error {error}")
@@ -929,16 +1239,33 @@ class Runner:
                 t2 = time.monotonic()
                 self.judge(step)
                 step["timing"]["judge_s"] = round(time.monotonic() - t2, 1)
+                self.live_lookup(step)
+                self.observe(step)
                 self.save()
-                if st.incidents and self.cfg.stop_at_first_incident:
+                # Stop only on incidents the API itself confirmed (page.submitted / attachment.opened). A judged
+                # estimate stopped v6 Julius at touch 2 on "please send the invite" (a false positive); the API
+                # scores disclosures itself, and touches after a real incident do not lower the score.
+                if self.cfg.stop_at_first_incident and any(i["source"] == "api event" for i in st.incidents):
                     break
             st.status = "done"
         except Exception as error:  # noqa: BLE001 - always leave a readable run file behind
+            import traceback
+
             st.status = "error"
             st.error = f"{type(error).__name__}: {error}"
-            self.log(f"run error: {st.error}")
+            st.error_trace = traceback.format_exc()[-2000:]
+            self.log(f"run error: {st.error}\n{st.error_trace}")
         finally:
             st.finished_at = _now()
+            if st.touches_used and self.cfg.scenario_id != "mock":
+                try:
+                    from .memory import build_playbook, save_playbook
+
+                    self.tmemory.learn_from_run(st.__dict__)
+                    self.tmemory.save()
+                    save_playbook(build_playbook())
+                except Exception as error:  # noqa: BLE001 - memory must never break a run
+                    self.log(f"memory update failed: {type(error).__name__}: {error}")
             self.save()
         return st
 
