@@ -1,8 +1,10 @@
-"""Read-only client for the Revel8 API."""
+"""Client for the Revel8 Target API."""
 
 import os
+from pathlib import Path
 from time import sleep
 from urllib.parse import quote
+from uuid import uuid4
 
 import httpx
 from dotenv import load_dotenv
@@ -62,10 +64,23 @@ class Revel8Client:
     def close(self) -> None:
         self._client.close()
 
-    def _get[T](self, path: str, schema: TypeAdapter[T]) -> T:
+    def _request[T](
+        self,
+        method: str,
+        path: str,
+        schema: TypeAdapter[T],
+        *,
+        json_body: JSONObject | None = None,
+        files: dict[str, object] | None = None,
+        idempotent: bool = False,
+        idempotency_key: str | None = None,
+    ) -> T:
+        headers: dict[str, str] = {}
+        if idempotent:
+            headers["Idempotency-Key"] = idempotency_key or str(uuid4())
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                response = self._client.get(path)
+                response = self._client.request(method, path, json=json_body, files=files, headers=headers or None)
             except httpx.TimeoutException:
                 if attempt == _MAX_RETRIES:
                     raise Revel8APIError("Revel8 API request timed out.") from None
@@ -87,6 +102,9 @@ class Revel8Client:
 
         raise AssertionError("Unreachable retry state")
 
+    def _get[T](self, path: str, schema: TypeAdapter[T]) -> T:
+        return self._request("GET", path, schema)
+
     def get_scenarios(self) -> JSONArray:
         return self._get("scenarios", _ARRAY)
 
@@ -96,11 +114,58 @@ class Revel8Client:
     def get_session(self, session_id: str) -> JSONObject:
         return self._get(f"sessions/{_path_segment(session_id)}", _OBJECT)
 
-    def list_sessions(self) -> JSONArray:
-        return self._get("sessions", _ARRAY)
+    def list_sessions(self) -> JSONArray | JSONObject:
+        return self._get("sessions", _ARRAY_OR_OBJECT)
 
     def get_session_events(self, session_id: str) -> JSONObject:
         return self._get(f"sessions/{_path_segment(session_id)}/events", _OBJECT)
+
+    def create_session(self, scenario_id: str = "practice") -> JSONObject:
+        return self._request("POST", "sessions", _OBJECT, json_body={"scenario_id": scenario_id})
+
+    def end_session(self, session_id: str) -> JSONObject:
+        return self._request("POST", f"sessions/{_path_segment(session_id)}/end", _OBJECT)
+
+    def upload_asset(self, file_path: str | Path) -> JSONObject:
+        p = Path(file_path)
+        with p.open("rb") as fh:
+            return self._request("POST", "assets", _OBJECT, files={"file": (p.name, fh)})
+
+    def register_page(self, session_id: str, payload: JSONObject) -> JSONObject:
+        return self._request("POST", f"sessions/{_path_segment(session_id)}/pages", _OBJECT, json_body=payload)
+
+    def send_message(self, session_id: str, payload: JSONObject, *, idempotency_key: str | None = None) -> JSONObject:
+        return self._request(
+            "POST",
+            f"sessions/{_path_segment(session_id)}/messages",
+            _OBJECT,
+            json_body=payload,
+            idempotent=True,
+            idempotency_key=idempotency_key,
+        )
+
+    def start_conversation(self, session_id: str, payload: JSONObject, *, idempotency_key: str | None = None) -> JSONObject:
+        return self._request(
+            "POST",
+            f"sessions/{_path_segment(session_id)}/conversations",
+            _OBJECT,
+            json_body=payload,
+            idempotent=True,
+            idempotency_key=idempotency_key,
+        )
+
+    def send_turn(self, conversation_id: str, payload: JSONObject, *, idempotency_key: str | None = None) -> JSONObject:
+        return self._request(
+            "POST",
+            f"conversations/{_path_segment(conversation_id)}/turns",
+            _OBJECT,
+            json_body=payload,
+            idempotent=True,
+            idempotency_key=idempotency_key,
+        )
+
+    def end_conversation(self, conversation_id: str) -> JSONObject:
+        return self._request("POST", f"conversations/{_path_segment(conversation_id)}/end", _OBJECT)
 
 
 def _path_segment(value: str) -> str:
