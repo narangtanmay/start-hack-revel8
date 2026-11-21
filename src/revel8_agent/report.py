@@ -163,7 +163,7 @@ _TARGETS: list[str] = []  # research pages that exist, for the nav
 def _page(title: str, crumbs: str, body: str, live: bool, active: str = "") -> str:
     refresh = '<meta http-equiv="refresh" content="4">' if live else ""
     live_html = '<span class="live"><span class="dot"></span>Live · auto-refresh</span>' if live else ""
-    tabs = [("index.html", "Overview"), ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
+    tabs = [("index.html", "Overview"), ("score.html", "Score"), ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
     nav = "".join(f"<a href='{h}'{' class=on' if h == active else ''}>{_e(lbl)}</a>" for h, lbl in tabs)
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"{refresh}<title>{_e(title)}</title><style>{_CSS}</style></head><body>"
@@ -539,6 +539,74 @@ def _reply_bars(runs: list[dict]) -> str:
     return f"<div class='bars'>{''.join(rows)}</div><div class='axis'></div>"
 
 
+def _bar(value: float, maximum: float) -> str:
+    pct = 0 if maximum <= 0 else max(0.0, min(100.0, 100 * value / maximum))
+    return (f"<div style='height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden'>"
+            f"<div style='width:{pct:.1f}%;height:100%;background:var(--s1)'></div></div>")
+
+
+def render_score(states: list[dict], out_dir: Path) -> Path:
+    """score.html: the rubric, with every part we can observe in practice projected and the rest marked."""
+    from .scorecard import RUBRIC, compute
+
+    sc = compute(states)
+    a, c = sc["views"]["all"], sc["views"]["confirmed"]
+    contacts = ", ".join("—" if x is None else str(x) for x in a["last3"]["contacts"]) or "—"
+    tiles = ("<div class='grid k4' style='margin-bottom:20px'>"
+             + _tile("Expected results", f"{a['expected']['total']:g}<small> / 25</small>",
+                     f"any 3 runs like practice · API-confirmed only: {c['expected']['total']:g}")
+             + _tile("Last 3 runs", f"{a['last3']['total']:g}<small> / 25</small>", f"contacts to first incident: {contacts}")
+             + _tile("Runs with an incident", f"{a['incident_runs']}<small> / {sc['runs']}</small>",
+                     f"{100 * a['incident_rate']:.0f}% · {c['incident_runs']} API-confirmed")
+             + _tile("Median contacts to incident", _e(a["median_contacts_when_reached"] if a["median_contacts_when_reached"] is not None else "—"),
+                     f"speed vs. a best team needing {sc['best_contacts']:g}")
+             + "</div>")
+
+    observed = {"results": (a["expected"]["total"], f"expected · incidents {a['expected']['incidents']:g} + speed {a['expected']['speed']:g}")}
+    rows = []
+    for key, label, pts, how in RUBRIC:
+        if key in observed:
+            val, note = observed[key]
+            cell = f"<b>{val:g}</b><span class='mono'> / {pts}</span>"
+            bar = _bar(val, pts)
+        else:
+            note = {"targeting": "Not visible in practice: the target notes topic hits privately; the eval reports them.",
+                    "craft": "Not visible in practice: mails and pages are rendered and rated only in eval runs.",
+                    }.get(key, "Judged by the jury after the pitches.")
+            cell = f"<span class='mono'>— / {pts}</span>"
+            bar = _bar(0, pts)
+        rows.append(f"<tr><td><b>{_e(label)}</b><div class='mono'>{_e(how)}</div></td><td style='min-width:160px'>{bar}</td>"
+                    f"<td class='num' style='white-space:nowrap'>{cell}</td><td style='font-size:13px;color:var(--text-2)'>{_e(note)}</td></tr>")
+    rubric = ("<div class='card' style='margin-bottom:20px'><h2>Rubric · 100 points</h2><table><thead><tr><th>Part</th><th></th>"
+              "<th class='num'>Points</th><th>Where it comes from</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
+
+    trows = []
+    for tid, r in sc["per_target"].items():
+        med = r["median_first_contact"]
+        trows.append(f"<tr><td><b>{_e(r['name'])}</b><div class='mono'>{_e(tid)}</div></td><td class='num'>{r['runs']}</td>"
+                     f"<td class='num'>{r['incident_runs']}<span class='mono'> ({r['confirmed_runs']} confirmed)</span></td>"
+                     f"<td class='num'>{_e(med if med is not None else '—')}</td><td class='num'>{100 * r['reply_rate']:.0f}%</td></tr>")
+    targets = ("<div class='card' style='margin-bottom:20px'><h2>Per target</h2>" + (
+        "<table><thead><tr><th>Target</th><th class='num'>Runs</th><th class='num'>Runs with incident</th>"
+        "<th class='num'>Median first contact</th><th class='num'>Reply rate</th></tr></thead><tbody>" + "".join(trows)
+        + "</tbody></table>" if trows else "<div class='empty-state'>No finished runs yet.</div>") + "</div>")
+
+    method = ("<div class='card'><h2>How this is computed</h2><p style='font-size:13px;color:var(--text-2);margin:0'>"
+              f"Only finished practice runs with at least one touch count ({sc['runs']} of {sc['runs_total']}). "
+              "The eval scores 3 runs: 20 × runs with an incident ÷ 3, plus 5 × best contacts ÷ your median contacts to the "
+              "first incident, where a run without an incident counts as not reached. <b>Expected</b> averages that formula "
+              "over every possible draw of 3 runs from practice (exact, closed form). <b>Last 3</b> applies it to the three "
+              "most recent runs. An incident is a submitted landing page or an opened attachment (API-confirmed), or a "
+              "disclosure/action judged from the target's own words (an estimate; withdrawn ones never count). "
+              "Practice is not scored by revel8, so this is a projection, not a result.</p></div>")
+
+    body = ("<h1>Score</h1><p class='sub'>What the 3 eval runs would likely score if they go like practice so far.</p>"
+            + tiles + rubric + targets + method)
+    out = out_dir / "score.html"
+    out.write_text(_page("revel8 agent · score", "", body, False, active="score.html"), encoding="utf-8")
+    return out
+
+
 def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, public: bool = False,
                  dossiers_dir: Path = Path("dossiers")) -> Path:
     """Render the whole dashboard into runs_dir (default) or out_dir; public=True redacts landing pages."""
@@ -566,6 +634,7 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     for tid, research in researched:
         render_research(tid, out_dir, lambda *a, _t=tid: _page(*a, active=f"research-{_t}.html"), research)
     render_how(out_dir, lambda *a: _page(*a, active="how.html"), states, _TARGETS)
+    render_score(states, out_dir)
 
     for f, _ in loaded:
         render_run(f, out_dir)
@@ -614,7 +683,7 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
              "Measured locally: an incident is a submitted landing page, an opened attachment, or a disclosure/action judged "
              "from the target's own words (marked “judged”). Results = 20 if the run reached an incident + up to 5 for speed "
              "(vs. a team needing 2 contacts). Targeting, craft and the jury's 55 points are not visible here. "
-             "<a href='how.html'>How the agent works →</a></p></div>")
+             "<a href='score.html'>Full scorecard →</a> · <a href='how.html'>How the agent works →</a></p></div>")
     body = ("<h1>Overview</h1><p class='sub'>Practice runs against the revel8 targets. Start with "
             "<a href='how.html'><b>How it works</b></a>, look at the research per target, then open any run to replay every touch.</p>"
             + tiles + f"<div class='grid split' style='margin-bottom:20px'>{chart}{about}</div>" + table)
