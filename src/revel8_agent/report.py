@@ -118,6 +118,20 @@ iframe{width:100%;border:0;display:block;background:#fff}
 .frame{border-top:1px solid var(--border)}
 .empty-state{padding:48px;text-align:center;color:var(--muted)}
 .runid{white-space:nowrap}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
+.twins{margin:10px 0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.twins-title{font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.03em}
+.twin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.twin-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:12.5px;display:flex;flex-direction:column;gap:6px}
+.twin-card.selected{border-color:var(--good);background:color-mix(in srgb,var(--good-bg) 42%,var(--surface))}
+.twin-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.twin-ev{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;font-weight:600;color:var(--text)}
+.twin-summary{color:var(--text);font-weight:500}
+.twin-metrics{display:flex;flex-wrap:wrap;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--text-2)}
+.twin-metrics span{background:var(--surface-2);padding:1px 6px;border-radius:5px}
+.twin-react{font-size:12px;color:var(--text-2)}
+.twin-rat{font-size:11.5px;color:var(--muted)}
+.ledger{margin:8px 0 0 28px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ledger-lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-right:2px}
 """
 
 _STATUS = {"done": ("b-good", "Done"), "error": ("b-crit", "Error"), "running": ("b-live", "Live"), "starting": ("b-live", "Starting")}
@@ -252,6 +266,85 @@ def _is_html(body: str) -> bool:
     return b.startswith("<!doctype") or b.startswith("<html")
 
 
+def _fmt_metric(value: object) -> str:
+    if isinstance(value, bool) or value is None:
+        return "—"
+    if isinstance(value, (int, float)):
+        return f"{value:.2f}"
+    return _e(value)
+
+
+def _shadow_twin_html(shadow_twin: object) -> str:
+    if not isinstance(shadow_twin, dict):
+        return ""
+    candidates = shadow_twin.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        return ""
+    tier_cls = {"SAFE": "b-good", "BALANCED": "b-live", "BOLD": "b-warn"}
+    cards: list[str] = []
+    for cand in candidates:
+        if not isinstance(cand, dict):
+            continue
+        tier = str(cand.get("risk_tier") or "").upper()
+        selected = bool(cand.get("selected"))
+        fc = cand.get("forecast") if isinstance(cand.get("forecast"), dict) else {}
+        tcls = tier_cls.get(tier, "")
+        sel_badge = "<span class='badge b-good'>SELECTED</span>" if selected else ""
+        chan_kind = " · ".join(x for x in (str(cand.get("channel") or ""), str(cand.get("kind") or "")) if x)
+        metrics = (
+            f"<span>prog {_fmt_metric(fc.get('progress_prob'))}</span>"
+            f"<span>susp {_fmt_metric(fc.get('suspicion_risk'))}</span>"
+            f"<span>norm {_fmt_metric(fc.get('social_norm_violation'))}</span>"
+        )
+        react = fc.get("predicted_reaction")
+        rat = fc.get("rationale")
+        cards.append(
+            f"<div class='twin-card{' selected' if selected else ''}'>"
+            f"<div class='twin-head'>"
+            f"<span class='badge {tcls}'>{_e(tier or 'BRANCH')}</span>"
+            f"{sel_badge}"
+            f"<span class='mono'>{_e(chan_kind)}</span>"
+            f"<span class='twin-ev'>EV {_fmt_metric(cand.get('ev_score'))}</span>"
+            f"</div>"
+            + (f"<div class='twin-summary'>{_e(cand.get('summary'))}</div>" if cand.get("summary") else "")
+            + f"<div class='twin-metrics'>{metrics}</div>"
+            + (f"<div class='twin-react'><b>Predicted:</b> {_e(react)}</div>" if react else "")
+            + (f"<div class='twin-rat'>{_e(rat)}</div>" if rat else "")
+            + "</div>"
+        )
+    if not cards:
+        return ""
+    return (
+        "<div class='twins'>"
+        "<div class='twins-title'>Counterfactual Branch Comparison</div>"
+        f"<div class='twin-grid'>{''.join(cards)}</div>"
+        "</div>"
+    )
+
+
+def _ledger_badges_html(ledger: object) -> str:
+    if not isinstance(ledger, dict) or not ledger:
+        return ""
+    pills: list[str] = []
+    for key, val in ledger.items():
+        if val is None or val is False or val == "" or val == 0 or val == []:
+            continue
+        label = str(key).replace("_", " ")
+        if val is True:
+            text = label
+            cls = "b-warn" if "refused" in str(key) else "b-live"
+        elif isinstance(val, list):
+            text = f"{label}: {', '.join(str(x) for x in val)}"
+            cls = "b-live"
+        else:
+            text = f"{label}: {val}"
+            cls = "b-warn" if "stall" in str(key) else "b-live"
+        pills.append(f"<span class='badge {cls}'>{_e(text)}</span>")
+    if not pills:
+        return ""
+    return f"<div class='ledger'><span class='ledger-lbl'>Ledger:</span>{''.join(pills)}</div>"
+
+
 def _touch(step: dict, incidents: list[dict]) -> str:
     a = step.get("action") or {}
     n = step.get("touch")
@@ -268,6 +361,9 @@ def _touch(step: dict, incidents: list[dict]) -> str:
     out.append(f"<div class='thead'><span class='chan'>{icon} {_e(a.get('channel'))}</span><span class='badge'>{_e(a.get('decision'))}</span>"
                f"<span class='badge'>{_e(a.get('objective'))}</span><span class='mono'>hook {_e(a.get('hook_id'))}</span></div>")
     out.append(f"<div class='why'><b>Read:</b> {_e(a.get('assessment'))}<br><b>Move:</b> {_e(a.get('rationale'))}</div>")
+    twin_html = _shadow_twin_html(step.get("shadow_twin"))
+    if twin_html:
+        out.append(twin_html)
     if a.get("kind") == "call" and step.get("transcript") is not None:
         lines = "".join(f"<div class='line {'agent' if t['who'] == 'agent' else 'target'}'><div class='who'>"
                         f"{'Agent' if t['who'] == 'agent' else 'Target'}</div>{_e(t['text'])}</div>" for t in step["transcript"])
@@ -305,6 +401,9 @@ def _touch(step: dict, incidents: list[dict]) -> str:
     j = step.get("judge")
     if j and j.get("sentiment") not in (None, "silent"):
         out.append(f"<div class='read'>Agent read this as <b>{_e(j.get('sentiment'))}</b> — {_e(j.get('reason'))}</div>")
+    ledger_html = _ledger_badges_html(step.get("ledger_after"))
+    if ledger_html:
+        out.append(ledger_html)
     for i in hit:
         out.append(f"<div class='incident'>✓ Incident · {_e(i['type'])}<span style='font-weight:400'>{_e(i['detail'])} "
                    f"({_e(i['source'])})</span></div>")

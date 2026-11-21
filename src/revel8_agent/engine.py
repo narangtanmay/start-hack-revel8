@@ -63,6 +63,8 @@ class RunConfig:
     max_call_turns: int = 8
     runs_dir: Path = Path("runs")
     label: str = ""
+    use_ledger_gate: bool = True
+    use_shadow_twin: bool = False
 
 
 @dataclass
@@ -507,7 +509,7 @@ class Runner:
         try:
             asset = str(self.api.upload_asset(path)["asset_id"])
         except Revel8APIError as error:
-            self.log(f"pdf upload failed ({error}); sending as .docx name")
+            self.log(f"pdf upload failed ({error}); sending filename metadata")
             return None
         cache[key] = asset
         _ASSET_CACHE.write_text(json.dumps(cache, indent=1))
@@ -609,7 +611,7 @@ class Runner:
             attachments.append(AttachmentSpec(filename=fname))
             if fname.lower().endswith(".pdf"):
                 asset = self._pdf_asset(fname)
-                api_attachments.append(asset if asset else {"filename": fname[:-4] + ".docx"})
+                api_attachments.append(asset if asset else {"filename": fname})
             else:
                 api_attachments.append({"filename": fname})
         a["attachment_filename"] = ", ".join(clean) or None

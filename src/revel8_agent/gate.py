@@ -15,6 +15,18 @@ _META_TEXT = re.compile(
     re.IGNORECASE,
 )
 
+_CREDENTIAL_FIELDS = frozenset({"password", "passcode", "otp"})
+_NO_LOGIN_CLAIMS = (
+    "public page",
+    "no login",
+    "no account",
+    "without signing in",
+    "without an account",
+    "without logging in",
+    "no sign-in",
+    "no sign in",
+)
+
 
 class _DraftHTML(HTMLParser):
     def __init__(self) -> None:
@@ -94,6 +106,25 @@ def validate_contact_plan(
         errors.append("HTML contains a script tag.")
     if any(parser.has_non_asset_image for parser in parsers):
         errors.append("HTML images must use asset:// sources.")
+
+    if plan.landing_page:
+        fields_lower = {field.strip().lower() for field in plan.landing_page.fields}
+        requests_credentials = bool(fields_lower & _CREDENTIAL_FIELDS) or (
+            {"email", "password"} <= fields_lower
+        )
+        if requests_credentials:
+            msg_candidates = [
+                plan.subject or "",
+                "".join(parsers[0].text),
+                " ".join(parsers[0].text),
+            ]
+            normalized_msg = [
+                re.sub(r"\s+", " ", unescape(part)).casefold() for part in msg_candidates
+            ]
+            if any(claim in part for part in normalized_msg for claim in _NO_LOGIN_CLAIMS):
+                errors.append(
+                    "Message promises a public/no-login page but landing page requests credentials."
+                )
 
     fact_by_id = {fact.id: fact for fact in dossier.facts}
     for fact_id in dict.fromkeys(plan.cited_fact_ids):

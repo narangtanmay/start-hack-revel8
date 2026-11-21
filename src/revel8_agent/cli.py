@@ -72,7 +72,16 @@ def _osint(scenario_id: str, target_ids: list[str], budget: float, out_dir: str)
     return 0
 
 
-def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool, keep_going: bool) -> int:
+def _run(
+    target: str,
+    scenario: str,
+    touches: int,
+    label: str,
+    allow_eval: bool,
+    keep_going: bool,
+    use_ledger_gate: bool = True,
+    use_shadow_twin: bool = False,
+) -> int:
     import json
     from pathlib import Path
 
@@ -102,8 +111,15 @@ def _run(target: str, scenario: str, touches: int, label: str, allow_eval: bool,
                 return 1
             dossier, stats = build_dossier(Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
             write_dossier(dossier, stats)
-        cfg = RunConfig(target_id=target, scenario_id=scenario, max_touches=touches, label=label,
-                        stop_at_first_incident=not keep_going)
+        cfg = RunConfig(
+            target_id=target,
+            scenario_id=scenario,
+            max_touches=touches,
+            label=label,
+            stop_at_first_incident=not keep_going,
+            use_ledger_gate=use_ledger_gate,
+            use_shadow_twin=use_shadow_twin,
+        )
         runner = Runner(cfg, api, llm, dossier)
         print(f"report: {(cfg.runs_dir / (runner.state.run_id + '.html')).resolve()}")
 
@@ -138,12 +154,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--label", default="")
     run.add_argument("--allow-eval", action="store_true")
     run.add_argument("--keep-going", action="store_true", help="Continue after the first incident.")
+    run.add_argument("--no-ledger-gate", action="store_true", help="Disable the ledger gate (ablation).")
+    run.add_argument("--shadow-twin", action="store_true", help="Enable counterfactual shadow-twin branching.")
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     args = parser.parse_args(argv)
 
     if args.command == "run":
-        return _run(args.target, args.scenario, args.touches, args.label, args.allow_eval, args.keep_going)
+        return _run(
+            args.target,
+            args.scenario,
+            args.touches,
+            args.label,
+            args.allow_eval,
+            args.keep_going,
+            use_ledger_gate=not args.no_ledger_gate,
+            use_shadow_twin=args.shadow_twin,
+        )
     if args.command == "report":
         from .report import render_index
 
