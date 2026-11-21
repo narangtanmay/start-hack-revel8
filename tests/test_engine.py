@@ -20,3 +20,14 @@ def test_estimate_score() -> None:
     assert estimate_score({"incidents": []})["results_points"] == 0
     hit = estimate_score({"incidents": [{"touch": 4, "type": "credentials", "source": "api event"}]})
     assert hit["incident"] and hit["first_incident_touch"] == 4 and hit["results_points"] == 22.5
+
+
+def test_strip_salutations_and_placeholders() -> None:
+    from revel8_agent.engine import _fill_placeholders, _strip_salutations
+
+    paras = ["Hi Tom,\n\nI'm Sarah from TechEx.", "Access it here: [link to registration page].",
+             "Best regards,\nSarah Bennett"]
+    cleaned = _strip_salutations(paras, "Sarah Bennett")
+    assert cleaned == ["I'm Sarah from TechEx.", "Access it here: [link to registration page]."]
+    assert _fill_placeholders(cleaned, "https://x-events.de/s")[1] == "Access it here: https://x-events.de/s."
+    assert _strip_salutations(["Hallo Julius,", "Kurze Frage.\n\nViele Grüße\nLena"], "Lena Fischer") == ["Kurze Frage."]

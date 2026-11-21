@@ -138,7 +138,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--label", default="")
     run.add_argument("--allow-eval", action="store_true")
     run.add_argument("--keep-going", action="store_true", help="Continue after the first incident.")
-    sub.add_parser("report", help="Rebuild runs/index.html.")
+    rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
+    rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     args = parser.parse_args(argv)
 
     if args.command == "run":
@@ -146,7 +147,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "report":
         from .report import render_index
 
-        print(render_index().resolve())
+        path = render_index().resolve()
+        print(path)
+        if args.open:
+            import webbrowser
+
+            webbrowser.open(path.as_uri())
         return 0
 
     if args.command == "osint":

@@ -353,6 +353,31 @@ def _history_text(state: RunState, max_chars: int = 9000) -> str:
     return text[-max_chars:]
 
 
+_GREETING = re.compile(r"^\s*(hi|hello|hey|dear|hallo|liebe[rs]?|guten tag|moin)\b[^\n]{0,40},?\s*(\n|$)", re.I)
+_SIGNOFF = re.compile(r"^\s*(best|best regards|kind regards|regards|cheers|thanks|thank you|many thanks|viele grüße|"
+                      r"beste grüße|mit freundlichen grüßen|liebe grüße|gruß|grüße)\b", re.I)
+_PLACEHOLDER = re.compile(r"\[(?:[^\]]{0,40}(?:link|url|page|portal|name|date|here)[^\]]{0,40})\]", re.I)
+
+
+def _strip_salutations(paragraphs: list[str], sender_name: str) -> list[str]:
+    """The templates add greeting and signature; drop the ones the model wrote itself."""
+    out = list(paragraphs)
+    if out:
+        out[0] = _GREETING.sub("", out[0], count=1).strip()
+    while out and (not out[-1].strip() or _SIGNOFF.match(out[-1]) or
+                   (sender_name and out[-1].strip().split("\n")[0].strip() == sender_name.strip())):
+        out.pop()
+    for i, p in enumerate(out):  # sign-off glued to the end of the last paragraph
+        m = re.search(r"\n\s*(best|kind regards|regards|cheers|viele grüße|beste grüße)\b.*$", p, re.I | re.S)
+        if m and i == len(out) - 1:
+            out[i] = p[: m.start()].rstrip()
+    return [p for p in out if p.strip()]
+
+
+def _fill_placeholders(paragraphs: list[str], url: str | None) -> list[str]:
+    return [_PLACEHOLDER.sub(url or "", p).replace("  ", " ").strip() for p in paragraphs]
+
+
 def _signature_role(persona: dict) -> str:
     role, org = str(persona.get("role", "")).strip(), str(persona.get("organisation", "")).strip()
     return role if org and org.lower() in role.lower() else ", ".join(x for x in (role, org) if x)
@@ -521,8 +546,7 @@ class Runner:
         raw_paragraphs = a.get("paragraphs") or a.get("body") or a.get("text") or []
         if isinstance(raw_paragraphs, str):
             raw_paragraphs = [p for p in raw_paragraphs.split("\n\n")]
-        paragraphs = [str(p) for p in raw_paragraphs if str(p).strip()]
-        a["paragraphs"] = paragraphs
+        paragraphs = _strip_salutations([str(p) for p in raw_paragraphs if str(p).strip()], name)
         first_name = self.dossier.target_name.split()[0]
         cited = [i for i in a.get("cited_fact_ids") or [] if i in self.fact_ids]
 
@@ -548,6 +572,8 @@ class Runner:
                 page = LandingPageSpec(url=link["url"], title=f"{persona.get('organisation')}: Sign in", html="",
                                        fields=["email", "password"])
 
+        paragraphs = _fill_placeholders(paragraphs, link["url"] if link else None)
+        a["paragraphs"] = paragraphs
         body, is_html = "", False
         fmt = a.get("format") if channel == "email" else None
         if channel == "email" and fmt in ("branded_notice", "shared_doc") and link and self._ensure_brand():
@@ -612,6 +638,10 @@ class Runner:
             dom = plan.sender.address.rpartition("@")[2].lower()
             if dom != str(self.state.plan.get("persona", {}).get("website_domain", "")).lower():
                 errors.append(f"Sender domain {dom} is not the persona's checked domain.")
+        from .templates import lint_text
+
+        if any(lint_text(p) for p in a.get("paragraphs") or []) or re.search(r"\[[^\]]{2,40}\]", " ".join(a.get("paragraphs") or [])):
+            errors.append("The text contains a placeholder in square brackets. Write the real content (the link is added for you).")
         if a.get("kind") != "call" and not a.get("paragraphs"):
             errors.append("The message has no text. Put the full message text in 'paragraphs' (list of strings).")
         return errors
