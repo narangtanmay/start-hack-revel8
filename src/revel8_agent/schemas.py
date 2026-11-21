@@ -13,6 +13,21 @@ class VerifiedFact(BaseModel):
     source_url: str
     verbatim_quote: str
     recency: str
+    # research v2 (optional, backward compatible)
+    lane: str = ""                                                   # web | news | media | social | academic | expansion
+    published: str = ""                                              # source publish date if the search engine knew it
+    corroborated_by: list[str] = Field(default_factory=list)        # other source URLs saying the same thing
+    conflicts_with: list[str] = Field(default_factory=list)         # fact ids that contradict this one
+    conflict_note: str = ""
+
+
+class Theme(BaseModel):
+    """What the person keeps talking about: counted over their own posts, talks and interviews."""
+
+    topic: str
+    count: int
+    latest: str = ""
+    fact_ids: list[str] = Field(default_factory=list)
 
 
 class HookHypothesis(BaseModel):
@@ -31,6 +46,8 @@ class VerifiedDossier(BaseModel):
     company: str
     facts: list[VerifiedFact] = Field(default_factory=list)
     hypotheses: list[HookHypothesis] = Field(default_factory=list)
+    themes: list[Theme] = Field(default_factory=list)
+    anchors: list[str] = Field(default_factory=list)  # identity anchors used to tell this person from namesakes
 
 
 class SenderInfo(BaseModel):

@@ -137,16 +137,18 @@ def timing(recency: str, today: datetime | None = None) -> str:
 
 def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
     """Keep the planner focused: hook-supporting facts first, then personal, then recent ones."""
-    by_id = {f.id: f for f in dossier.facts}
+    # facts that contradict another source never reach the planner (wrong facts cost points)
+    by_id = {f.id: f for f in dossier.facts if not getattr(f, "conflicts_with", None)}
     chosen: list[str] = []
     for h in dossier.hypotheses:
         for fid in h.supporting_fact_ids:
             if fid in by_id and fid not in chosen:
                 chosen.append(fid)
     surname = normalize(dossier.target_name.split()[-1])
-    personal = [f for f in dossier.facts if surname in normalize(f.verbatim_quote + " " + f.fact)
+    usable = list(by_id.values())
+    personal = [f for f in usable if surname in normalize(f.verbatim_quote + " " + f.fact)
                 and f.category != "company_news"]
-    rest = sorted(dossier.facts, key=lambda f: f.recency, reverse=True)
+    rest = sorted(usable, key=lambda f: f.recency, reverse=True)
     company_news = 0
     for f in personal + rest:
         if len(chosen) >= max_facts:
@@ -163,6 +165,8 @@ def make_brief(dossier: VerifiedDossier, max_facts: int = 16) -> dict:
         "facts": [{"id": i, "fact": by_id[i].fact, "recency": by_id[i].recency, "category": by_id[i].category,
                    "timing": timing(by_id[i].recency)} for i in chosen],
         "hooks": [_hook_with_timing(h.model_dump(), by_id) for h in dossier.hypotheses],
+        "themes": [{"topic": th.topic, "count": th.count, "latest": th.latest}
+                   for th in getattr(dossier, "themes", [])[:6]],
     }
 
 
@@ -444,6 +448,8 @@ class Runner:
                 f"TARGET: {json.dumps(self.state.brief['target'], ensure_ascii=False)}\n"
                 f"BRIEF FACTS: {json.dumps(self.state.brief['facts'], ensure_ascii=False)}\n"
                 f"HOOKS: {json.dumps(self.state.brief['hooks'], ensure_ascii=False)}\n"
+                f"THEMES THEY KEEP TALKING ABOUT (count of verified mentions): "
+                f"{json.dumps(self.state.brief.get('themes', []), ensure_ascii=False)}\n"
                 f"TOUCH BUDGET: {self.cfg.max_touches}\n"
                 f"Channels: {MESSAGE_CHANNELS + LIVE_CHANNELS}")
         for attempt in range(3):

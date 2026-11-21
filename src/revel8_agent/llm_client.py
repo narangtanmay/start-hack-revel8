@@ -130,6 +130,62 @@ class LocalLLMClient:
             raise LocalLLMError("Local LLM returned invalid JSON content.") from None
 
 
+def api_keys_from_env() -> list[str]:
+    """All Token Factory keys: LLM_API_KEYS (comma-separated) plus LLM_API_KEY, de-duplicated, in order."""
+    load_dotenv()
+    keys = [k.strip() for k in os.getenv("LLM_API_KEYS", "").split(",") if k.strip()]
+    single = os.getenv("LLM_API_KEY", "").strip()
+    if single:
+        keys.insert(0, single)
+    return list(dict.fromkeys(keys))
+
+
+class LLMPool:
+    """One client per API key (each key = one teammate's GPU quota).
+
+    `lane(i)` returns a client that prefers key i and falls back to the other keys when that key is
+    rate-limited or failing, so parallel research lanes never queue behind one key's limit.
+    """
+
+    def __init__(self, timeout: float = 90.0, model: str | None = None) -> None:
+        keys = api_keys_from_env() or [""]
+        self.clients = [LocalLLMClient(api_key=k, timeout=timeout, model=model) for k in keys]
+        self.model = self.clients[0].model
+
+    def __len__(self) -> int:
+        return len(self.clients)
+
+    def lane(self, i: int) -> "PooledClient":
+        return PooledClient(self, i % len(self.clients))
+
+    def close(self) -> None:
+        for c in self.clients:
+            c.close()
+
+
+class PooledClient:
+    """Drop-in for LocalLLMClient.chat(): tries its preferred key, then the others."""
+
+    def __init__(self, pool: LLMPool, preferred: int) -> None:
+        self.pool, self.preferred = pool, preferred
+        self.model = pool.model
+
+    def chat(self, messages: Sequence[ChatMessage], *, json_mode: bool = False,
+             temperature: float | None = None) -> JsonValue:
+        n = len(self.pool.clients)
+        last: LocalLLMError | None = None
+        for k in range(n):
+            client = self.pool.clients[(self.preferred + k) % n]
+            try:
+                return client.chat(messages, json_mode=json_mode, temperature=temperature)
+            except LocalLLMError as error:
+                last = error
+                if error.status_code not in (None, 429, 500, 502, 503, 504):
+                    break  # a real request problem: another key will not fix it
+        assert last is not None
+        raise last
+
+
 def _strip_fences(content: str) -> str:
     text = content.strip()
     if "</think>" in text:

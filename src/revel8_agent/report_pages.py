@@ -83,7 +83,9 @@ def _funnel(stats: dict, dossier: dict) -> str:
         ("Search results", stats.get("hits") or hits),
         ("Sources about the target", about),
         ("Facts proposed by the LLM", stats.get("facts_proposed", 0)),
-        ("Facts verified (quote found on page)", stats.get("facts_verified", len(dossier.get("facts", [])))),
+        ("Facts verified (quote found on page)", stats.get("facts_verified_raw", stats.get("facts_verified", len(dossier.get("facts", []))))),
+        ("Unique after merging duplicates", len(dossier.get("facts", []))),
+        ("Themes", len(dossier.get("themes", []))),
         ("Hooks ranked", len(dossier.get("hypotheses", []))),
     ]
     top = max((v or 0) for _, v in stages) or 1
@@ -111,6 +113,23 @@ def render_research(target_id: str, out_dir: Path, page, research: dict) -> Path
         "(≥ 4 words, no ellipsis). Anything else is rejected and listed below.</li>"
         "<li><b>Hook ranking.</b> The LLM ranks 3–5 topics that matter to the person right now plus one own angle; "
         "a hook without a verified supporting fact is dropped. Dates are labelled past/upcoming in code.</li></ol>")
+    if st.get("version") == 2:
+        steps = (
+            "<ol class='steps'>"
+            f"<li><b>Parallel lanes, one Token Factory key each.</b> {len(st.get('search', []))} searches across web, news, "
+            "video, image (used only to find the pages a photo appears on), social (LinkedIn posts/articles, X, YouTube, "
+            "podcasts, Medium/Substack, event and speaker sites) and academic/code (OpenAlex, GitHub).</li>"
+            "<li><b>Identity check, not just a name match.</b> A source counts only if it has the full name plus an identity "
+            "anchor (company, earlier employer, university, co-founder …) or the surname plus the company. Namesakes and posts "
+            "that merely mention the person drop out here.</li>"
+            "<li><b>LLM extraction, person first:</b> what they said, talks, posts, past jobs, studies, interests — each with "
+            "a verbatim quote and the source's publish date.</li>"
+            "<li><b>Deterministic verification</b> of every quote on its page.</li>"
+            "<li><b>Round 2.</b> From the verified facts the LLM proposes new identity anchors (kept only if they appear in a "
+            "verified quote) and follow-up searches about the person.</li>"
+            "<li><b>Consolidation.</b> Duplicates merged (the strongest source kept, the rest counted as corroboration); "
+            "contradicting facts flagged and kept out of the planner; themes counted; hooks ranked from themes and "
+            "upcoming facts.</li></ol>")
     reconstructed = ("<p class='mono'>Search results rebuilt from the local search cache; this dossier was built before "
                      "per-step logging existed.</p>" if st.get("search_reconstructed") else "")
 
@@ -138,7 +157,8 @@ def render_research(target_id: str, out_dir: Path, page, research: dict) -> Path
             f"<a href='{_e(h['url'])}' target='_blank' rel='noopener noreferrer'>{_e(h['title'] or h['url'])}</a>"
             f"<div class='mono'>{_e(_host(h['url']))}</div><div class='snip'>{_e(h.get('snippet'))}</div></li>"
             for h in q.get("hits", []))
-        q_html.append(f"<details class='q'><summary><span class='mono'>query</span> <b>{_e(q['query'])}</b> "
+        lane = f"<span class='badge b-live'>{_e(q['lane'])}{' · ' + _e(q['vertical']) if q.get('vertical') not in (None, 'web') else ''}</span> " if q.get("lane") else ""
+        q_html.append(f"<details class='q'><summary>{lane}<span class='mono'>query</span> <b>{_e(q['query'])}</b> "
                       f"<span class='mono'>· {len(q.get('hits', []))} results</span></summary><ul class='hits'>{hits or '<li class=mono>no results</li>'}</ul></details>")
 
     # sources
@@ -154,10 +174,22 @@ def render_research(target_id: str, out_dir: Path, page, research: dict) -> Path
     for f in d.get("facts", []):
         by_src[f["source_url"]].append(f)
     fact_groups = []
+    def fact_badges(f: dict) -> str:
+        b = [f"<span class='badge'>{_e(f['category'])}</span>", f"<span class='badge'>{_e(timing(f.get('recency', '')))}</span>"]
+        if f.get("lane"):
+            b.append(f"<span class='badge b-live'>{_e(f['lane'])}</span>")
+        if f.get("corroborated_by"):
+            b.append(f"<span class='badge b-good' data-tip='{_e(chr(10).join(f['corroborated_by']))}'>"
+                     f"✓ {len(f['corroborated_by']) + 1} sources</span>")
+        if f.get("conflicts_with"):
+            b.append(f"<span class='badge b-crit'>conflict with {_e(', '.join(f['conflicts_with']))}</span>")
+        return " ".join(b)
+
     for url, fs in sorted(by_src.items(), key=lambda kv: -len(kv[1])):
-        items = "".join(f"<li><span class='hid'>{_e(f['id'])}</span><div><div>{_e(f['fact'])} <span class='badge'>{_e(f['category'])}</span> "
-                        f"<span class='badge'>{_e(timing(f.get('recency', '')))}</span> <span class='mono'>{_e(f.get('recency'))}</span></div>"
-                        f"<blockquote>“{_e(f['verbatim_quote'])}”</blockquote></div></li>" for f in fs)
+        items = "".join(f"<li><span class='hid'>{_e(f['id'])}</span><div><div>{_e(f['fact'])} {fact_badges(f)} "
+                        f"<span class='mono'>{_e(f.get('recency'))}</span></div>"
+                        + (f"<div class='mono' style='color:var(--crit)'>{_e(f['conflict_note'])}</div>" if f.get("conflict_note") else "")
+                        + f"<blockquote>“{_e(f['verbatim_quote'])}”</blockquote></div></li>" for f in fs)
         fact_groups.append(f"<details class='q'><summary><b>{_e(_host(url))}</b> <span class='mono'>· {len(fs)} facts</span></summary>"
                            f"<a class='mono' href='{_e(url)}' target='_blank' rel='noopener noreferrer'>{_e(url)}</a><ul class='facts-list'>{items}</ul></details>")
 
@@ -165,11 +197,37 @@ def render_research(target_id: str, out_dir: Path, page, research: dict) -> Path
                        f"<span class='mono'>{_e(_host(r.get('url', '')))} · quote not found verbatim on the page</span></li>"
                        for r in st.get("rejected", []))
 
+    # v2: themes, lanes, anchors, conflicts
+    v2 = ""
+    if d.get("themes"):
+        th_rows = "".join(
+            f"<div class='bar-row'><div class='bar-name' style='white-space:normal'>{_e(th['topic'])}</div>"
+            f"<div class='track' data-tip='{_e(th['topic'])}: {th['count']} verified mentions, latest {_e(th.get('latest') or 'unknown')}'>"
+            f"<div class='fill' style='width:{100 * th['count'] / max(x['count'] for x in d['themes']):.1f}%'></div></div>"
+            f"<div class='bar-val'>{th['count']}</div></div>" for th in d["themes"])
+        v2 += (f"<div class='card'><h2>Themes · what they keep coming back to</h2><div class='bars'>{th_rows}</div>"
+               "<div class='axis'></div><p class='mono' style='margin:12px 0 0'>count of verified facts per theme, across "
+               "their posts, talks, interviews and articles</p></div>")
+    if st.get("lanes"):
+        lane_rows = "".join(f"<tr><td><b>{_e(k)}</b></td><td class='num'>{v['queries']}</td><td class='num'>{v['results']}</td>"
+                            f"<td class='num'><b>{v['facts']}</b></td></tr>" for k, v in st["lanes"].items())
+        anchors = ", ".join(_e(a) for a in d.get("anchors", []))
+        added = ", ".join(_e(a) for a in st.get("anchors_added", [])) or "none"
+        exp = "".join(f"<li class='mono'>{_e(q)}</li>" for q in st.get("expansion_queries", []))
+        v2 += ("<div class='card'><h2>Research lanes · one Token Factory key each</h2><table><thead><tr><th>Lane</th>"
+               "<th class='num'>Queries</th><th class='num'>Results</th><th class='num'>Facts kept</th></tr></thead>"
+               f"<tbody>{lane_rows}</tbody></table><p style='font-size:13px;margin:12px 0 4px'><b>Identity anchors:</b> {anchors}"
+               f"<br><b>Learned in round 2:</b> {added} · <b>duplicates merged:</b> {_e(st.get('duplicates_merged', 0))} · "
+               f"<b>conflicts found:</b> {_e(st.get('conflicts', 0))} · <b>keys used:</b> {_e(st.get('keys', 1))}</p>"
+               f"<details><summary>Round-2 follow-up queries</summary><ul>{exp or '<li class=mono>none</li>'}</ul></details></div>")
+    v2_html = f"<div class='grid split' style='margin-bottom:20px'>{v2}</div>" if v2 else ""
+
     body = (f"<h1>Research · {_e(d['target_name'])}</h1><p class='sub'>{_e(d['role'])} · {_e(d['company'])} · "
-            f"built in {_e(st.get('elapsed_s', '—'))} s</p>"
+            f"built in {_e(st.get('elapsed_s', '—'))} s" + (" · research v2" if st.get("version") == 2 else "") + "</p>"
             "<div class='grid split' style='margin-bottom:20px'>"
             f"<div class='card'><h2>Research funnel</h2>{_funnel(st, d)}</div>"
             f"<div class='card'><h2>What happens, step by step</h2>{steps}{reconstructed}</div></div>"
+            + v2_html +
             f"<div class='card' style='margin-bottom:20px'><h2>Hooks · what matters to them right now, with evidence</h2>{''.join(hook_html) or '<p class=mono>no hooks</p>'}</div>"
             f"<div class='card' style='margin-bottom:20px'><h2>1 · Search queries and results</h2>{''.join(q_html)}</div>"
             "<div class='card' style='margin-bottom:20px'><h2>2 · Sources and what each one yielded</h2>"
