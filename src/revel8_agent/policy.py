@@ -255,7 +255,7 @@ class RuleBasedPolicy:
         used_channels = [_step_channel(s) for s in history if _step_channel(s)]
         used_hooks = [_step_hook(s) for s in history if _step_hook(s)]
         sentiments = [_step_sentiment(s) for s in history]
-        target_state = extract_target_state(history)
+        target_state = extract_target_state(history, prior_blocked=plan.get("prior_blocked"))
         blocked = set(target_state["blocked_mechanisms"])
         open_doors = set(target_state["open_doors"])
         attachments_blocked = bool(blocked & {"attachments", "weekend_files"})

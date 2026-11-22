@@ -189,7 +189,7 @@ def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str,
     channels = [_step_channel(s) for s in history if _step_channel(s)]
     sentiments = [_step_sentiment(s) for s in history]
     reply_text = " ".join(t for s in history for t in _replies(s))
-    target_state = extract_target_state(history)
+    target_state = extract_target_state(history, prior_blocked=plan.get("prior_blocked"))
     blocked = set(target_state["blocked_mechanisms"])
 
     silent_msgs = 0

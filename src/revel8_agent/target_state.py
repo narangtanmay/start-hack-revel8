@@ -171,12 +171,12 @@ def _snippet(match: re.Match[str], text: str) -> str:
     return re.sub(r"\s+", " ", match.group(0)).strip()[:80]
 
 
-def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
+def extract_target_state(
+    steps: list[dict[str, Any]],
+    prior_blocked: list[str] | set[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
     history = _executed_steps(steps)
-    if not history:
-        return TargetBeliefState().model_dump()
-
-    blocked: set[str] = set()
+    blocked: set[str] = {str(m).strip() for m in (prior_blocked or ()) if str(m).strip()}
     open_doors: set[str] = set()
     constraints: list[dict[str, Any]] = []
     seen_constraints: set[tuple[int, str]] = set()
@@ -186,6 +186,15 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
         if key not in seen_constraints:
             seen_constraints.add(key)
             constraints.append({"turn": turn, "kind": kind, "cue": cue})
+
+    for mech in sorted(blocked):
+        _add_constraint(0, mech, "prior session refusal")
+
+    if not history:
+        return TargetBeliefState(
+            blocked_mechanisms=sorted(blocked),
+            stated_constraints=constraints[-_MAX_CONSTRAINTS:],
+        ).model_dump()
 
     any_incident = False
     any_link_opened = False
