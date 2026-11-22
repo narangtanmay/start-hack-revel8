@@ -161,6 +161,10 @@ def timing(recency: str, today: datetime | None = None) -> str:
     return "past" if when.date() < today.date() else "upcoming"
 
 
+# Planner descriptions in brackets, e.g. "(Fraunhofer-style research conference programme desk)" (fast-SW2, 2026-11-22)
+_PERSONA_NOTE = re.compile(r"[-\s]style\b|\be\.g\.|\bi\.e\.|\bsimilar to\b|\bsuch as\b|\blike a\b|\bartig\b|"
+                           r"\bähnlich\b|\bz\.\s?b\.|\bwie (?:ein|eine|der|die)\b|\bresearch conference\b|\bdesk\)", re.I)
+
 # Path segments under which a site lists one person per page (speaker, team, author pages).
 _PERSON_DIRS = {"sprecher", "sprecher-innen", "sprecherinnen", "speaker", "speakers", "referent", "referenten",
                 "referentinnen", "team", "people", "person", "personen", "profile", "profil", "author", "authors",
@@ -777,7 +781,9 @@ class Runner:
             # reject every redraft of every touch.
             for k in ("name", "organisation", "role"):
                 v = str(persona.get(k) or "")
-                v = re.sub(r"\s*[(\[][^)\]]*[)\]]", lambda m: "" if _PRETEXT_LEAK.search(m.group(0)) else m.group(0), v)
+                v = re.sub(r"\s*[(\[][^)\]]*[)\]]",
+                           lambda m: "" if (_PRETEXT_LEAK.search(m.group(0)) or _PERSONA_NOTE.search(m.group(0)))
+                           else m.group(0), v)
                 persona[k] = v.strip(" ,;-–")
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
