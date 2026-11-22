@@ -32,6 +32,9 @@ def _artifact_asks(said: str) -> list[str]:
             if _ART_NOUN.search(m.group(0)) and _REQUEST.search(m.group(0)) and not _ACK.search(m.group(0))]
 
 
+_INLINE = re.compile(r"\bin(?:to)? the (?:e-?mail |mail )?body\b|\bin the (?:e-?)?mail itself\b|\bpaste\b|\bas (?:plain )?text\b|"
+                     r"\b(?:haven'?t|have not|won'?t|will not|don'?t|do not) open(?:ed)? (?:the |any )?(?:attachment|pdf|file)",
+                     re.I)
 _QUESTION = re.compile(r"[^.!?\n]{12,260}\?")
 _INCLUDE = re.compile(r"\b(?:copy|cc|include|loop in|add)\s+(?:in\s+)?([A-Z][a-zäöüß]+)\b")
 _CHANNEL = re.compile(r"\b(email|e-mail|mail|phone|call|teams|slack|linkedin|whatsapp)\b[^.!?\n]{0,30}\b(?:is )?(?:easier|better|preferred|works best)\b"
@@ -75,7 +78,10 @@ def extract(steps: list[dict]) -> list[dict]:
             continue
         t = s.get("touch")
         for txt in _artifact_asks(said):
-            out.append({"touch": t, "kind": "artifact", "text": txt[:180]})
+            # Live 22 Nov: "I haven't opened the attachment, so please keep the final text in the email body" was
+            # read as a request FOR an attachment, and the redraft gate demanded one. It asks for the opposite.
+            kind = "inline" if _INLINE.search(txt) else "artifact"
+            out.append({"touch": t, "kind": kind, "text": txt[:180]})
         for m in _QUESTION.finditer(said):
             q = m.group(0).strip()
             if len(_words(q)) >= 2:
@@ -92,6 +98,8 @@ def satisfied(demand: dict, text: str, has_artifact: bool, channel: str) -> bool
     k = demand["kind"]
     if k == "artifact":
         return has_artifact
+    if k == "inline":
+        return len(text.split()) >= 40
     if k == "include":
         return demand["name"].lower() in text.lower()
     if k == "channel":
@@ -125,6 +133,7 @@ def prompt(steps: list[dict]) -> str:
     return ("OPEN DEMANDS FROM THE TARGET (a real person notices when a request is ignored). This touch must meet "
             "every one: answer each question concretely and consistently with what we said before, deliver each "
             "requested artifact as a real attachment_filename (.ics for an invite or meeting, .pdf for a document) "
+            "(but an [inline] demand means: the content as text in the mail body, no attachment) "
             "or registered link, mention each person they asked to include, and use the channel they prefer:\n"
             + "\n".join(lines))
 
@@ -138,11 +147,16 @@ def check_draft(steps: list[dict], a: dict, plan_body: str, blocked: set[str] | 
     has_art = bool(a.get("attachment_filename") or a.get("link"))
     channel = str(a.get("channel") or "")
     misses = []
+    wants_inline = False
     for d in open_demands(steps):
         if d["kind"] == "artifact" and blocked & {"attachments", "attachment", "login", "links", "link"}:
             continue
+        wants_inline = wants_inline or d["kind"] == "inline"
         if not satisfied(d, text, has_art, channel):
             misses.append(d)
+    if wants_inline and a.get("attachment_filename"):
+        return ["DEMAND MONITOR: they asked for the content as text in the mail body, not as a file. Remove "
+                "attachment_filename and put the content itself in the paragraphs."]
     if not misses:
         return []
     return ["DEMAND MONITOR: this draft leaves the target's requests unmet: " +

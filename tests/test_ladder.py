@@ -91,3 +91,15 @@ def test_silence_forces_channel_switch():
     other = {"kind": "message", "channel": "linkedin_message", "paragraphs": ["Which tool do you use for this?"]}
     assert check_draft(steps, [], other, "") == []
     assert check_draft(steps, [], {"kind": "call", "channel": "phone_call"}, "") == []
+
+
+def test_text_in_body_request_is_not_an_attachment_request():
+    from revel8_agent.demands import check_draft, extract
+
+    steps = [{"touch": 4, "payload": {"body": "x"}, "events": [{"type": "reply", "body":
+              "I haven't opened the attachment, so please keep the final text in the email body."}]}]
+    assert [d["kind"] for d in extract(steps) if d["kind"] in ("artifact", "inline")] == ["inline"]
+    with_file = {"kind": "message", "attachment_filename": "final.pdf", "paragraphs": ["see attached"]}
+    assert check_draft(steps, with_file, "")
+    inline = {"kind": "message", "paragraphs": [" ".join(["word"] * 45)]}
+    assert check_draft(steps, inline, "") == []
