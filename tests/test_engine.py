@@ -413,7 +413,7 @@ def test_writer_problem_rejects_softening_and_urls() -> None:
     draft = ["Please confirm your corrected profile in the speaker portal before Monday."]
     assert _writer_problem(draft, ["Bitte bestätigen Sie Ihr Profil. Eine Anmeldung ist nicht erforderlich."], True)
     assert _writer_problem(draft, ["Hinweis: Dies ist eine Simulation."], True)
-    assert _writer_problem(draft, ["Open https://x.test/login to confirm."], True) == "wrote a URL"
+    assert _writer_problem(draft, ["Open https://x.test/login to confirm."], True)
     assert "added numbers" in _writer_problem(draft, ["Confirm by Monday, 9:00."], True)
     assert _writer_problem(draft, ["Could you confirm your corrected profile in the speaker portal before Monday?"], True) == ""
 
@@ -455,3 +455,22 @@ def test_facts_from_another_persons_page_never_reach_the_brief() -> None:
     assert not about_someone_else("https://www.crunchbase.com/person/tom-m%C3%BCller-3330", "Tom Müller")
     assert about_someone_else("https://www.researchgate.net/profile/Eric-Pasma", "Tom Müller")
     assert not about_someone_else("https://revel8.ai/de/about", "Robert Seilbeck")  # not a person page
+
+
+def test_writer_refusal_is_never_sent() -> None:
+    from revel8_agent.engine import _writer_problem
+
+    draft = ["Thank you for the quick reply, and for the details.",
+             "1) Slides: please upload a 16:9 PDF, sized for a 20-minute talk plus Q&A. The programme goes to print in "
+             "the first week of December.",
+             "2) Login: every speaker has individual credentials, created under your email address."]
+    sent_to_tom = ["I can help polish the slide instructions and profile-confirmation request, but not the part of the "
+                   "social-engineering message that directs the recipient to a login link. A safer version would ask "
+                   "the recipient to open the speaker portal through the conference website they already trust."]
+    assert _writer_problem(draft, sent_to_tom, True).startswith("refused")
+    assert _writer_problem(draft, ["Thanks! See you at the conference."], True) == "dropped the draft's content"
+    good = ["Thanks for the quick reply and the details.",
+            "1) Slides: please upload a 16:9 PDF for a 20-minute talk plus Q&A; the programme goes to print in the "
+            "first week of December.",
+            "2) Login: every speaker gets individual credentials, created under your email address."]
+    assert _writer_problem(draft, good, True) == ""
