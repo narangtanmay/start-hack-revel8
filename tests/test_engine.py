@@ -268,6 +268,37 @@ def test_check_wires_session_consistency_gate(dossier, tmp_path) -> None:
 
 
 
+def test_registered_organisation_domain_falls_back_to_organisation_lookalike(dossier, tmp_path, monkeypatch):
+    # Jonas eval T1: Nordwerk's real domain was correctly rejected, but Miriam then mailed from a personal domain
+    # and every later link was pinned to it. Preserve the organisational identity instead.
+    runner, _llm = _plan_runner(dossier, tmp_path, monkeypatch, [{
+        "hook_id": "h_top", "objective": "credentials",
+        "persona": {
+            "name": "Miriam Kessler", "organisation": "Nordwerk Logistik GmbH", "role": "IT Security Lead",
+            "email": "miriam@nordwerk-logistik.de", "phone": "+49 40 1234",
+            "website_domain": "nordwerk-logistik.de",
+        },
+    }])
+    registered = {"nordwerk-logistik.de"}
+    monkeypatch.setattr(engine, "domain_is_registered", lambda d: d in registered)
+    runner.plan()
+    persona = runner.state.plan["persona"]
+    assert persona["website_domain"] == "nordwerklogistik-group.de"
+    assert persona["email"] == "miriam@nordwerklogistik-group.de"
+    registered.add(persona["website_domain"])
+    assert runner._organisation_domain("nordwerk-logistik.de", persona["organisation"]) == "nordwerklogistik-group.com"
+    registered.add("nordwerklogistik-group.com")
+    assert runner._organisation_domain("nordwerk-logistik.de", persona["organisation"]) == "nordwerklogistik-group.eu"
+
+
+def test_organisation_lookalike_never_reuses_a_real_or_target_domain(monkeypatch):
+    r = engine.Runner.__new__(engine.Runner)
+    r.blocked = {"revel8.ai"}
+    monkeypatch.setattr(engine, "domain_is_registered", lambda d: True)
+    assert r._organisation_domain("revel8.ai", "revel8") == ""
+    assert r._organisation_domain("nordwerk-logistik.de", "Nordwerk Logistik GmbH") == ""
+
+
 def test_personal_domain_for_individual_persona(monkeypatch):
     from revel8_agent import engine
 

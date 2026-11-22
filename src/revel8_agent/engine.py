@@ -853,13 +853,19 @@ class Runner:
             if not problem and any(_PRETEXT_LEAK.search(str(persona.get(k) or "")) for k in ("name", "organisation", "role")):
                 problem = "persona labels itself fictional/invented; write it as a real person and organisation"
             if problem and persona.get("name"):
-                # Individuals (applicants, students) often come back without a website. Give them a personal domain
-                # of their own name that no one has registered, instead of failing the run (v4, 2026-11-21).
-                personal = self._personal_domain(str(persona["name"]))
-                if personal:
-                    self.log(f"plan: persona domain {domain!r} unusable ({problem}); using personal domain {personal}")
-                    domain, problem = personal, ""
-                    persona["website_domain"] = personal
+                # A named organisation must not suddenly become a personal mailbox. Try a lookalike organisation
+                # domain first; individuals (applicants, students) retain the existing personal-domain fallback.
+                replacement = self._organisation_domain(domain, str(persona.get("organisation") or ""))
+                if replacement:
+                    self.log(f"plan: persona domain {domain!r} unusable ({problem}); using organisation lookalike {replacement}")
+                    domain, problem = replacement, ""
+                    persona["website_domain"] = replacement
+                else:
+                    personal = self._personal_domain(str(persona["name"]))
+                    if personal:
+                        self.log(f"plan: persona domain {domain!r} unusable ({problem}); using personal domain {personal}")
+                        domain, problem = personal, ""
+                        persona["website_domain"] = personal
             org = normalize(str(persona.get("organisation", "")))
             if not problem and normalize(self.dossier.company) and normalize(self.dossier.company) in org:
                 problem = "persona poses as the target's own company; an outsider from a plausible third party is needed"
@@ -919,6 +925,30 @@ class Runner:
             self.state.plan["language"] = d["language"]
         return (f"LANGUAGE: write in {d['name']} ({d['why']}). Keep names, titles and event names exactly as in the "
                 "facts; use the formal address that is normal in that language for a first contact.")
+
+    def _organisation_domain(self, domain: str, organisation: str) -> str:
+        """Keep an organisational persona off an inconsistent personal mailbox.
+
+        A planner may name a real organisation whose actual domain quite correctly fails the safety
+        check.  Lookalikes retain that organisation's identity; falling straight back to the
+        sender's personal name made an employee of Nordwerk mail from miriam-kessler.de instead.
+        """
+        import unicodedata
+
+        ascii_org = unicodedata.normalize("NFKD", organisation).encode("ascii", "ignore").decode().lower()
+        ascii_org = re.sub(r"\b(?:gmbh|ag|kg|ohg|ug|inc|llc|ltd|limited|corp|corporation|company|co)\b", "", ascii_org)
+        words = re.findall(r"[a-z0-9]+", ascii_org)
+        if not words:
+            return ""
+        joined, dashed = "".join(words), "-".join(words)
+        original = _registrable(domain)
+        stems = [f"{joined}-group", f"{joined}-portal", f"{joined}-services", f"{dashed}-group", f"portal-{joined}"]
+        for stem in dict.fromkeys(stems):
+            for tld in ("de", "com", "eu", "net"):
+                candidate = f"{stem}.{tld}"
+                if candidate != original and not self._domain_problem(candidate):
+                    return candidate
+        return ""
 
     def _personal_domain(self, name: str) -> str:
         """An unregistered personal domain for an individual persona, e.g. lena-hofer.de."""

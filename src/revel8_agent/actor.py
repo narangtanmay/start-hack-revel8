@@ -372,13 +372,18 @@ class ActorRunner(Runner):
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
             if problem and attempt == 3:
-                # Last resort only: an organisation mailing from a personal domain breaks the character, so earlier
-                # attempts recast with another invented organisation domain instead.
-                personal = self._personal_domain(str(persona["name"]))
-                if personal:
-                    self.log(f"casting: domain {domain!r} unusable ({problem}); using personal domain {personal}")
-                    domain, problem = personal, ""
-                    persona["website_domain"] = personal
+                # Last resort only: preserve the organisation's identity before considering a personal fallback.
+                replacement = self._organisation_domain(domain, str(persona.get("organisation") or ""))
+                if replacement:
+                    self.log(f"casting: domain {domain!r} unusable ({problem}); using organisation lookalike {replacement}")
+                    domain, problem = replacement, ""
+                    persona["website_domain"] = replacement
+                else:
+                    personal = self._personal_domain(str(persona["name"]))
+                    if personal:
+                        self.log(f"casting: domain {domain!r} unusable ({problem}); using personal domain {personal}")
+                        domain, problem = personal, ""
+                        persona["website_domain"] = personal
             if not problem and normalize(self.dossier.company) and normalize(self.dossier.company) in normalize(
                     str(persona.get("organisation", ""))):
                 problem = "the character works at the target's own company; they must be an outsider"
