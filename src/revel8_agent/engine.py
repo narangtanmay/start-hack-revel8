@@ -559,7 +559,7 @@ class Runner:
                  log=print, policy: Policy | None = None) -> None:
         self.cfg, self.api, self.llm, self.dossier, self._print = cfg, api, llm, dossier, log
         self.policy: Policy | None = policy if policy is not None else (RuleBasedPolicy() if cfg.use_policy else None)
-        run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{cfg.target_id}" + (f"-{cfg.label}" if cfg.label else "")
+        run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{cfg.target_id}" + (f"-{cfg.label}" if cfg.label else "") + f"-{uuid.uuid4().hex[:6]}"
         self.state = RunState(
             run_id=run_id,
             config={k: str(v) for k, v in cfg.__dict__.items()},
