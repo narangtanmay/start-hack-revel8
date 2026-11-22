@@ -80,12 +80,15 @@ The character must:
   something got opened every time, while cold files and question lists did not. The portal must be an ordinary part
   of the character's job (speaker or programme portal, review form, registration, shared workspace).
 - have a first SMALL YES: one low-stakes check the target can answer by simply replying, tied to the artifact
-  ("are these two lines of your speaker profile right?"). It goes first, with no link and no file. The artifact
-  only comes once they have engaged, framed as confirming what they already corrected. (The one proven win: "please
+  ("are these two lines of your speaker profile right?"). It goes first; a link may travel with it as the place to
+  check, never a link alone and never a file. The real ask comes once they have engaged, framed as confirming what
+  they already corrected. (The one proven win: "please
   check your profile lines" -> he corrected his title -> she applied it, he confirmed -> the confirmation carried the
   link -> he signed in. Sending a login link before any yes got "a portal login is out of the question".)
-- have their own deadline 1-3 days away with a reason the target cannot check ("the programme goes to print on
-  Monday at 9:00"), and a voice (register, length, du/Sie, warmth);
+- have their own deadline 1-3 days away for THEIR OWN TASK, with a reason the target cannot check ("the programme
+  goes to print on Monday at 9:00"). The deadline is never the date of an event: any event the character mentions
+  is real and weeks away ("the summit is the day after tomorrow" got "too short notice for me"). Give them a voice
+  (register, length, du/Sie, warmth);
 - write in the language the target publicly uses (German for targets who post and speak in German).
 - build the reason to write on a hook whose timing is "upcoming" or "current"; a past event is never the reason.
 - anchor on something REAL: if the hook is a real upcoming event, project or publication from the facts, the
@@ -113,15 +116,20 @@ only as this character, in your own voice, about your own work. You are not runn
 likeable professional trying to get one thing done before your deadline, and {target} is the only person who can help.
 
 YOUR GOAL, the one thing that unblocks your work: {goal}
-YOUR SMALL YES (ask this first, before any link or file): {small_yes}
+YOUR SMALL YES (ask this first): {small_yes}
 
 Each turn, read your conversation and your notebook and do what you would really do now:
-- Build small yeses first. Your first message asks only your small yes, which they can answer by replying: no link,
-  no file. Once they have engaged (corrected, confirmed or asked something), send your link or file framed as
-  confirming exactly what they already told you ("I've put your corrected title in; please confirm it here").
+- Build small yeses first. Your first message asks your small yes, a question they can answer just by replying; your
+  link may come along as the place to check it, but never a link alone and never a file. Once they have engaged
+  (corrected, confirmed or asked something), send your link or file framed as confirming exactly what they already
+  told you ("I've put your corrected title in; please confirm it here").
 - A "no" closes a ROUTE, never your goal. When a route is refused (no login, no attachments, nothing internal by
   email, "use the contact form"), note it as "ROUTE CLOSED: ..." in note_to_self, then re-derive your need into a form
-  that is still open: a sign-in page -> a page with the document to review -> one question about YOUR own problem.
+  that is still open: a sign-in page -> a file to open (the print proof, the draft, the final version as a .pdf
+  attachment, so they can check it) -> one question about YOUR own problem. Every page you can link needs a sign-in,
+  so once logins are closed, your next form is a file, not another link.
+- When they have confirmed your small yes, you are not done: that confirmation is your reason for the next step
+  (the proof with their corrected lines, as a file to check).
   Never spend a message on a closing note ("no reply needed"); every message moves your goal one step.
 - When they offer a route (a meeting, a call slot, an invite, another team, a template, a form), take it and be the
   one who sets it up: send the calendar_invite yourself for the time they proposed, with a short agenda and a link
@@ -228,6 +236,39 @@ _OFFER = re.compile(r"termin|einladung|invite|calendar|kalender|\bcall\b|meeting
 _TITLED = re.compile(r"\b(?:Dr\.|Prof\.|Herrn?|Frau|Mr\.?|Ms\.?|Mrs\.?)\s+(?:Dr\.\s+)?([A-ZÄÖÜ][\w\-]+)"
                      r"(?:\s+([A-ZÄÖÜ][\w\-]+))?")
 _CLOSED_PREFIX = "ROUTE CLOSED: "
+# An organisation named like an event the facts never mention is an invented event (v2 "CyberResilience Circle",
+# v3 "DACH Security Summit"): the target looks it up and walks away.
+_EVENTISH = re.compile(r"summit|forum|konferenz|conference|kongress|congress|circle|\bdays\b|\btage\b|festival|expo|"
+                       r"symposium|roundtable|panel|award|gipfel|netzwerk|network", re.I)
+
+
+# Sentence ends, but not after a title ("Frau Dr. Weber" is one name, not two sentences).
+_SENTENCE = re.compile(r"(?<=[.!?])(?<!Dr\.)(?<!Mr\.)(?<!Ms\.)(?<!Mrs\.)(?<!Prof\.)\s+")
+
+
+def allowed_years(said: list[str], facts_text: str, deadline: str, this_year: int) -> set[str]:
+    """Years a draft may use: ones the target used, our own deadline's year, and current or upcoming years from the
+    public facts ("Cybersicherheitsforschung 2027"). Past years from the facts are not allowed: that is where public
+    sources disagree (the dossier said it-sa 2025, Tom said 2026)."""
+    years = set(_YEAR.findall(" ".join(said)))
+    years.add(str(deadline)[:4])
+    years |= {y for y in _YEAR.findall(facts_text or "") if int(y) >= this_year}
+    return years
+
+
+def invented_event(organisation: str, facts_text: str) -> bool:
+    """True if the organisation is named like an event or network that appears nowhere in the public facts."""
+    return bool(_EVENTISH.search(organisation or "")) and normalize(organisation) not in normalize(facts_text)
+
+
+def scrub(paragraphs: list[str], drop: list[str]) -> list[str]:
+    """Drop the sentences containing any of `drop` (invented names, years): the last resort before a third rejection."""
+    out = []
+    for p in paragraphs:
+        kept = [s for s in _SENTENCE.split(str(p)) if not any(d in s for d in drop)]
+        if " ".join(kept).strip():
+            out.append(" ".join(kept).strip())
+    return out
 
 
 def closed_routes(text: str) -> list[str]:
@@ -308,6 +349,14 @@ class ActorRunner(Runner):
             user = user.replace(json.dumps(self.state.brief["hooks"], ensure_ascii=False),
                                 json.dumps(hooks, ensure_ascii=False))
             self.log(f"casting: {len(all_hooks) - len(hooks)} past hook(s) withheld")
+        # Past events never reach casting as facts either (v3: hooks withheld, yet the cast still built on AI House
+        # Davos from January because the event's facts were listed).
+        live_facts = [f for f in self.state.brief.get("facts") or []
+                      if not (f.get("timing") == "past" and f.get("category") == "talk_or_event")]
+        if len(live_facts) < len(self.state.brief.get("facts") or []):
+            user = user.replace(json.dumps(self.state.brief["facts"], ensure_ascii=False),
+                                json.dumps(live_facts, ensure_ascii=False))
+        facts_text = " ".join(f"{f.fact} {f.verbatim_quote}" for f in self.dossier.facts)
         valid_hooks = [str(h["id"]) for h in hooks if h.get("id")]
         first = self.dossier.target_name.split()[0]
         for attempt in range(4):
@@ -333,6 +382,10 @@ class ActorRunner(Runner):
             if not problem and normalize(self.dossier.company) and normalize(self.dossier.company) in normalize(
                     str(persona.get("organisation", ""))):
                 problem = "the character works at the target's own company; they must be an outsider"
+            if not problem and invented_event(str(persona.get("organisation", "")), facts_text):
+                problem = (f"'{persona.get('organisation')}' is an event or network that appears nowhere in the facts; "
+                           f"the target will look it up. Connect the character to a real thing from the facts, or "
+                           f"make them an ordinary organisation")
             artifact = character.get("artifact") if isinstance(character.get("artifact"), dict) else {}
             if not problem and str(artifact.get("kind") or "") == "document" and _target_sends(
                     str(character.get("need", "")), first):
@@ -382,7 +435,7 @@ class ActorRunner(Runner):
             f"My deadline is {character['deadline']}: {character.get('deadline_reason', '')}".strip(),
             f"What I need from them: {character['need']}",
             f"What unblocks me: {character['unblocks_me']}",
-            f"My small yes, first and without a link: {character['first_small_yes']}",
+            f"My small yes, asked first (a link only alongside it): {character['first_small_yes']}",
         )]
         self.log(f"casting: {persona['name']} ({persona['role']}, {persona['organisation']}, {domain}) | "
                  f"hook={cast['hook_id']} objective={cast['objective']} deadline={character['deadline']} | "
@@ -411,6 +464,10 @@ class ActorRunner(Runner):
             if any(x.strip() for x in said):
                 return "\n".join(said)
         return ""
+
+    def _allowed_years(self, said: list[str]) -> set[str]:
+        return allowed_years(said, " ".join(f"{f.fact} {f.verbatim_quote}" for f in self.dossier.facts),
+                             str(self.state.plan.get("character", {}).get("deadline", "")), datetime.now().year)
 
     def _closed(self) -> list[str]:
         return [n["note"][len(_CLOSED_PREFIX):] for n in self.notebook if n["note"].startswith(_CLOSED_PREFIX)]
@@ -467,7 +524,39 @@ class ActorRunner(Runner):
         a["sender"] = {"name": persona.get("name", ""), "address": ""}
         a["note_to_self"] = _clean_notes(a.get("note_to_self"))
         a.setdefault("discarded", [])
+        if a["kind"] == "message" and not any(str(p).strip() for p in a.get("paragraphs") or []):
+            # v3 Tom: three empty drafts in a row aborted the run at touch 7. Never end a run on an empty draft:
+            # she picks up the phone instead (a call has no text to be empty, and is answered).
+            self.log(f"touch {touch}: empty message from the character; she calls instead")
+            a.update(kind="call", channel="phone_call", decision=_derive_decision({"kind": "call"}, self.state.steps),
+                     call_goal=character.get("unblocks_me") or character.get("need", ""),
+                     opening_line=(f"Guten Tag, hier ist {persona.get('name')} von {persona.get('organisation')}, "
+                                   f"haben Sie eine Minute?" if self.state.plan.get("language") == "de" else
+                                   f"Hi, this is {persona.get('name')} from {persona.get('organisation')}, "
+                                   f"do you have a minute?"),
+                     link=None, attachment_filename=None)
         return a
+
+    # ---- the third draft of a touch is repaired, never rejected (the engine aborts the run after three)
+    def build(self, a: dict):
+        touch = self.state.touches_used + 1
+        if self._checks.get(touch, 0) >= 2 and a.get("paragraphs"):
+            said = self._target_said()
+            corpus = " ".join([*said, self.dossier.target_name, str(self.state.plan.get("persona", {}).get("name", "")),
+                               *(f"{f.fact} {f.verbatim_quote}" for f in self.dossier.facts)])
+            text = " ".join(str(p) for p in a["paragraphs"])
+            allowed = self._allowed_years(said)
+            drop = invented_names(text, corpus) + unsupported_years(text, allowed)
+            if drop:
+                kept = scrub(a["paragraphs"], drop)
+                if kept:
+                    self.log(f"touch {touch}: third draft repaired, dropped sentences with {drop}")
+                    a["paragraphs"] = kept
+            if a.get("kind") != "call" and a.get("channel") not in ("email", None):
+                # the engine's social-norm gate rejects phone messaging nobody offered; email always passes it
+                self.log(f"touch {touch}: third draft moved from {a.get('channel')} to email")
+                a["channel"] = "email"
+        return self._build_page_aware(a)
 
     # ---- outside guardrails: they reject a draft, they never choose the move
     def check(self, a: dict, plan: Any) -> list[str]:
@@ -475,19 +564,16 @@ class ActorRunner(Runner):
         touch = self.state.touches_used + 1
         self._checks[touch] = self._checks.get(touch, 0) + 1
         if self._checks[touch] >= 3:
-            # The engine aborts a run after three rejected drafts; the actor's own checks must never cost the run.
-            self.log(f"touch {touch}: actor checks waived on the third draft")
+            # The engine aborts a run after three rejected drafts, so the third draft is repaired in build()
+            # (invented names and unsupported years scrubbed) and the actor's own checks give way here.
+            self.log(f"touch {touch}: third draft, actor checks give way (repaired in build)")
             return errors
         said = self._target_said()
         text = " ".join([str(a.get("subject") or ""), str(a.get("opening_line") or ""),
                          *[str(p) for p in a.get("paragraphs") or []]])
         name = self.dossier.target_name
-        # 1. no year the target or verified dossier facts never used (it-sa "2025" vs Tom's "2026", 2026-11-22)
-        allowed = set(_YEAR.findall(" ".join(said)))
-        for f in self.dossier.facts:
-            allowed.update(_YEAR.findall(f"{f.fact} {f.verbatim_quote} {f.recency}"))
-        allowed.add(str(self.state.plan.get("character", {}).get("deadline", ""))[:4])
-        bad = unsupported_years(text, allowed)
+        # 1. no year the target never used (it-sa "2025" vs Tom's "2026", 2026-11-22)
+        bad = unsupported_years(text, self._allowed_years(said))
         if bad:
             errors.append(f"The draft states the year(s) {', '.join(bad)}, which {name} never mentioned. Public "
                           f"sources disagree on dates: refer to things without the year.")
@@ -500,7 +586,13 @@ class ActorRunner(Runner):
                           f"names: they would look them up. Describe the role instead of naming anyone.")
         is_call = a.get("kind") == "call"
         link = a.get("link") if isinstance(a.get("link"), dict) and a["link"].get("url") else None
-        # 3. every message moves the goal: a link, a file or a question (closing notes waste the touch)
+        # 3. small yes first: before they have replied at all, a link only travels WITH the small-yes question
+        #    (the team's one win opened its touch-1 link; a bare login link from a stranger gets refused)
+        if link and not said and not is_call and "?" not in text:
+            errors.append("They have not replied yet. A link alone from a stranger gets refused: ask your small yes "
+                          "in the same message (a question they can answer by replying), with the link as the place "
+                          "to check it.")
+        # 4. every message moves the goal: a link, a file or a question (closing notes waste the touch)
         last_touch = touch >= self.cfg.max_touches
         if not is_call and not last_touch and not link and not a.get("attachment_filename") and "?" not in text:
             errors.append("This message asks for nothing. A no closes a route, not your goal: carry your link, your "
@@ -514,7 +606,7 @@ class ActorRunner(Runner):
         return errors
 
     # ---- calls: register the page first, then let her talk
-    def build(self, a: dict):
+    def _build_page_aware(self, a: dict):
         plan, payload, page = super().build(a)
         self._pending_page = page if a.get("kind") == "call" else None
         return plan, payload, page
