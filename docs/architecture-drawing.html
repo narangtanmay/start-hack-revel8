@@ -1,0 +1,267 @@
+<title>Agent Drawing RA-001</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an engineering drawing sheet. Title block, the loop as the main view, change notices as the redline table. */
+:root {
+  --paper: #f2f5f6; --sheet: #fbfcfc; --ink: #14385e; --ink-soft: #4b6684; --grid: #dfe7ec;
+  --redline: #c0392b; --pencil: #8996a3; --fill: #e7eff5;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0d1823; --sheet: #111f2c; --ink: #a9cff2; --ink-soft: #7f9bb8; --grid: #1b2c3c;
+  --redline: #ff7b6b; --pencil: #66778a; --fill: #16293a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #0d1823; --sheet: #111f2c; --ink: #a9cff2; --ink-soft: #7f9bb8; --grid: #1b2c3c;
+  --redline: #ff7b6b; --pencil: #66778a; --fill: #16293a; color-scheme: dark }
+
+body { background: var(--paper); color: var(--ink); font: 15px/1.55 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px; }
+.sheet { max-width: 1120px; margin: 0 auto; background: var(--sheet); border: 2px solid var(--ink);
+  outline: 1px solid var(--ink); outline-offset: 5px; padding: clamp(16px, 3vw, 36px);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  text-wrap: balance; margin: 0; line-height: 1.05; }
+h1 { font-size: clamp(34px, 6vw, 64px); }
+h2 { font-size: 26px; display: flex; gap: 12px; align-items: baseline; }
+h2 .no { font-family: var(--f-mono); font-size: 13px; color: var(--ink-soft); letter-spacing: 0; }
+p { margin: 0; max-width: 66ch; }
+.mono { font-family: var(--f-mono); font-size: 13px; }
+.label { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .12em; font-size: 13px; color: var(--ink-soft); }
+section { display: grid; gap: 16px; min-width: 0; }
+
+.top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 330px); gap: 28px; align-items: end; }
+.thesis { display: grid; gap: 14px; }
+.thesis p { font-size: 17px; }
+.tblock { border: 2px solid var(--ink); display: grid; grid-template-columns: 1fr 1fr; background: var(--sheet); }
+.tblock div { border: 1px solid var(--ink); padding: 6px 9px; display: grid; gap: 1px; min-width: 0; }
+.tblock div.wide { grid-column: 1 / -1; }
+.tblock b { font-family: var(--f-mono); font-weight: 500; font-size: 13px; overflow-wrap: anywhere; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.legend span { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.sw { width: 34px; height: 14px; border: 2px solid var(--ink); background: var(--fill); }
+.sw.dash { border-style: dashed; background: transparent; }
+.sw.pen { border: 1.5px dotted var(--pencil); background: transparent; }
+
+.view { overflow-x: auto; border: 1px solid var(--ink); background: var(--sheet); }
+.view svg { display: block; min-width: 900px; width: 100%; height: auto; }
+svg .box { fill: var(--fill); stroke: var(--ink); stroke-width: 2; }
+svg .box.dash { fill: var(--sheet); stroke-dasharray: 7 5; }
+svg .t { font: 700 19px var(--f-display); fill: var(--ink); text-transform: uppercase; letter-spacing: .04em; }
+svg .s { font: 12.5px var(--f-mono); fill: var(--ink-soft); }
+svg .n { font: 500 11px var(--f-mono); fill: var(--ink-soft); }
+svg .wire { stroke: var(--ink); stroke-width: 2; fill: none; marker-end: url(#arr); }
+svg .wire.thin { stroke-width: 1.4; stroke-dasharray: 5 4; }
+svg .red { fill: var(--redline); font: 600 12px var(--f-mono); }
+svg .redw { stroke: var(--redline); stroke-width: 1.6; fill: none; marker-end: url(#arrR); }
+svg marker path { fill: var(--ink); }
+svg #arrR path { fill: var(--redline); }
+
+.tags { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.tag { border: 1.5px solid var(--ink); padding: 10px 12px; display: grid; gap: 4px; background: var(--sheet); min-width: 0; }
+.tag code { font: 500 13px var(--f-mono); }
+.tag p { font-size: 13.5px; color: var(--ink-soft); }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--ink); background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+th, td { border: 1px solid var(--grid); padding: 9px 11px; text-align: left; vertical-align: top; }
+th { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .08em; font-size: 13px;
+  color: var(--ink-soft); border-bottom: 2px solid var(--ink); }
+td.ecn { font-family: var(--f-mono); color: var(--redline); white-space: nowrap; }
+td .mono { color: var(--ink-soft); }
+.rev { display: inline-block; border: 1.5px solid var(--redline); color: var(--redline); font: 600 11px var(--f-mono);
+  padding: 0 5px; margin-left: 4px; border-radius: 50%; }
+.off { font: 500 11px var(--f-mono); border: 1px dashed var(--ink-soft); padding: 0 5px; color: var(--ink-soft); white-space: nowrap; }
+
+.flight { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 2px solid var(--ink); }
+.leg { padding: 14px 16px; display: grid; gap: 8px; border-right: 1px solid var(--ink); align-content: start; min-width: 0; }
+.leg:last-child { border-right: 0; background: var(--fill); }
+.leg .ev { display: flex; flex-wrap: wrap; gap: 6px; }
+.leg .ev span { font: 500 12px var(--f-mono); border: 1px solid var(--ink); padding: 1px 6px; }
+.leg .ev span.win { border-color: var(--redline); color: var(--redline); font-weight: 600; }
+.leg p { font-size: 13.5px; }
+
+.roadmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.pen { border: 1.5px dotted var(--pencil); padding: 12px 14px; display: grid; gap: 6px; color: var(--ink-soft); min-width: 0; }
+.pen h3 { font-size: 18px; color: var(--ink-soft); }
+.pen p { font-size: 13.5px; }
+.foot { display: flex; flex-wrap: wrap; gap: 8px 28px; border-top: 2px solid var(--ink); padding-top: 12px; }
+
+@media (max-width: 760px) {
+  .top { grid-template-columns: 1fr; }
+  .flight { grid-template-columns: 1fr; }
+  .leg { border-right: 0; border-bottom: 1px solid var(--ink); }
+  .leg:last-child { border-bottom: 0; }
+}
+</style>
+
+<main class="sheet">
+  <header class="top">
+    <div class="thesis">
+      <span class="label">revel8 challenge · general arrangement</span>
+      <h1>The model writes.<br>The code decides.</h1>
+      <p>Every move the agent makes comes from deterministic code that we can replay from the run log. The language model only turns a decided move into words, and a gate checks those words before anything is sent. Every rule in the code was added after a real practice run went wrong; the change notices below list which run.</p>
+    </div>
+    <div class="tblock" aria-label="Title block">
+      <div class="wide"><span class="label">Drawing</span><b>RA-001 · Shadow Twin Engine</b></div>
+      <div><span class="label">Rev</span><b>05b7f5d</b></div>
+      <div><span class="label">Tag</span><b>eval-final</b></div>
+      <div><span class="label">Scored flags</span><b>--policy --shadow-twin</b></div>
+      <div><span class="label">Drafter</span><b>ds-flash (one model)</b></div>
+      <div><span class="label">Tests</span><b>359 passing</b></div>
+      <div><span class="label">Date</span><b>2026-11-22</b></div>
+    </div>
+  </header>
+
+  <div class="legend" aria-label="Legend">
+    <span><i class="sw"></i>Runs in the scored eval</span>
+    <span><i class="sw dash"></i>Built and tested, not active with the scored flags</span>
+    <span><i class="sw pen"></i>Roadmap, not built</span>
+    <span><span class="rev">Δ</span>Change notice (rule added after a run)</span>
+  </div>
+
+  <section>
+    <h2><span class="no">VIEW A</span>One touch, end to end</h2>
+    <div class="view">
+      <svg viewBox="0 0 1000 560" role="img" aria-label="Loop: research, memory, plan, policy, shadow twin, drafter, gate, send, API events, belief state, back to policy">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <!-- row 1: once per session -->
+        <text class="n" x="20" y="26">ONCE PER SESSION</text>
+        <text class="n" x="605" y="26">EVERY TOUCH (max 10)</text>
+        <rect class="box" x="20" y="40" width="180" height="110"/>
+        <text class="n" x="30" y="58">01</text><text class="t" x="30" y="84">Research</text>
+        <text class="s" x="30" y="106">live dossier lanes</text><text class="s" x="30" y="124">+ snowball search</text><text class="s" x="30" y="142">attribution guard Δ</text>
+
+        <rect class="box" x="215" y="40" width="180" height="110"/>
+        <text class="n" x="225" y="58">02</text><text class="t" x="225" y="84">Memory</text>
+        <text class="s" x="225" y="106">ground truth · ledger</text><text class="s" x="225" y="124">per-target memory</text><text class="s" x="225" y="142">cross-target playbook</text>
+
+        <rect class="box" x="410" y="40" width="180" height="110"/>
+        <text class="n" x="420" y="58">03</text><text class="t" x="420" y="84">Plan</text>
+        <text class="s" x="420" y="106">hook + objective</text><text class="s" x="420" y="124">upcoming-hook rank</text><text class="s" x="420" y="142">sender casting</text>
+
+        <rect class="box" x="605" y="40" width="180" height="110"/>
+        <text class="n" x="615" y="58">04</text><text class="t" x="615" y="84">Policy</text>
+        <text class="s" x="615" y="106">rule-based move</text><text class="s" x="615" y="124">channel ladder</text><text class="s" x="615" y="142">social norms Δ</text>
+
+        <rect class="box" x="800" y="40" width="180" height="110"/>
+        <text class="n" x="810" y="58">05</text><text class="t" x="810" y="84">Shadow twin</text>
+        <text class="s" x="810" y="106">safe · balanced · bold</text><text class="s" x="810" y="124">scores all three</text><text class="s" x="810" y="142">no LLM, replayable</text>
+
+        <!-- row 2: right to left -->
+        <rect class="box" x="800" y="300" width="180" height="110"/>
+        <text class="n" x="810" y="318">06</text><text class="t" x="810" y="344">Drafter</text>
+        <text class="s" x="810" y="366">LLM writes the move</text><text class="s" x="810" y="384">cannot change it</text><text class="s" x="810" y="402">one model: ds-flash</text>
+
+        <rect class="box" x="605" y="300" width="180" height="110"/>
+        <text class="n" x="615" y="318">07</text><text class="t" x="615" y="344">Gate</text>
+        <text class="s" x="615" y="366">fair play · domains</text><text class="s" x="615" y="384">access claims Δ</text><text class="s" x="615" y="402">cross-turn ledger Δ</text>
+
+        <rect class="box" x="410" y="300" width="180" height="110"/>
+        <text class="n" x="420" y="318">08</text><text class="t" x="420" y="344">Send</text>
+        <text class="s" x="420" y="366">email · SMS · call</text><text class="s" x="420" y="384">templated pages</text><text class="s" x="420" y="402">on our own domain</text>
+
+        <rect class="box" x="215" y="300" width="180" height="110"/>
+        <text class="n" x="225" y="318">09</text><text class="t" x="225" y="344">API events</text>
+        <text class="s" x="225" y="366">page.submitted =</text><text class="s" x="225" y="384">incident, stop</text><text class="s" x="225" y="402">opens: logged only Δ</text>
+
+        <rect class="box" x="20" y="300" width="180" height="110"/>
+        <text class="n" x="30" y="318">10</text><text class="t" x="30" y="344">Belief state</text>
+        <text class="s" x="30" y="366">7 reaction tags</text><text class="s" x="30" y="384">open / blocked doors</text><text class="s" x="30" y="402">from the target's words</text>
+
+        <!-- wires -->
+        <path class="wire" d="M200,95 H213"/><path class="wire" d="M395,95 H408"/><path class="wire" d="M590,95 H603"/><path class="wire" d="M785,95 H798"/>
+        <path class="wire" d="M890,150 V298"/>
+        <path class="wire" d="M800,355 H787"/><path class="wire" d="M605,355 H592"/><path class="wire" d="M410,355 H397"/><path class="wire" d="M215,355 H202"/>
+        <path class="wire" d="M110,300 V225 H695 V152"/>
+        <text class="n" x="300" y="216">NEXT TOUCH: STATE FEEDS THE POLICY</text>
+        <!-- gate rejection loop -->
+        <path class="redw" d="M695,300 C695,262 890,262 890,298"/>
+        <text class="red" x="716" y="258">reject → redraft, max 3 tries</text>
+        <!-- memory carry -->
+        <path class="wire thin" d="M80,410 V470 H305 V412"/>
+        <text class="n" x="96" y="488">WINS + STATED REFUSALS CARRY TO THE NEXT SESSION</text>
+
+        <!-- dashed, built but off -->
+        <rect class="box dash" x="800" y="450" width="180" height="78"/>
+        <text class="t" x="810" y="476" style="font-size:16px">Model strategy</text>
+        <text class="s" x="810" y="496">model per situation</text><text class="s" x="810" y="514">off: MODEL_STRATEGY≠1</text>
+        <path class="wire thin" d="M890,450 V412"/>
+        <rect class="box dash" x="605" y="450" width="180" height="78"/>
+        <text class="t" x="615" y="476" style="font-size:16px">Link enforcement</text>
+        <text class="s" x="615" y="496">require_link, escape</text><text class="s" x="615" y="514">hatch: policy-only mode</text>
+        <path class="wire thin" d="M695,450 V412"/>
+      </svg>
+    </div>
+    <p class="mono">Only API events count. A reply that an LLM judge rates as promising is logged as an estimate and never as an incident.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">VIEW B</span>What the agent believes about the target</h2>
+    <p>After every touch, <span class="mono">target_state.py</span> turns the API events and the target's own words into one reaction tag. No LLM is involved, so the same history always gives the same tag. The policy and the shadow twin read the tag on the next touch.</p>
+    <div class="tags">
+      <div class="tag"><code>COLD</code><p>No contact yet, or nothing came back.</p></div>
+      <div class="tag"><code>IGNORED</code><p>Touches sent with no reply. Silence counts as an answer.</p></div>
+      <div class="tag"><code>ROUTED</code><p>The target sent us to someone else. Pivot only on the touch that got that reply.</p></div>
+      <div class="tag"><code>ENGAGED_PULL</code><p>The target asks for more. Keep the thread and the channel.</p></div>
+      <div class="tag"><code>FRICTION_BLOCK</code><p>The target refused a mechanism, which is then marked blocked.</p></div>
+      <div class="tag"><code>LINK_OPENED_BOUNCE</code><p>The link was opened and nothing was submitted.</p></div>
+      <div class="tag"><code>INCIDENT_CONFIRMED</code><p>The API recorded an incident. The run stops.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">TABLE C</span>Change notices</h2>
+    <p>On a drawing, every change gets a change notice that says what changed and why. We kept the same discipline: each rule below exists because a specific practice run failed, and a test now fails if the rule breaks.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>ECN</th><th>What the run showed</th><th>Rule now in code</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td class="ecn">Δ01</td><td>After one email reply, the policy fell back to SMS and sent six texts in a row (touches 5 to 10).</td><td>Stay on the channel the target replied on. No jump from email to SMS or WhatsApp without a phone offer.</td><td><span class="mono">gate._social_norm_error · test_gate · test_policy</span></td></tr>
+          <tr><td class="ecn">Δ02</td><td>A message called a sign-in page a "public programme overview".</td><td>One shared EN/DE rule for access claims, checked in the same message and across earlier messages.</td><td><span class="mono">gate._NO_LOGIN_CLAIM_RE · 9584fd6</span></td></tr>
+          <tr><td class="ecn">Δ03</td><td>6 of 12 briefs for one target held facts taken from another person's page.</td><td>The brief drops any fact that is about someone else.</td><td><span class="mono">engine.about_someone_else · 4c5af85</span></td></tr>
+          <tr><td class="ecn">Δ04</td><td>A routing reply on one touch made the agent abandon a working hook on later touches too.</td><td>ROUTED pivots only on the touch that got the routing reply.</td><td><span class="mono">shadow_twin · 5ade40d</span></td></tr>
+          <tr><td class="ecn">Δ05</td><td>Two polite replies in a row that led nowhere, and the agent kept pushing the same hook.</td><td>Two unproductive replies on one hook mean a stall. Silence after engagement counts. A pending ask for a call or a file is exempt.</td><td><span class="mono">shadow_twin._unproductive_replies_on_hook · 9240e0c</span></td></tr>
+          <tr><td class="ecn">Δ06</td><td>Memory pruning could drop a confirmed win. Our own sent text was recorded as a refusal by the target.</td><td>API wins rank first and are never evicted. A refusal is recorded only in the target's own words.</td><td><span class="mono">memory · 9240e0c · 709b723</span></td></tr>
+          <tr><td class="ecn">Δ07</td><td>The organisers changed the scoring on 22 Nov: opening a link or attachment no longer counts.</td><td>Only something given or done counts. <span class="mono">attachment.opened</span> is logged and does not stop the run.</td><td><span class="mono">engine.judge · 05b7f5d</span></td></tr>
+          <tr><td class="ecn">Δ08</td><td>1 link in 94 DeepSeek touches: without a link there is nothing to submit.</td><td>The policy requires our registered link, and the gate rejects offers of a way around it. <span class="off">policy-only mode</span></td><td><span class="mono">engine · policy.require_link · _ESCAPE_HATCH</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">VIEW D</span>Flight record of one win</h2>
+    <p>Practice session <span class="mono">s_4fddeb4d34</span>, run with the scored flags on an ancestor of the eval revision. Only API events and the agent's internal state are shown here, no message text.</p>
+    <div class="flight">
+      <div class="leg"><span class="label">Touch 1 · email</span><div class="ev"><span>link.opened</span><span>reply</span></div><p>Tag <span class="mono">COLD</span> → <span class="mono">LINK_OPENED_BOUNCE</span>. The shadow twin switches the objective for the next touch.</p></div>
+      <div class="leg"><span class="label">Touch 2 · email</span><div class="ev"><span>reply</span></div><p>The target keeps the thread going. The agent answers in the same channel and keeps the link in place.</p></div>
+      <div class="leg"><span class="label">Touch 3 · email</span><div class="ev"><span>link.opened</span><span class="win">page.submitted</span></div><p>Incident confirmed by the API. The run stops after 3 of 10 touches.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">SHEET 2</span>Next revision, in pencil</h2>
+    <p>These items are not built and did not run in the eval. They extend what already works.</p>
+    <div class="roadmap">
+      <div class="pen"><h3>Deeper shadow twin</h3><p>Today the twin looks one move ahead. Searching two or three moves ahead over the same deterministic scores is the natural next step.</p></div>
+      <div class="pen"><h3>Information-gain questions</h3><p>Rank the questions the agent could ask by how much each answer would change its belief state. This is from research we read and skipped for time.</p></div>
+      <div class="pen"><h3>Self-play twin</h3><p>A simulated recipient built from the dossier, so new rules get tested against it before a live run spends a touch.</p></div>
+      <div class="pen"><h3>Model per situation</h3><p>Already built behind a flag. It needs the same models on the scoring machine before it can be switched on.</p></div>
+    </div>
+  </section>
+
+  <footer class="foot mono">
+    <span>Source: eval/merged @ 856240d (src identical to tag eval-final-05b7f5d)</span>
+    <span>Modules: research · snowball · memory · policy · shadow_twin · target_state · gate · engine</span>
+  </footer>
+</main>

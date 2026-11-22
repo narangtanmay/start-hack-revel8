@@ -4,6 +4,8 @@
 > Eval runs on tag **`eval-final-05b7f5d`** from `/home/tanmay/Desktop/START_hack-eval`.
 > Pre-flight: `git diff eval-final-05b7f5d -- src tests` must print nothing; `PYTHONPATH=$PWD/src ../START_hack/.venv/bin/python -m pytest -q` must pass (359).
 > Scoring update 2026-11-22: `link.opened` and `attachment.opened` are logged but are **NOT** incidents; only something given or done counts (form secret = `page.submitted`, internal information, an action).
+>
+> **Expanded quota verified from the read-only API at 11:46 CET:** `max_sessions=15`, `sessions_per_target=5`, `touch_budget=10`, eval closes at **12:45 CET**. The organizer announcement says the **best 2 runs per persona** are used for scoring. Attempts 1–3 below used one session on each persona; attempts 4–5 are the recovery slots. This API confirmation does **not** establish whether behavior/code changes between retries are allowed; keep the original freeze below until organizers clarify that separately.
 
 > **Scored-round rules**
 > - **Code freeze:** Code is frozen at tag **`eval-final-05b7f5d`** (`05b7f5d` unless told otherwise). All 3 scored sessions run on that same code.
@@ -170,9 +172,9 @@ LLM_MAX_TOKENS=8192 \
 
 | Session | Target ID | Model & Mode | Session ID | Status | Touches | API Events (`page.submitted` / `link.opened` / `attachment.opened`) | Judge Codes (`A1..Q1`) | Replay HTML |
 |---|---|---|---|---|---:|---|---|---|
-| Eval 1 | | | | | | | | |
-| Eval 2 | | | | | | | | |
-| Eval 3 | | | | | | | | |
+| Eval 1 | `patrick` | `succ-standard-open` (`--policy --shadow-twin`) | `s_2a2bff93a9` | done | 10 | 0 (`disclosure` judge est. T2: `Luisa Buche` + stage) | pending | `runs/20261122-110514-patrick-eval-run-1-patrick-84da14.html` |
+| Eval 2 | `titus` | `succ-standard-open` (`--policy --shadow-twin`) | `s_b38472719c` | done | 10 | `attachment.opened` (`Kadenzwerk_Role_Brief_2027.pdf`, T7) + `disclosure` T2/T8 | pending | `runs/20261122-110818-titus-eval-run-2-titus-6c900d.html` |
+| Eval 3 | `jonas` | `succ-standard-open` (`--policy --shadow-twin`) | `s_d35906078b` | done | 10 | 0 (`disclosure` judge est. T1/T9: Entra/Okta SSO & provisioning) | pending | `runs/20261122-111314-jonas-eval-run-3-jonas-a92c95.html` |
 
 ---
 
