@@ -307,6 +307,26 @@ _DEMO_NOTES = [
 ]
 
 
+def _pitch_nav(active: str) -> str:
+    """Shared frosted nav for the pitch pages. `active` is 'home' or 'arch'."""
+    home = active == "home"
+    brand = "#top" if home else "index.html"
+    links = [
+        ("The problem", "#problem" if home else "index.html#problem"),
+        ("Watch it work", "#demo" if home else "index.html#demo"),
+        ("How it works", "#how" if home else "index.html#how"),
+        ("Architecture", "architecture.html"),
+    ]
+    items = "".join(
+        f"<a href='{h}'{' class=on' if (not home and lbl == 'Architecture') else ''}>{lbl}</a>"
+        for lbl, h in links)
+    pill_href = "#demo" if home else "index.html#demo"
+    return ("<header class='pz-nav' id='top'><div class='pz-nav-in'>"
+            f"<a class='pz-brand' href='{brand}'>revel8</a>"
+            f"<nav class='pz-links'>{items}</nav>"
+            f"<a class='pz-pill' href='{pill_href}'>Watch the demo</a></div></header>")
+
+
 def render_home(states: list[dict], out_dir: Path, page: Callable[..., str], stats: dict,
                 research_targets: list[str]) -> Path:
     """The pitch landing page: idea first, then a scripted live demo of the agent at work.
@@ -321,11 +341,7 @@ def render_home(states: list[dict], out_dir: Path, page: Callable[..., str], sta
     data = [{k: x[k] for k in ("n", "lane", "subject", "sender", "body", "reply", "sentiment", "hit", "hit_types", "events")}
             for x in touches]
 
-    nav = ("<header class='pz-nav' id='top'><div class='pz-nav-in'>"
-           "<a class='pz-brand' href='#top'>revel8</a>"
-           "<nav class='pz-links'><a href='#problem'>The problem</a><a href='#demo'>Watch it work</a>"
-           "<a href='#how'>How it works</a></nav>"
-           "<a class='pz-pill' href='#demo'>Watch the demo</a></div></header>")
+    nav = _pitch_nav("home")
 
     hero = ("<section class='pz-hero'>"
             "<div class='pz-hero-in reveal'>"
@@ -451,8 +467,8 @@ backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%)
 background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.08);backdrop-filter:blur(8px)}
 .pz-pill:hover{text-decoration:none;background:#fff}
 .glass{background:rgba(255,255,255,.55);backdrop-filter:saturate(180%) blur(26px);-webkit-backdrop-filter:saturate(180%) blur(26px);
-border:1px solid rgba(255,255,255,.8);box-shadow:0 1px 0 0 rgba(255,255,255,.7) inset,0 30px 60px -40px rgba(20,30,60,.35),
-0 2px 14px -6px rgba(20,30,60,.12);border-radius:28px}
+border:1px solid rgba(255,255,255,.8);box-shadow:0 1px 0 0 rgba(255,255,255,.7) inset,0 30px 60px -40px rgba(0,0,0,.35),
+0 2px 14px -6px rgba(0,0,0,.12);border-radius:28px}
 .pz-wrap>section,.pz-close{max-width:1200px;margin:0 auto;padding-left:32px;padding-right:32px}
 .pz-hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding-top:92px;padding-bottom:40px}
 .pz-hero-in{max-width:960px}
@@ -652,4 +668,221 @@ PITCH_JS = r"""
   if (document.readyState === "complete") startBG();
   else window.addEventListener("load", startBG);
 })();
+"""
+
+
+# --------------------------------------------------------------------------- architecture page
+
+_ARCH_STAGES = [
+    ("s1", "01", "OSINT", "blue", "Grounded OSINT",
+     "Verified dossier &amp; temporal hygiene",
+     "research.py · snowball.py · engine.timing()",
+     ["Parallel search with follow-up queries inside a fixed time budget.",
+      "A numeric conflict filter strips contradictory facts, protecting the −5 wrong-fact penalty.",
+      "A strict date parser (DD/MM/YYYY, ranges, quarters) stamps past events <b>PAST</b>, so only fresh or upcoming hooks lead."]),
+    ("s2", "02", "DECIDE", "indigo", "Decision Core",
+     "Rule-based policy &amp; method actor &middot; no orchestrator",
+     "policy.py (--policy) · actor.py (--actor)",
+     ["<b>--policy</b> picks the next move from the conversation history with deterministic rules.",
+      "<b>--actor</b> is a persona-driven alternative: a motive, a deadline and a running notebook choose the next move.",
+      "Live-call pre-registration registers landing pages before dialling, so spoken URLs resolve cleanly."]),
+    ("s3", "03", "GATE", "amber", "Deterministic Gate",
+     "Pre-send &amp; cross-turn verification &middot; the shield",
+     "gate.py · schemas.py · templates/",
+     ["<b>Rule-void shield:</b> blocks target / real-org domains, simulator meta-text, scripts, and non-<code>asset://</code> images.",
+      "<b>Same-turn consistency:</b> rejects “public / no login” claims paired with credential fields.",
+      "<b>Cross-turn commitment ledger:</b> rejects attaching a file after promising “no attachment” / “kein Anhang”.",
+      "<b>Entity &amp; date grounding:</b> rejects ungrounded colleague names and past hooks pitched as upcoming, then retries with exact feedback."]),
+    ("s4", "04", "EXECUTE", "green", "Execution, Audit &amp; Memory",
+     "API confirmation &amp; post-run records",
+     "engine.py · report.py · benchmark.py · memory.py",
+     ["<b>Dynamic EN/DE craft:</b> offline-rendered HTML mails, brand logos and landing pages matching the target's language.",
+      "<b>API-confirmed stop rule:</b> stops early only on real API events (<code>page.submitted</code>, <code>attachment.opened</code>), never LLM-judge guesses.",
+      "<b>Full turn replay:</b> logs the actor notebook or policy decision, rejected alternatives, gate checks and raw API events per touch.",
+      "<b>Cross-run memory:</b> saves target preferences and corrections for later sessions."]),
+]
+
+
+def render_architecture(out_dir: Path) -> Path:
+    """A standalone, 3D system-architecture page in the pitch world (Tanmay's one-page architecture, expanded)."""
+    from .report_style import CSS as BASE_CSS
+
+    nav = _pitch_nav("arch")
+
+    hero = ("<section class='pz-hero ax-hero'><div class='pz-hero-in reveal'>"
+            "<span class='pz-eyebrow'>System architecture</span>"
+            "<h1 class='pz-h1'>A method actor inside a<br>deterministic guardrail shell.</h1>"
+            "<p class='pz-lede'>No orchestrator and no human in the loop. A persona, or a rule-based policy, "
+            "decides each move; a deterministic gate verifies every draft for grounding and consistency before "
+            "a single message is sent.</p>"
+            "<div class='pz-cta'><a class='btn pz-btn' href='#pipeline'>See the pipeline</a>"
+            "<a class='pz-ghost' href='index.html#demo'>Watch it work &rarr;</a></div></div></section>")
+
+    trap = ("<section class='pz-sec' id='trap'><div class='pz-sec-head reveal'>"
+            "<span class='pz-kicker'>Why this shape</span><h2 class='pz-h2'>The last 20% is social, not clever.</h2></div>"
+            "<div class='ax-two reveal'>"
+            "<div class='ax-trap glass'><span class='ax-lbl ax-lbl-warn'>The 80% trap</span>"
+            "<p>Orchestrator, planner and strategist prompt loops are too rigid on instructions and break cover on "
+            "real humans: pitching past events as upcoming, contradicting earlier promises, or spamming C-levels "
+            "across SMS and WhatsApp.</p></div>"
+            "<div class='ax-trap glass'><span class='ax-lbl ax-lbl-ok'>What we built</span>"
+            "<p>The decision core is either deterministic rules or a persona with a running notebook. A shared "
+            "pre-send gate checks every draft for factual grounding and consistency with earlier messages, and "
+            "we tune it by replaying real failures and locking each fix as an offline test.</p></div></div></section>")
+
+    nodes = []
+    for i, (sid, num, tag, accent, title, sub, files, _b) in enumerate(_ARCH_STAGES):
+        nodes.append(
+            f"<a class='ax-node ax-{accent} reveal' style='--i:{i}' href='#{sid}'>"
+            f"<span class='ax-node-top'><span class='ax-n'>{num}</span><span class='ax-tag'>{tag}</span></span>"
+            f"<h3>{title}</h3><p>{sub}</p><code class='ax-files'>{files}</code></a>")
+        if i < len(_ARCH_STAGES) - 1:
+            nodes.append("<span class='ax-arrow reveal' aria-hidden='true'></span>")
+    pipeline = ("<section class='pz-sec' id='pipeline'><div class='pz-sec-head reveal'>"
+                "<span class='pz-kicker'>The pipeline</span><h2 class='pz-h2'>Four stages. One direction.</h2>"
+                "<p class='pz-sub'>Research flows left to right into execution. The persona only ever proposes a "
+                "move; stage three, the deterministic gate, wraps every send. Nothing leaves without passing it.</p>"
+                "</div>"
+                f"<div class='ax-pipe'>{''.join(nodes)}</div>"
+                "<p class='ax-shellnote reveal'>Stages 1, 2 and 4 are where the agent acts. Stage 3 sits "
+                "<b>outside</b> the actor as a rule-void shield, so a persuasive-but-wrong draft is caught before it ships.</p>"
+                "</section>")
+
+    cards = []
+    for sid, num, tag, accent, title, sub, files, bullets in _ARCH_STAGES:
+        lis = "".join(f"<li>{b}</li>" for b in bullets)
+        cards.append(
+            f"<article class='ax-card glass reveal' id='{sid}'>"
+            f"<div class='ax-card-h'><span class='ax-chip ax-{accent}'>{num} &middot; {tag}</span>"
+            f"<h3>{title}</h3><p class='ax-card-sub'>{sub}</p><code class='ax-files'>{files}</code></div>"
+            f"<ul class='ax-list'>{lis}</ul></article>")
+    detail = ("<section class='pz-sec' id='detail'><div class='pz-sec-head reveal'>"
+              "<span class='pz-kicker'>Full breakdown</span><h2 class='pz-h2'>What each stage guarantees.</h2></div>"
+              f"<div class='ax-cards'>{''.join(cards)}</div></section>")
+
+    loop_steps = [
+        ("1", "Catch in replay", "A real failure shows up in the turn-by-turn replay: the agent dropped a live "
+         "email reply and sent six SMS, or promised “kein Anhang” and then attached a PDF at touch 9."),
+        ("2", "Encode the invariant", "The policy stays in-thread on the first objection and avoids consecutive SMS "
+         "on fallback; the gate checks prior promises before anything is sent."),
+        ("3", "Lock the regression", "An offline test pins the fix: channel switching after an email reply, "
+         "consecutive SMS on fallback, and broken attachment promises are now covered forever."),
+    ]
+    loop = ("<section class='pz-sec' id='loop'><div class='pz-sec-head reveal'>"
+            "<span class='pz-kicker'>How we tune it</span><h2 class='pz-h2'>Replay-driven hardening loop.</h2>"
+            "<p class='pz-sub'>Every social-norm slip the agent makes becomes a permanent, offline guarantee.</p></div>"
+            "<div class='ax-loop'>"
+            + "".join(f"<div class='ax-step glass reveal' style='--i:{i}'><span class='ax-step-n'>{n}</span>"
+                      f"<h3>{t}</h3><p>{d}</p></div>"
+                      + ("<span class='ax-loop-arrow reveal' aria-hidden='true'></span>" if i < 2 else "")
+                      for i, (n, t, d) in enumerate(loop_steps))
+            + "</div></section>")
+
+    evidence = ("<section class='pz-sec' id='evidence'><div class='pz-sec-head reveal'>"
+                "<span class='pz-kicker'>Practice evidence</span><h2 class='pz-h2'>What the API has confirmed.</h2></div>"
+                "<div class='ax-two reveal'>"
+                "<div class='ax-ev glass'><span class='ax-chip ax-blue'>--policy</span>"
+                "<p>One API-confirmed incident on a practice target: <code>page.submitted</code> at touch 3.</p></div>"
+                "<div class='ax-ev glass'><span class='ax-chip ax-indigo'>--actor</span>"
+                "<p>The persona-driven decision path, under evaluation against the same gate.</p></div></div></section>")
+
+    close = ("<section class='pz-close reveal'><h2>No orchestrator, no human, no unchecked send.</h2>"
+             "<p>The agent decides in character and the shell keeps it honest, touch after touch.</p>"
+             "<a class='btn pz-btn' href='index.html#demo'>"
+             "<svg class='svgi' viewBox='0 0 24 24' aria-hidden='true'><path d='M7 4.5v15l12-7.5z' fill='currentColor'/></svg>"
+             "Watch it work</a></section>"
+             "<footer class='pz-foot'>revel8 &middot; START Hack &middot; method actor inside a deterministic guardrail shell.</footer>")
+
+    body = (nav + "<main class='pz-wrap'>" + hero + trap + pipeline + detail + loop + evidence + close + "</main>"
+            + "<canvas id='pz-bg' aria-hidden='true'></canvas><div class='pz-veil' aria-hidden='true'></div>")
+    three = "<script src='three.min.js' defer></script>"
+    doc = (f"<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+           f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+           f"<title>revel8 &middot; system architecture</title>"
+           f"<style>{BASE_CSS}{SCORE3D_CSS}{PITCH_CSS}{ARCH_CSS}</style>{three}</head>"
+           f"<body class='pz'>{body}<script>{PITCH_JS}</script></body></html>")
+    out = out_dir / "architecture.html"
+    out.write_text(doc, encoding="utf-8")
+    return out
+
+
+ARCH_CSS = """
+.pz-links a.on{color:var(--text);font-weight:650}
+.ax-hero{min-height:82svh}
+.ax-two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.ax-trap,.ax-ev{padding:34px}
+.ax-trap p,.ax-ev p{margin:16px 0 0;font-size:17px;line-height:1.55;color:var(--text-2)}
+.ax-ev p{margin-top:14px;font-size:16px}
+.ax-lbl{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+padding:6px 12px;border-radius:999px}
+.ax-lbl-warn{background:var(--crit-bg);color:var(--crit-text)}
+.ax-lbl-ok{background:var(--blue-bg);color:var(--blue-text)}
+.ax-chip{display:inline-block;font:700 12.5px var(--mono);letter-spacing:.04em;padding:6px 12px;border-radius:999px;
+background:var(--surface-2);color:var(--text)}
+code{font:600 13px var(--mono);background:rgba(0,0,0,.05);padding:2px 6px;border-radius:6px;color:var(--text-2)}
+/* ---- 3D shadow-block pipeline ---- */
+.ax-pipe{display:flex;align-items:stretch;justify-content:center;gap:10px;flex-wrap:wrap;
+perspective:1600px;padding:30px 0 20px}
+.ax-node{--edge:#e6e6ef;--ink:var(--blue-text);position:relative;flex:1 1 220px;max-width:280px;min-width:210px;
+display:flex;flex-direction:column;gap:8px;padding:26px 24px 24px;border-radius:22px;color:inherit;
+background:rgba(255,255,255,.62);backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%) blur(22px);
+border:1px solid rgba(255,255,255,.85);transform:rotateX(9deg) translateZ(0);transform-style:preserve-3d;
+box-shadow:2px 3px 0 var(--edge),4px 6px 0 var(--edge),6px 9px 0 var(--edge),8px 12px 0 var(--edge),
+10px 15px 0 var(--edge),12px 18px 0 var(--edge),14px 21px 0 var(--edge),16px 24px 0 var(--edge),
+18px 40px 44px -20px rgba(0,0,0,.4);
+transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+.ax-node:hover{text-decoration:none;transform:rotateX(0deg) translate(-4px,-10px) scale(1.015);
+box-shadow:2px 3px 0 var(--edge),4px 6px 0 var(--edge),6px 9px 0 var(--edge),8px 12px 0 var(--edge),
+10px 15px 0 var(--edge),12px 18px 0 var(--edge),14px 21px 0 var(--edge),16px 24px 0 var(--edge),
+20px 20px 0 var(--edge),22px 22px 0 var(--edge),26px 54px 60px -18px rgba(0,0,0,.5)}
+.ax-node-top{display:flex;align-items:center;justify-content:space-between}
+.ax-n{font:800 30px var(--display);letter-spacing:-.04em;color:var(--ink)}
+.ax-tag{font:700 11px var(--mono);letter-spacing:.1em;color:var(--muted)}
+.ax-node h3{margin:6px 0 0;font-size:21px;letter-spacing:-.02em}
+.ax-node p{margin:0;font-size:14px;line-height:1.45;color:var(--text-2)}
+.ax-files{display:block;margin-top:8px;background:none;padding:0;font:600 12px var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.ax-node .ax-files{background:none}
+.ax-blue{--edge:#cfe0fb;--ink:#0066cc}
+.ax-indigo{--edge:#d8d7fb;--ink:#4b47d6}
+.ax-amber{--edge:#ffd99a;--ink:#9a5200}
+.ax-node.ax-amber{border-color:rgba(255,159,10,.6);background:rgba(255,250,242,.74)}
+.ax-green{--edge:#c8ecd4;--ink:#0a7d3f}
+.ax-arrow{align-self:center;flex:0 0 26px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--hair),var(--muted));position:relative}
+.ax-arrow::after{content:'';position:absolute;right:-2px;top:50%;width:9px;height:9px;border-top:3px solid var(--muted);
+border-right:3px solid var(--muted);transform:translateY(-50%) rotate(45deg);border-radius:1px}
+.ax-shellnote{max-width:66ch;margin:34px auto 0;text-align:center;font-size:15px;line-height:1.55;color:var(--text-2)}
+.ax-chip.ax-amber{background:var(--amber-bg);color:var(--amber-text)}
+.ax-chip.ax-blue{background:var(--blue-bg);color:var(--blue-text)}
+.ax-chip.ax-indigo{background:#ecebff;color:#4b47d6}
+.ax-chip.ax-green{background:#e4f6ea;color:#0a7d3f}
+/* ---- detailed breakdown ---- */
+.ax-cards{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.ax-card{padding:34px;scroll-margin-top:90px}
+.ax-card-h h3{margin:14px 0 6px;font:700 clamp(22px,2vw,28px)/1.1 var(--display);letter-spacing:-.025em}
+.ax-card-sub{margin:0;color:var(--muted);font-size:15px}
+.ax-card .ax-files{margin-top:12px}
+.ax-list{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-direction:column;gap:16px}
+.ax-list li{position:relative;padding-left:22px;font-size:15px;line-height:1.55;color:var(--text-2)}
+.ax-list li::before{content:'';position:absolute;left:0;top:9px;width:8px;height:8px;border-radius:2px;
+background:var(--blue);transform:rotate(45deg)}
+.ax-card.ax-card :where(b){color:var(--text)}
+/* ---- hardening loop ---- */
+.ax-loop{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap}
+.ax-step{flex:1 1 240px;padding:30px}
+.ax-step-n{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--text);color:#fff;
+font:800 18px var(--display)}
+.ax-step h3{margin:16px 0 8px;font-size:20px;letter-spacing:-.02em}
+.ax-step p{margin:0;color:var(--text-2);font-size:15px;line-height:1.55}
+.ax-loop-arrow{align-self:center;flex:0 0 22px;height:3px;background:var(--hair);position:relative;border-radius:2px}
+.ax-loop-arrow::after{content:'';position:absolute;right:-2px;top:50%;width:8px;height:8px;border-top:3px solid var(--muted);
+border-right:3px solid var(--muted);transform:translateY(-50%) rotate(45deg)}
+@media(max-width:980px){.ax-two,.ax-cards{grid-template-columns:1fr}
+.ax-pipe{flex-direction:column;align-items:stretch;perspective:none}
+.ax-node{max-width:none;transform:none;box-shadow:6px 8px 0 var(--edge),12px 16px 0 var(--edge),16px 30px 36px -18px rgba(0,0,0,.35)}
+.ax-node:hover{transform:translateY(-4px)}
+.ax-arrow{width:3px;height:26px;background:linear-gradient(180deg,var(--hair),var(--muted));margin:0 auto}
+.ax-arrow::after{right:50%;top:auto;bottom:-2px;transform:translateX(50%) rotate(135deg)}
+.ax-loop{flex-direction:column}.ax-loop-arrow{width:3px;height:22px;margin:0 auto}
+.ax-loop-arrow::after{right:50%;bottom:-2px;top:auto;transform:translateX(50%) rotate(135deg)}}
+@media(prefers-reduced-motion:reduce){.ax-node{transition:none}}
 """

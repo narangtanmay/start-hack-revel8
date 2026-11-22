@@ -919,11 +919,12 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     (out_dir / "runs.html").write_text(
         _page("revel8 agent · all runs", "", body, live and not public, active="runs.html"), encoding="utf-8")
 
-    # The landing page is index.html: the featured run as a playable 3D score, the rest read in one sweep.
-    from .report_home import render_home
+    # The landing page is index.html: the pitch site with a scripted live demo; architecture.html is the 3D breakdown.
+    from .report_home import render_home, render_architecture
 
     stats = _home_stats(states, card)
     out = render_home(states, out_dir, lambda *a: _page(*a, active="index.html"), stats, _TARGETS)
+    render_architecture(out_dir)
     _copy_fonts(out_dir)
     _REDACT = False
     return out

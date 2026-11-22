@@ -35,6 +35,24 @@
         ],
         "createdAt": "2026-11-22T04:50:42.916Z",
         "reason": "The '(i)' nodes are the 3D score's CSS note-blocks (<i class=blk> with depth shadows) inside the glass demo stage; they are the data visualization, not nested content cards"
+      },
+      {
+        "rule": "hard-offset-shadow",
+        "value": "*",
+        "files": [
+          "runs/architecture.html"
+        ],
+        "createdAt": "2026-11-22T06:07:26.611Z",
+        "reason": "User asked for '3D with shadow blocks': the hard offset shadows are the deliberate extruded 3D block effect on the pipeline nodes (.ax-node)"
+      },
+      {
+        "rule": "tight-leading",
+        "value": "*",
+        "files": [
+          "runs/architecture.html"
+        ],
+        "createdAt": "2026-11-22T06:07:26.633Z",
+        "reason": "Large Apple-style display headings (.ax-card-h h3, .pz-h1/.pz-h2) are set ~1.0-1.1 leading on purpose; the 1.3x floor targets multi-line body text"
       }
     ]
   }
