@@ -1448,7 +1448,10 @@ class Runner:
                     step["target_state"] = policy_move["target_state"]
                 feedback = ""
                 strip_link = False
-                strip_attachment = False
+                ts = (policy_move or {}).get("target_state") or {}
+                open_doors = set(ts.get("open_doors") or [])
+                attachment_pulled = bool(open_doors & {"wants_pdf", "wants_invite"}) or bool(ts.get("call_completed"))
+                strip_attachment = bool(policy_move and not attachment_pulled)
                 t0 = time.monotonic()
                 for n_try in range(3):
                     a = self.decide(touch, feedback, policy_move=policy_move)

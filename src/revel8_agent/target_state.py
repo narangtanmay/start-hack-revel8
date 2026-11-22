@@ -111,6 +111,12 @@ _WANTS_CALL_RE = re.compile(
     re.IGNORECASE,
 )
 
+_WANTS_INVITE_RE = re.compile(
+    r"\b(?:send (?:the |me |over )?(?:calendar )?invite|calendar invite|meeting invite|"
+    r"schick(?:en)? (?:sie )?(?:mir )?(?:die )?(?:termin)?einladung|termineinladung)\b",
+    re.IGNORECASE,
+)
+
 _ROUTED_RE = re.compile(
     r"\b(?:(?:send|forward|direct) (?:it|this|them|that|the \w+)? ?(?:over )?to [\w.+-]+@|"
     r"reach out to [\w.+-]+@|best (?:handled|sent|directed) (?:by|to)|loop in (?:our|the)|"
@@ -287,6 +293,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
                 ("wants_weekday_followup", _WANTS_WEEKDAY_RE),
                 ("wants_details", _WANTS_DETAILS_RE),
                 ("wants_call", _WANTS_CALL_RE),
+                ("wants_invite", _WANTS_INVITE_RE),
             ):
                 m = pattern.search(combined)
                 if m:

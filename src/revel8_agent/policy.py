@@ -264,7 +264,7 @@ class RuleBasedPolicy:
         if objective == "action" and attachments_blocked:
             objective = "disclosure"
         elif objective == "credentials" and login_blocked:
-            objective = "action" if ("wants_pdf" in open_doors and not attachments_blocked) else "disclosure"
+            objective = "action" if not attachments_blocked else "disclosure"
 
         replies = [
             " ".join(str(e.get("body") or "") for e in (s.get("events") or [])

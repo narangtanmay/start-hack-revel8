@@ -256,12 +256,17 @@ def select_shadow_twin_move(
     attachments_blocked = bool(blocked & {"attachments", "weekend_files"})
     login_blocked = "login_wall" in blocked
 
+    link_bounces = sum(
+        1 for s in c["history"]
+        if any(isinstance(e, dict) and e.get("type") == "link.opened" for e in (s.get("events") or []))
+        and not any(isinstance(e, dict) and e.get("type") == "page.submitted" for e in (s.get("events") or []))
+    )
     plan_objective = str(plan.get("objective") or "disclosure")
     if plan_objective == "action" and attachments_blocked:
         plan_objective = "disclosure" if login_blocked else "credentials"
     elif plan_objective == "credentials" and login_blocked:
-        plan_objective = "action" if ("wants_pdf" in open_doors and not attachments_blocked) else "disclosure"
-    elif plan_objective == "credentials" and target_state["reaction_tag"] == "LINK_OPENED_BOUNCE":
+        plan_objective = "action" if not attachments_blocked else "disclosure"
+    elif plan_objective == "credentials" and target_state["reaction_tag"] == "LINK_OPENED_BOUNCE" and link_bounces >= 2:
         plan_objective = "action" if not attachments_blocked else "disclosure"
 
     safe_channel = replied_msg_channel or primary

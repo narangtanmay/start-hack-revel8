@@ -157,3 +157,53 @@ def test_report_renders_target_state_row(tmp_path: Path):
     assert "LINK_OPENED_BOUNCE" in html
     assert "login_wall" in html
     assert "wants_pdf" in html
+
+
+def test_extract_target_state_wants_invite():
+    steps = [
+        {
+            "touch": 3,
+            "action": {"channel": "email", "hook_id": "h1"},
+            "events": [{"type": "reply", "channel": "email", "body": "Tuesday 09:30 works. Please send the invite to julius@revel8.ai."}],
+            "judge": {"sentiment": "engaged"},
+        }
+    ]
+    st = extract_target_state(steps)
+    assert "wants_invite" in st["open_doors"]
+
+
+def test_shadow_twin_preserves_credentials_after_single_constructive_link_open():
+    plan = {"objective": "credentials", "hook_id": "h1", "sequence": [{"channel": "email"}]}
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email", "hook_id": "h1"},
+            "events": [
+                {"type": "link.opened"},
+                {"type": "reply", "channel": "email", "body": "I had a look at the entry link. Two quick questions first: who is the session chair?"},
+            ],
+            "judge": {"sentiment": "questioning"},
+        }
+    ]
+    move, _ = select_shadow_twin_move(
+        _brief(), steps, touch=2, max_touches=6, plan=plan, today=datetime(2026, 11, 23, 10, 0)
+    )
+    assert move["objective"] == "credentials"
+
+
+def test_policy_and_shadow_twin_pivot_login_blocked_to_action_without_wants_pdf():
+    plan = {"objective": "credentials", "hook_id": "h1", "sequence": [{"channel": "email"}]}
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email", "hook_id": "h1"},
+            "events": [{"type": "reply", "channel": "email", "body": "I won't sign in to an external portal."}],
+            "judge": {"sentiment": "hesitant"},
+        }
+    ]
+    p_move = RuleBasedPolicy().choose_next_move(_brief(), steps, touch=2, max_touches=6, plan=plan)
+    assert p_move["objective"] == "action"
+    st_move, _ = select_shadow_twin_move(
+        _brief(), steps, touch=2, max_touches=6, plan=plan, today=datetime(2026, 11, 23, 10, 0)
+    )
+    assert st_move["objective"] == "action"
