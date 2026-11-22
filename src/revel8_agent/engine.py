@@ -842,6 +842,21 @@ class Runner:
         self._last_raw = {k: v for k, v in a.items()} if isinstance(a, dict) else {"_non_dict": str(a)[:500]}
         return self._enforce(a) if self.decider else a
 
+    _ARTIFACT_ASK = re.compile(r"[^.!?\n]*\b(?:send (?:me|over|us|the)|please send|(?:calendar )?invite|invitation|"
+                               r"\bpdf\b|deck|document|profile|brief|agenda|the file|attachment|the link|a link)\b[^.!?\n]*", re.I)
+
+    def _open_artifact_ask(self, step: dict) -> str:
+        """The target's latest reply asked for something deliverable that we have not refused or ruled out."""
+        blocked = set((step.get("target_state") or {}).get("blocked_mechanisms") or [])
+        if blocked & {"attachments", "attachment", "login", "links", "link"}:
+            return ""
+        for prev in reversed(self.state.steps[:-1] if self.state.steps and self.state.steps[-1] is step else self.state.steps):
+            said = " ".join(e.get("body", "") for e in prev.get("events") or [] if e.get("type") == "reply")
+            if prev.get("payload") or said:
+                m = self._ARTIFACT_ASK.search(said) if said else None
+                return m.group(0).strip()[:160] if m else ""
+        return ""
+
     def _enforce(self, a: dict) -> dict:
         """The controller decides the move; the LLM only writes it. Make the draft obey the move and the
         constraints the target stated (no login, PDF only, in the mail body)."""
@@ -1256,6 +1271,14 @@ class Runner:
                         break
                     plan, payload, page = self.build(a)
                     errors = self.check(a, plan)
+                    ask = self._open_artifact_ask(step)
+                    if (ask and not errors and n_try < 2 and a.get("kind") != "conversation"
+                            and not (a.get("attachment_filename") or a.get("link")) and not (strip_link or strip_attachment)):
+                        # Practice evidence: targets asked for an artifact 32x in 30 runs, we delivered it next touch 8x;
+                        # every local API win was exactly that delivery. Model-independent, so enforce it here.
+                        errors = [f"FULFIL THE ASK: they asked for \"{ask}\". Deliver it in this touch as a real "
+                                  "artifact: attachment_filename (.ics for an invite or meeting, .pdf for a document, "
+                                  "profile, brief or agenda) or a link to a registered page. Do not only talk about it."]
                     attempt["errors"] = errors
                     attempt["paragraphs"] = a.get("paragraphs")
                     if not errors:
