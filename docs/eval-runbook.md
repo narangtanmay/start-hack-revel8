@@ -53,7 +53,7 @@ PYTHONPATH=$PWD/src ../START_hack/.venv/bin/python -m pytest -q
 
 ## 3. Running the 3 Scored Eval Sessions (Sequential, `workers=1`)
 
-- **Primary model:** `succ-deepseek-flash-abliterated` with `LLM_JSON_MODE=0 LLM_REASONING=0 LLM_MAX_TOKENS=8192`
+- **Primary model:** `succ-standard-open` (DeepSeek V4.1 Flash 1017 Uncensored, 98.2% uptime) with `LLM_JSON_MODE=0 LLM_REASONING=0 LLM_MAX_TOKENS=8192`
 - **Fallback model:** `succ-zero` (with `LLM_MAX_TOKENS=8192 LLM_REASONING_EFFORT=low`, omit `LLM_JSON_MODE=0 LLM_REASONING=0`)
 
 ### Session 1 — Three Steps (Research Outside the Scored Session)
@@ -69,7 +69,7 @@ PYTHONPATH=$PWD/src \
 LLM_BASE_URL="https://api.succ.ai/v1" \
 LLM_API_KEY="$KIMI_API_KEY" \
 LLM_API_KEYS="" \
-LLM_MODEL="succ-deepseek-flash-abliterated" \
+LLM_MODEL="succ-standard-open" \
 LLM_JSON_MODE=0 \
 LLM_REASONING=0 \
 LLM_MAX_TOKENS=8192 \
@@ -93,7 +93,7 @@ PYTHONPATH=$PWD/src \
 LLM_BASE_URL="https://api.succ.ai/v1" \
 LLM_API_KEY="$KIMI_API_KEY" \
 LLM_API_KEYS="" \
-LLM_MODEL="succ-deepseek-flash-abliterated" \
+LLM_MODEL="succ-standard-open" \
 LLM_JSON_MODE=0 \
 LLM_REASONING=0 \
 LLM_MAX_TOKENS=8192 \
@@ -121,7 +121,7 @@ PYTHONPATH=$PWD/src \
 LLM_BASE_URL="https://api.succ.ai/v1" \
 LLM_API_KEY="$KIMI_API_KEY" \
 LLM_API_KEYS="" \
-LLM_MODEL="succ-deepseek-flash-abliterated" \
+LLM_MODEL="succ-standard-open" \
 LLM_JSON_MODE=0 \
 LLM_REASONING=0 \
 LLM_MAX_TOKENS=8192 \
