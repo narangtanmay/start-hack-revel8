@@ -18,7 +18,9 @@ _META_TEXT = re.compile(
 
 # Planner notes leaking into the copy, e.g. a signature "Brenner & Söhne GmbH (fiktiver Zulieferer, ...)".
 _PRETEXT_LEAK = re.compile(
-    r"\b(?:fiktiv\w*|erfunden\w*|fictional|fictitious|made[- ]up|placeholder|platzhalter|"
+    # not "placeholder": organisers say "your entry still shows a placeholder abstract" (fast-S4, 2026-11-22);
+    # bracketed placeholders like "[link]" are caught by engine._PLACEHOLDER
+    r"\b(?:fiktiv\w*|erfunden\w*|fictional|fictitious|made[- ]up|"
     r"lookalike|pretext)\b",
     re.IGNORECASE,
 )

@@ -255,7 +255,6 @@ def test_social_norm_allows_when_phone_offered_or_no_reply(plan: ContactPlan, do
     [
         "Viele Grüße, Lena Hartmann, Brenner & Söhne GmbH (fiktiver Zulieferer, ca. 900 Mitarbeitende)",
         "Best, Lena, Acme Ltd (fictional company)",
-        "Sign in at [placeholder link]",
     ],
 )
 def test_rejects_pretext_leak(text: str, plan: ContactPlan, dossier: VerifiedDossier) -> None:
