@@ -68,6 +68,15 @@ _DEFERRAL = re.compile(
 )
 
 
+# A concrete date or weekday we already committed to in a sent message.
+_DATE_MENTION = re.compile(
+    r"\b\d{1,2}\.?\s*(?:januar|februar|märz|april|mai|juni|juli|august|september|oktober|november|dezember|january|"
+    r"february|march|may|june|july|october|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b|"
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|montag|dienstag|mittwoch|donnerstag|freitag)\b|\b\d{1,2}\.\d{1,2}\.",
+    re.IGNORECASE,
+)
+
+
 def _is_upcoming_hook(hook: dict[str, Any]) -> bool:
     return str(hook.get("timing", "")).strip().lower().startswith("upcoming")
 
@@ -263,6 +272,8 @@ class RuleBasedPolicy:
             for s in history
         ]
         login_declined = login_blocked or any(_LOGIN_DECLINE.search(r) for r in replies)
+        sent_texts = [str(((s.get("payload") or {}).get("body") or "")) for s in history]
+        deadline_given = any(_DATE_MENTION.search(t) for t in sent_texts)
         # link opened without a submit, per touch (a first bounce still converted on T3 in fast-S5)
         link_bounces = sum(
             1 for s in history
@@ -350,10 +361,17 @@ class RuleBasedPolicy:
                                  "about. The portal is the only place this can be done: do not offer to take it by "
                                  "email or reply instead.")
                 if _DEFERRAL.search(last_reply):
-                    effective_ask += (" They are putting it off. Give your own hard, near deadline with a concrete reason "
-                                      "only you can know (e.g. the printer needs the final files tomorrow at 9:00), thank "
-                                      "them for what they already confirmed, and ask them to confirm in the portal today. "
-                                      "Short, friendly, no pressure words.")
+                    if deadline_given:
+                        # mix-R4 Tom T3: we had said 28 November, then "today" -> "a deadline of today is a surprise.
+                        # I'm not going to enter anything". The fast-S5 win came from less friction, not pressure.
+                        effective_ask += (" They are putting it off. Keep every date you already gave exactly as it was; "
+                                          "do not invent a new deadline. Make the step smaller instead: what they already "
+                                          "confirmed is pre-filled, the portal saves a draft, it takes two minutes.")
+                    else:
+                        effective_ask += (" They are putting it off. Give your own near deadline with a concrete reason "
+                                          "only you can know (e.g. the printer needs the final files on Monday at 9:00), "
+                                          "thank them for what they already confirmed, and ask them to confirm in the "
+                                          "portal. Short, friendly, no pressure words.")
             elif move_type != "STOP":
                 if target_state["reaction_tag"] == "LINK_OPENED_BOUNCE" or link_bounces >= 2:
                     if attachments_blocked:

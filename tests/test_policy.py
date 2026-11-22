@@ -754,3 +754,14 @@ def test_policy_never_proposes_sms_to_an_email_only_target() -> None:
         move = RuleBasedPolicy().choose_next_move(_sample_brief(), steps, touch=touch, max_touches=10, plan=plan)
         assert move["channel"] not in ("sms", "whatsapp")
         steps.append(_step(touch, move["channel"], move["hook_id"], "silent"))
+
+
+def test_deferral_never_moves_a_deadline_we_already_gave() -> None:
+    plan = _sample_plan(hook_id="theme")
+    plan["objective"] = "credentials"
+    t1 = _step(1, "email", "event", "engaged")
+    t1["payload"] = {"body": "The deadline for the printed programme is 28 November."}
+    t1["events"] = [{"type": "reply", "body": "Thanks, that's clear. I'll draft the abstract during the week."}]
+    move = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [t1], touch=2, max_touches=10, plan=plan)
+    assert "do not invent a new deadline" in move["ask"]
+    assert "tomorrow" not in move["ask"]

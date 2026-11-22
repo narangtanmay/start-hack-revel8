@@ -15,7 +15,7 @@ _TEXT = {
     "de": {
         "signin": "Anmelden",
         "signin_title": "{brand}: Anmelden",
-        "signin_sub": "Melden Sie sich mit Ihrem Firmenkonto an, um fortzufahren.",
+        "signin_sub": "Melden Sie sich mit der E-Mail-Adresse an, mit der Sie registriert sind.",
         "email": "E-Mail-Adresse",
         "password": "Passwort",
         "code": "Bestätigungscode",
@@ -36,7 +36,7 @@ _TEXT = {
     "en": {
         "signin": "Sign in",
         "signin_title": "{brand}: Sign in",
-        "signin_sub": "Sign in with your work account to continue.",
+        "signin_sub": "Sign in with the email address you registered with.",
         "email": "Email address",
         "password": "Password",
         "code": "Verification code",
