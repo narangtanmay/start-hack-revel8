@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Literal, Protocol, runtime_checkable
 
+from .target_state import extract_target_state
+
 MoveType = Literal["STAY", "PIVOT_CHANNEL", "PIVOT_HOOK", "ESCALATE_CALL", "STOP"]
 
 _DEFAULT_MESSAGE_CHANNELS = ("email", "linkedin_message", "slack", "teams_chat", "sms")
@@ -189,20 +191,16 @@ class RuleBasedPolicy:
         used_channels = [_step_channel(s) for s in history if _step_channel(s)]
         used_hooks = [_step_hook(s) for s in history if _step_hook(s)]
         sentiments = [_step_sentiment(s) for s in history]
+        target_state = extract_target_state(history)
+        blocked = set(target_state["blocked_mechanisms"])
+        open_doors = set(target_state["open_doors"])
+        attachments_blocked = bool(blocked & {"attachments", "weekend_files"})
+        login_blocked = "login_wall" in blocked
 
-        attachment_blocked = False
-        for s in history:
-            reply_text = " ".join(
-                str(e.get("body") or "")
-                for e in (s.get("events") or [])
-                if isinstance(e, dict) and e.get("type") == "reply"
-            ).casefold()
-            sent_text = str(((s.get("payload") or {}).get("body") or "")).casefold()
-            if any(cue in reply_text or cue in sent_text for cue in _ATTACHMENT_DECLINE_CUES):
-                attachment_blocked = True
-                break
-        if objective == "action" and attachment_blocked:
+        if objective == "action" and attachments_blocked:
             objective = "disclosure"
+        elif objective == "credentials" and login_blocked:
+            objective = "action" if ("wants_pdf" in open_doors and not attachments_blocked) else "disclosure"
 
         consecutive_silent = 0
         silent_channels: set[str] = set()
@@ -259,16 +257,36 @@ class RuleBasedPolicy:
             alternatives: list[dict[str, str]],
         ) -> dict[str, Any]:
             hook_obj = hooks_by_id.get(hook_id)
+            effective_ask = ask
+            if move_type != "STOP":
+                if target_state["reaction_tag"] == "LINK_OPENED_BOUNCE":
+                    if attachments_blocked:
+                        effective_ask = (
+                            "Target opened the link without submitting; avoid login links and attachments "
+                            "and continue in the email body with one concrete question."
+                        )
+                    else:
+                        effective_ask = (
+                            "Target opened the link without submitting; do not repeat a login wall—"
+                            "deliver a concise .pdf or plain-email details instead."
+                        )
+                elif "wants_pdf" in open_doors and not attachments_blocked:
+                    effective_ask = (
+                        "Deliver the requested information directly as a concise .pdf attachment "
+                        "in-thread without requiring a login."
+                    )
             return {
                 "move_type": move_type,
                 "hook_id": hook_id,
                 "channel": channel,
                 "objective": objective,
-                "ask": ask,
+                "ask": effective_ask,
                 "cited_fact_ids": _cited_facts_for_hook(brief, hook_obj),
                 "promises": promises,
                 "rationale": rationale,
                 "alternatives_considered": alternatives,
+                "target_state": target_state,
+                "forbidden_artifacts": list(target_state["blocked_mechanisms"]),
             }
 
         def deescalate(why: str) -> dict[str, Any]:

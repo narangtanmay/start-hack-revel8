@@ -566,6 +566,17 @@ def _details(step: dict, a: dict, target_id: str, hooks: dict) -> str:
     ]
     if lookups:
         rows.append(("Live lookup", f"<ul class='policy-alts'>{''.join(lookups)}</ul>"))
+    tstate = step.get("target_state") or (step.get("policy") or {}).get("target_state")
+    if isinstance(tstate, dict) and tstate.get("reaction_tag"):
+        ts_bits = [
+            f"<span class='tag'>{_e(tstate.get('reaction_tag'))}</span>",
+            f"stage: <b>{_e(tstate.get('engagement_stage'))}</b>",
+        ]
+        if tstate.get("blocked_mechanisms"):
+            ts_bits.append(f"blocked: <span class='mono'>{_e(', '.join(tstate['blocked_mechanisms']))}</span>")
+        if tstate.get("open_doors"):
+            ts_bits.append(f"open doors: <span class='mono'>{_e(', '.join(tstate['open_doors']))}</span>")
+        rows.append(("Target state", " · ".join(ts_bits)))
     j = step.get("judge") or {}
     if j:
         flags = []
