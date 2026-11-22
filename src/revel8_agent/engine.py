@@ -806,6 +806,10 @@ class Runner:
                      "has a real reason to send them to a page: confirming THEIR OWN profile, session details or "
                      "slides in the event's speaker portal. Objective: credentials.")
         for attempt in range(4):
+            if attempt == 0:
+                # A dead key or a stalled endpoint used to leave the run at "starting" with no trace at all.
+                self.log("plan: asking the model for the hook, objective and persona")
+                self.save()
             plan = self._validated_plan(user)
             persona = plan.get("persona") if isinstance(plan.get("persona"), dict) else {}
             missing = [k for k in ("hook_id", "objective") if not plan.get(k)]

@@ -38,8 +38,19 @@ def test_read_signal_from_call_transcript():
 
 def test_submission_raises_commitment():
     b = BeliefState()
-    update_belief(b, read_signal("email", [{"type": "page.submitted"}]), "h1")
+    update_belief(b, read_signal("email", [{"type": "page.submitted", "fields": ["email", "password"]}]), "h1")
     assert b.commitment >= 0.5 and b.channel_status["email"] == "replied"
+
+
+def test_basic_form_is_engagement_not_an_incident():
+    # The live docs call a form with only basic details a step, so it must not
+    # read like a submitted secret. Pinned 2026-11-22.
+    sig = read_signal("email", [{"type": "page.submitted", "fields": ["name", "email"]}])
+    assert sig.submitted and sig.submitted_incident is None
+    b = BeliefState()
+    update_belief(b, sig, "h1")
+    assert b.commitment < 0.5
+    assert b.last_signal == "submitted a basic form" and b.channel_status["email"] == "replied"
 
 
 def test_suspicious_reply_raises_suspicion_and_can_burn():

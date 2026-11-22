@@ -37,6 +37,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from .target_state import page_incident_kind
+
 # One move per touch. These mirror the engine's ReevalDecision plus the two
 # escalation flavours the founders care about (pressure vs. a live call) and an
 # explicit de-escalation, which naive agents never do.
@@ -119,8 +121,9 @@ class Signal:
     replied: bool = False
     reply_text: str = ""
     opened_link: bool = False
-    submitted: bool = False          # incident: credentials
-    opened_attachment: bool = False  # incident: action
+    submitted: bool = False               # a form was submitted, step or incident
+    submitted_incident: str | None = None  # credentials/disclosure when the form was an objective
+    opened_attachment: bool = False        # logged, but no longer an incident
     silent: bool = False
 
 
@@ -171,6 +174,7 @@ def read_signal(channel: str, events: list[dict], transcript: list[dict] | None 
             sig.opened_link = True
         elif t == "page.submitted":
             sig.submitted = True
+            sig.submitted_incident = page_incident_kind(e.get("fields") or [])
         elif t == "attachment.opened":
             sig.opened_attachment = True
     for turn in transcript or []:
@@ -190,7 +194,7 @@ def update_belief(belief: BeliefState, sig: Signal, hook_id: str, *, reply_senti
     ch = sig.channel
     belief.current_hook = hook_id or belief.current_hook
 
-    if sig.submitted or sig.opened_attachment:
+    if sig.submitted_incident or sig.opened_attachment:
         belief.commitment = _clamp(belief.commitment + 0.6)
         belief.warmth = _clamp(belief.warmth + 0.2)
         belief.engagement = _clamp(belief.engagement + 0.3)
@@ -200,14 +204,14 @@ def update_belief(belief: BeliefState, sig: Signal, hook_id: str, *, reply_senti
         belief.hook_resonance[hook_id] = _clamp(belief.hook_resonance.get(hook_id, 0.0) + 0.5)
         return belief
 
-    if sig.opened_link:
+    if sig.submitted or sig.opened_link:
         belief.engagement = _clamp(belief.engagement + 0.25)
         belief.warmth = _clamp(belief.warmth + 0.1)
         belief.commitment = _clamp(belief.commitment + 0.15)
-        belief.channel_status[ch] = "opened"
+        belief.channel_status[ch] = "replied" if sig.submitted else "opened"
         belief.silent_streak[ch] = 0
         belief.hook_resonance[hook_id] = _clamp(belief.hook_resonance.get(hook_id, 0.0) + 0.2)
-        belief.last_signal = "opened link, no submit"
+        belief.last_signal = "submitted a basic form" if sig.submitted else "opened link, no submit"
 
     if sig.replied:
         belief.channel_status[ch] = "replied"
