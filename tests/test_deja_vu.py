@@ -18,7 +18,7 @@ def _state(win=True):
     return {"run_id": "r1", "started_at": "x", "config": {"scenario_id": "practice"},
             "plan": {"hook_id": "h1", "pretext": "prospect", "persona": {"role": "Head of IT Security", "organisation": "Broker"}},
             "steps": steps,
-            "incidents": ([{"touch": 2, "type": "action", "source": "api event"}] if win else [])}
+            "incidents": ([{"touch": 2, "type": "credentials", "source": "api event"}] if win else [])}
 
 
 def test_tests_never_write_real_memory():
@@ -53,3 +53,12 @@ def test_deja_vu_without_win_uses_closest_thread():
 
 def test_empty_memory_is_silent():
     assert TargetMemory("Nobody").deja_vu() == ""
+
+
+def test_scoring_update_open_is_not_a_win():
+    from revel8_agent.memory import is_confirmed_win, is_win
+    opened = {"touch": 3, "type": "opened", "source": "api event (engagement)"}
+    assert not is_win(opened) and not is_confirmed_win(opened)
+    assert is_win({"type": "disclosure", "source": "llm-judge (estimate)"})
+    assert is_confirmed_win({"type": "credentials", "source": "api event"})
+    assert not is_confirmed_win({"type": "action", "source": "llm-judge (estimate)"})

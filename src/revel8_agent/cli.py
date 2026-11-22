@@ -1,6 +1,8 @@
 """Command-line entry points for the Revel8 agent."""
 
 import argparse
+
+from revel8_agent.memory import is_confirmed_win
 import sys
 from collections.abc import Sequence
 
@@ -188,7 +190,7 @@ def _run(
         queue = [t for t in queue if not (t in seen or seen.add(t))][:max(0, max_chain)]
         prev = state
         for nxt in queue:
-            won = any(i.get("source") == "api event" for i in prev.incidents)
+            won = any(is_confirmed_win(i) for i in prev.incidents)
             if not won or prev.touches_used >= touches or not prev.session_id:
                 break
             print(f"chain: {prev.target.get('id')} converted; continuing session {prev.session_id} on {nxt} "

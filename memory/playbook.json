@@ -1,49 +1,60 @@
 {
- "built_at": "2026-11-22T08:47:54",
+ "built_at": "2026-11-22T09:37:58",
  "archetypes": {
-  "researcher/student": {
-   "runs": 8,
-   "touches": 65,
-   "replies": 22,
-   "brushoffs": 3,
-   "incidents_api": 1,
-   "reply_rate": 0.34,
-   "brushoff_rate": 0.14,
-   "runs_won": 1,
-   "win_rate": 0.094
+  "other": {
+   "runs": 7,
+   "touches": 46,
+   "replies": 31,
+   "brushoffs": 2,
+   "incidents_api": 3,
+   "runs_won": 3,
+   "reply_rate": 0.67,
+   "brushoff_rate": 0.06,
+   "win_rate": 0.218
   },
   "event organiser": {
-   "runs": 13,
-   "touches": 93,
-   "replies": 45,
+   "runs": 14,
+   "touches": 119,
+   "replies": 54,
    "brushoffs": 8,
    "incidents_api": 1,
-   "reply_rate": 0.48,
-   "brushoff_rate": 0.18,
    "runs_won": 1,
-   "win_rate": 0.074
+   "reply_rate": 0.45,
+   "brushoff_rate": 0.15,
+   "win_rate": 0.071
   },
-  "customer/prospect": {
-   "runs": 8,
-   "touches": 42,
-   "replies": 38,
+  "researcher/student": {
+   "runs": 7,
+   "touches": 59,
+   "replies": 18,
    "brushoffs": 3,
    "incidents_api": 1,
-   "reply_rate": 0.9,
-   "brushoff_rate": 0.08,
    "runs_won": 1,
-   "win_rate": 0.094
+   "reply_rate": 0.31,
+   "brushoff_rate": 0.17,
+   "win_rate": 0.1
   },
-  "other": {
-   "runs": 8,
-   "touches": 43,
-   "replies": 36,
-   "brushoffs": 1,
-   "incidents_api": 0,
-   "reply_rate": 0.84,
-   "brushoff_rate": 0.03,
-   "runs_won": 0,
-   "win_rate": 0.039
+  "customer/prospect": {
+   "runs": 7,
+   "touches": 50,
+   "replies": 32,
+   "brushoffs": 2,
+   "incidents_api": 3,
+   "runs_won": 2,
+   "reply_rate": 0.64,
+   "brushoff_rate": 0.06,
+   "win_rate": 0.159
+  },
+  "partner/vendor": {
+   "runs": 1,
+   "touches": 1,
+   "replies": 1,
+   "brushoffs": 0,
+   "incidents_api": 1,
+   "runs_won": 1,
+   "reply_rate": 1.0,
+   "brushoff_rate": 0.0,
+   "win_rate": 0.155
   },
   "journalist/media": {
    "runs": 1,
@@ -54,17 +65,6 @@
    "runs_won": 0,
    "reply_rate": 0.2,
    "brushoff_rate": 0.0,
-   "win_rate": 0.064
-  },
-  "partner/vendor": {
-   "runs": 1,
-   "touches": 6,
-   "replies": 2,
-   "brushoffs": 0,
-   "incidents_api": 0,
-   "reply_rate": 0.33,
-   "brushoff_rate": 0.0,
-   "runs_won": 0,
    "win_rate": 0.064
   },
   "recruiter": {
@@ -81,15 +81,70 @@
  },
  "mechanisms": [
   {
+   "run": "20261122-091349-tom-clean-kimi-tom-d849a7",
+   "target": "tom",
+   "sender": "other",
+   "target_family": "product/marketing",
+   "artifact": "none (reply only)",
+   "touch": 6,
+   "objective": "disclosure",
+   "they_asked_first": true,
+   "story": "An early-stage cybersecurity founder attending Tom's upcoming startup-and-founding session asks for his perspective on one focused question before finalizing he"
+  },
+  {
+   "run": "20261122-015047-tom-ab-kimi-shadow-twin",
+   "target": "tom",
+   "sender": "event organiser",
+   "target_family": "product/marketing",
+   "artifact": "none (reply only)",
+   "touch": 4,
+   "objective": "disclosure",
+   "they_asked_first": false,
+   "story": "Daniel is revising his company's awareness programme and writes to Tom as a prospective customer, not as a generic training enthusiast. He refers to Tom's live "
+  },
+  {
+   "run": "20261122-084203-robert-sim-robert-qwen-s2-bb7205",
+   "target": "robert",
+   "sender": "customer/prospect",
+   "target_family": "engineering/it",
+   "artifact": "none (reply only)",
+   "touch": 2,
+   "objective": "action",
+   "they_asked_first": false,
+   "story": "A security lead at a mid-sized DACH industrial company reached out after reading Robert's own article comparing revel8 to SoSafe. He is in the middle of finaliz"
+  },
+  {
    "run": "20261122-053136-julius-adaptive-ds-julius-v2",
    "target": "julius",
    "sender": "customer/prospect",
    "target_family": "sales/bd",
-   "artifact": "calendar invite (.ics)",
-   "touch": 4,
-   "objective": "action",
+   "artifact": "pdf",
+   "touch": 2,
+   "objective": "disclosure",
    "they_asked_first": true,
    "story": "A Head of IT Security at a mid-sized Hamburg insurance broker writes to Julius as a prospective customer: after a near-miss deepfake voice call in her finance t"
+  },
+  {
+   "run": "20261122-083650-tom-sim-tom-ds-s1-3ca60e",
+   "target": "tom",
+   "sender": "other",
+   "target_family": "product/marketing",
+   "artifact": "none (reply only)",
+   "touch": 2,
+   "objective": "disclosure",
+   "they_asked_first": false,
+   "story": "A fellow founder on the same startup track at Cybersicherheitsforschung 2027 is preparing his session notes and wants Tom's personal take on whether deepfake si"
+  },
+  {
+   "run": "20261122-001135-robert-ab-kimi-v2",
+   "target": "robert",
+   "sender": "partner/vendor",
+   "target_family": "engineering/it",
+   "artifact": "link to registered page",
+   "touch": 1,
+   "objective": "action",
+   "they_asked_first": false,
+   "story": "Robert hat \u00f6ffentlich \u00fcber revel8s natives STACKIT-Hosting, die deutsche Cloud-Infrastruktur und die Marketplace-Pr\u00e4senz gesprochen. Miriam Lechner kontaktiert "
   },
   {
    "run": "20261121-234816-tom-ab-kimi-v2",
@@ -101,6 +156,17 @@
    "objective": "credentials",
    "they_asked_first": false,
    "story": "Mara Lenzen kontaktiert Tom als Speaker-Koordinatorin f\u00fcr seine bevorstehende Session \u201eVon der Idee zum Takeoff \u2013 Start-ups & Gr\u00fcndungen\u201c. Sie bittet um einen k"
+  },
+  {
+   "run": "20261122-013524-robert-ab-kimi-actor",
+   "target": "robert",
+   "sender": "other",
+   "target_family": "engineering/it",
+   "artifact": "none (reply only)",
+   "touch": 2,
+   "objective": "disclosure",
+   "they_asked_first": false,
+   "story": "Robert hat beschrieben, dass die Awareness Playlist kontinuierliche Micro-Trainings direkt in den t\u00e4glichen Arbeitsablauf bringt. Als Mitgr\u00fcnder und f\u00fcr die Pro"
   }
  ]
 }

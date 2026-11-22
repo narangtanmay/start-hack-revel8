@@ -14,6 +14,8 @@ Stops at the first incident (default) or when the touch budget is used up.
 
 from __future__ import annotations
 
+from .memory import is_confirmed_win as _confirmed
+from .memory import is_win as _is_win
 import json
 import os
 import re
@@ -854,6 +856,14 @@ class Runner:
         _dp = _demand_prompt(self.state.steps)
         if _dp:
             user += "\n\n" + _dp
+        _opened = [e for s in self.state.steps for e in s.get("events") or [] if e.get("type") in ("attachment.opened", "link.opened")]
+        if _opened and not any(_is_win(i) for i in self.state.incidents):
+            user += ("\n\nTHEY ENGAGED (opened " + ", ".join(sorted({str(e.get('filename') or e.get('url') or e.get('type')) for e in _opened}))[:200] +
+                     ") BUT AN OPEN IS NOT A WIN. Convert the trust now into something GIVEN or DONE, on the same story: "
+                     "(a) a registered sign-in/confirmation page they must log into to get the rest of what they want, "
+                     "(b) a concrete approval/confirmation they reply with (approve the request, confirm the change, grant access), "
+                     "or (c) one specific internal fact the story genuinely needs (which tool/system/process they use, who approves). "
+                     "One clear ask, framed as the natural next step of what they already accepted.")
         _dv = self.tmemory.deja_vu_hint(len([x for x in self.state.steps if x.get("payload")]) + 1)
         if _dv:
             user += "\n" + _dv
@@ -1168,7 +1178,9 @@ class Runner:
             if e.get("type") == "page.submitted":
                 self._incident(touch, "credentials", f"submitted {e.get('fields')} on the registered page")
             elif e.get("type") == "attachment.opened":
-                self._incident(touch, "action", f"opened attachment {e.get('filename') or ''}".strip())
+                self.state.incidents.append({"touch": touch, "type": "opened", "source": "api event (engagement)",
+                                             "detail": f"opened attachment {e.get('filename') or ''}".strip()})
+                self.log(f"   engagement at touch {touch}: attachment opened (not an incident since the scoring update)")
         said = [e.get("body", "") for e in step.get("events", []) if e.get("type") == "reply"]
         said += [t["text"] for t in step.get("transcript", []) if t["who"] == "target"]
         said = [s for s in said if s and s.strip()]
@@ -1373,7 +1385,7 @@ class Runner:
                 # Stop only on incidents the API itself confirmed (page.submitted / attachment.opened). A judged
                 # estimate stopped v6 Julius at touch 2 on "please send the invite" (a false positive); the API
                 # scores disclosures itself, and touches after a real incident do not lower the score.
-                if self.cfg.stop_at_first_incident and any(i.get("source") == "api event" for i in st.incidents):
+                if self.cfg.stop_at_first_incident and any(_confirmed(i) for i in st.incidents):
                     break
             st.status = "done"
         except Exception as error:  # noqa: BLE001 - always leave a readable run file behind

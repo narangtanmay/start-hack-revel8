@@ -8,7 +8,7 @@ case $P in
   qwen) export LLM_MODEL=Qwen3.8-27B LLM_REASONING=0 LLM_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false}}' ;;
   self) export LLM_BASE_URL=${SELF_LLM_BASE_URL:?} LLM_MODEL=${SELF_LLM_MODEL:?} LLM_API_KEY=${SELF_LLM_API_KEY:?} \
                LLM_API_KEYS=${SELF_LLM_API_KEY:?} LLM_REASONING=0 LLM_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false}}' ;;
-  kimi) export LLM_BASE_URL=$KIMI_BASE_URL LLM_MODEL=$KIMI_MODEL LLM_API_KEY=$KIMI_API_KEY LLM_API_KEYS=$KIMI_API_KEY LLM_JSON_MODE=0 ;;  # PAID: only with explicit permission
+  kimi) export LLM_BASE_URL=$KIMI_BASE_URL LLM_MODEL=$KIMI_MODEL LLM_API_KEY=$KIMI_API_KEY LLM_API_KEYS=$KIMI_API_KEY LLM_JSON_MODE=0 LLM_REASONING=0 ;;  # PAID: only with explicit permission
   *) echo "unknown profile $P"; exit 1 ;;
 esac
 cd "$(dirname "$0")/.."

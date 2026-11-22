@@ -125,8 +125,25 @@ class SessionLedger:
 # --------------------------------------------------------------------------- 3. target memory
 
 
+def is_win(incident: dict | str) -> bool:
+    """Scoring update (2026-11-22): link.opened / attachment.opened are engagement, NOT incidents. A win needs
+    something given or done: a secret typed into a form (page.submitted), internal information, or the person
+    acting for us (approving, changing payment details, granting access)."""
+    if isinstance(incident, str):
+        kind = incident.split("@", 1)[0].strip()  # stored as "type@tN (source)"
+        return kind == "credentials" or (kind in ("disclosure", "action") and "llm-judge" in incident)
+    t, src = incident.get("type"), str(incident.get("source") or "")
+    return t == "credentials" or (t in ("disclosure", "action") and "llm-judge" in src)
+
+
+def is_confirmed_win(incident: dict) -> bool:
+    """Only page.submitted is API-confirmed; a judged disclosure/approval is our estimate (false positives seen:
+    "please send the invite"). Stopping or switching target is irreversible, so only this triggers it."""
+    return isinstance(incident, dict) and incident.get("type") == "credentials" and incident.get("source") == "api event"
+
+
 def _api_win(session: dict) -> bool:
-    return any("api event" in str(i) for i in session.get("incidents") or [])
+    return any(is_win(i) for i in session.get("incidents") or [])
 
 
 class TargetMemory:
@@ -345,7 +362,7 @@ def build_playbook(runs_glob: str = "runs/**/*.json", min_touches: int = 3) -> d
         plan = st.get("plan") or {}
         persona = plan.get("persona") or {}
         arch = archetype(f"{persona.get('role', '')} {persona.get('organisation', '')}", plan.get("pretext") or "")
-        api = [i for i in st.get("incidents") or [] if i.get("source") == "api event"]
+        api = [i for i in st.get("incidents") or [] if is_win(i)]
         if api:
             thread = extract_thread(st)
             k = min(int(i.get("touch") or 99) for i in api)
@@ -457,8 +474,9 @@ def _dedupe(xs: list[str]) -> list[str]:
 
 
 def _first_api_touch(session: dict) -> int:
-    ts = [int(m.group(1)) for i in session.get("incidents") or [] if "api event" in str(i)
-          for m in [re.search(r"@t(\d+)", str(i))] if m]
+    ts = [int(m.group(1)) for i in session.get("incidents") or [] if is_win(i)
+          for m in [re.search(r"@t(\d+)", str(i))] if m] + [
+        int(i["touch"]) for i in session.get("incidents") or [] if isinstance(i, dict) and is_win(i) and i.get("touch")]
     return min(ts) if ts else 99
 
 

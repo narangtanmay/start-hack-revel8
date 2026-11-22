@@ -43,7 +43,7 @@ def _session_state(run_id, replies, incident_source=None, blocked=None):
     steps = [{"touch": i + 1, "action": {"channel": "email"},
               "events": [{"type": "reply", "body": "Thanks, noted."}] if i < replies else [],
               "target_state": {"blocked_mechanisms": blocked or []}} for i in range(3)]
-    incidents = [{"type": "action", "touch": 2, "source": incident_source}] if incident_source else []
+    incidents = [{"type": "credentials", "touch": 2, "source": incident_source}] if incident_source else []
     return {"run_id": run_id, "plan": {"hook_id": run_id, "persona": {}}, "steps": steps, "incidents": incidents}
 
 
