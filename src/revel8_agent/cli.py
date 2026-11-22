@@ -72,6 +72,12 @@ def _osint(scenario_id: str, target_ids: list[str], budget: float, out_dir: str)
     return 0
 
 
+def _use_saved_dossier(dossier_path, scenario: str, explicit: bool) -> bool:
+    """Practice reuses the saved dossier. Eval researches live (session 1, hidden target) unless --dossier names
+    the file the team audited after session 1, so sessions 2-3 run on checked facts, not a fresh re-research."""
+    return dossier_path.exists() and (scenario != "eval" or explicit)
+
+
 def _run(
     target: str,
     scenario: str,
@@ -123,7 +129,7 @@ def _run(
     else:
         client_cm = Revel8Client()
     with client_cm as api:
-        if dossier_path.exists() and scenario != "eval":
+        if _use_saved_dossier(dossier_path, scenario, bool(dossier_file)):
             # utf-8-sig: dossiers saved on Windows (e.g. by PowerShell) may start with a BOM
             dossier = VerifiedDossier.model_validate_json(dossier_path.read_text(encoding="utf-8-sig"))
             print(f"dossier: loaded {dossier_path} ({len(dossier.facts)} facts)")

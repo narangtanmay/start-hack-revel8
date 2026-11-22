@@ -102,3 +102,20 @@ def test_company_root_tokens_block_domains(host):
 def test_legal_suffix_and_short_tokens_ignored():
     d = _dossier("A B", "Muster Versicherung AG", _fact("f1", "q", url="https://agency.de/"))
     assert not org_domains_from_dossier(d)
+
+
+@pytest.mark.parametrize(
+    ("scenario", "explicit", "expected"),
+    [
+        ("practice", False, True),   # unchanged: practice reuses the saved dossier
+        ("eval", False, False),      # session 1: hidden target, research live, never a stale practice file
+        ("eval", True, True),        # sessions 2-3: the dossier the team audited after session 1, not a re-research
+    ],
+)
+def test_saved_dossier_in_eval_only_when_passed_explicitly(tmp_path, scenario, explicit, expected):
+    from revel8_agent.cli import _use_saved_dossier
+
+    path = tmp_path / "target.json"
+    path.write_text("{}")
+    assert _use_saved_dossier(path, scenario, explicit) is expected
+    assert _use_saved_dossier(tmp_path / "missing.json", scenario, explicit) is False
