@@ -203,10 +203,17 @@ def select_shadow_twin_move(
     last_hook_id = c["used_hooks"][-1] if c["used_hooks"] else None
     current_hook = next((h for h in ranked if str(h["id"]) == last_hook_id), top)
     unused_hook = next((h for h in non_past if str(h["id"]) not in c["used_hooks"]), top)
-    balanced_hook = current_hook if c["last_replied_channel"] else unused_hook
+    routed = c["target_state"]["reaction_tag"] == "ROUTED"
+    balanced_hook = unused_hook if (routed or not c["last_replied_channel"]) else current_hook
     message_channels, live_channels = _channel_ladder(plan)
     primary = "email" if "email" in message_channels or not message_channels else message_channels[0]
-    active = c["last_replied_channel"] or c["last_channel"] or primary
+    replied_msg_channel = next(
+        (_step_channel(s) for s in reversed(c["history"])
+         if _step_channel(s) and _step_channel(s) not in _LIVE_CHANNELS
+         and _step_channel(s) != "linkedin_connection_request" and _replies(s)),
+        None,
+    )
+    active = replied_msg_channel or (c["last_channel"] if c["last_channel"] not in _LIVE_CHANNELS else None) or primary
 
     target_state = c["target_state"]
     blocked = set(target_state["blocked_mechanisms"])
@@ -222,11 +229,11 @@ def select_shadow_twin_move(
     elif plan_objective == "credentials" and target_state["reaction_tag"] == "LINK_OPENED_BOUNCE":
         plan_objective = "action" if not attachments_blocked else "disclosure"
 
-    safe_channel = c["last_replied_channel"] or primary
+    safe_channel = replied_msg_channel or primary
     balanced_channel = active
-    if active == "sms" == c["last_channel"]:  # never repeat sms back-to-back
-        balanced_channel = next((m for m in message_channels if m != "sms"), "email")
-    unused = [m for m in message_channels if m not in c["used_channels"] and m != c["last_channel"]]
+    if active in ("sms", "linkedin_connection_request") and active == c["last_channel"]:
+        balanced_channel = next((m for m in message_channels if m not in ("sms", "linkedin_connection_request")), "email")
+    unused = [m for m in message_channels if m not in c["used_channels"] and m != c["last_channel"] and m != "linkedin_connection_request"]
     call_channel = live_channels[0] if live_channels else "phone_call"
     call_invited = "wants_call" in open_doors and not target_state.get("call_completed") and "phone_switch" not in blocked
     bold_channel = call_channel if (call_invited or c["silent_message_touches"] >= 3 or not unused) else unused[0]

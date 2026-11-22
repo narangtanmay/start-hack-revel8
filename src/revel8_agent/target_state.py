@@ -141,6 +141,8 @@ def _executed_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for s in steps:
         if not isinstance(s, dict):
             continue
+        if s.get("error"):
+            continue
         action = s.get("action") if isinstance(s.get("action"), dict) else {}
         if s.get("decision") == "STOP" or action.get("decision") == "STOP":
             continue
