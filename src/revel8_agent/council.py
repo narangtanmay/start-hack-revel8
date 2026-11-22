@@ -24,7 +24,11 @@ LENSES: dict[str, str] = {
         "colleague, new hire, event host, partner, co-author). Either the sender IS that contact writing from a new "
         "address / personal account on an invented lookalike domain, or the sender is introduced by them by name. "
         "The ask is what that relationship routinely asks for (investor: KPI/board update, pipeline numbers, "
-        "data-room login; colleague: a file, an access, a confirmation, an internal detail; host: logistics)."),
+        "data-room login; colleague: a file, an access, a confirmation, an internal detail; host: logistics). "
+        "THIS LENS OVERRIDES any 'SENDER ARCHETYPE' instruction above: do NOT write as a prospect/customer. The "
+        "sender's own name (or, for a referral, the referrer's name) must be copied EXACTLY from THEIR REAL "
+        "NETWORK; persona.organisation is that real contact's organisation (the domain stays an invented "
+        "lookalike). Put the network fact id in rationale."),
     "give-to-get": (
         "LENS: RECIPROCITY. The sender is someone the target routinely ANSWERS AS PART OF THEIR JOB (prospect doing "
         "vendor due diligence, partner scoping an integration). The sender opens by giving something concrete of "
@@ -57,6 +61,8 @@ Live evidence from these simulated people: invented strangers and intermediaries
 recognise 'Cyber27'", "who invited me?"), and they refuse links/files from senders they cannot place. A sender who
 IS, or is introduced by, a real contact listed in THEIR REAL NETWORK in the profile has VERIFIED credibility: score
 that relationship as supported (it is a profile fact), and prefer it over a stranger with similar yield.
+A candidate whose sender (or referrer) is NOT named in THEIR REAL NETWORK is a stranger, whatever its lens says.
+Yield counts what the person will GIVE (an internal fact, an action, a sign-in), not how likely a polite reply is.
 Return ONLY JSON: {"scores": [{"i": int, "yield": int, "credibility": int, "facts": int, "note": str}],
  "best": int, "why": str}. "best" is the index with the highest yield x credibility x facts."""
 
