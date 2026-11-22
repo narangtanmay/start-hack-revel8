@@ -793,14 +793,16 @@ def render_architecture(out_dir: Path) -> Path:
              "Watch it work</a></section>"
              "<footer class='pz-foot'>revel8 &middot; START Hack &middot; method actor inside a deterministic guardrail shell.</footer>")
 
-    body = (nav + "<main class='pz-wrap'>" + hero + trap + pipeline + detail + loop + evidence + close + "</main>"
+    machine, fx_data = _render_factory_section()
+    body = (nav + "<main class='pz-wrap'>" + hero + trap + pipeline + machine + detail + loop + evidence + close
+            + "</main>" + fx_data
             + "<canvas id='pz-bg' aria-hidden='true'></canvas><div class='pz-veil' aria-hidden='true'></div>")
     three = "<script src='three.min.js' defer></script>"
     doc = (f"<!doctype html><html lang='en'><head><meta charset='utf-8'>"
            f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
            f"<title>revel8 &middot; system architecture</title>"
-           f"<style>{BASE_CSS}{SCORE3D_CSS}{PITCH_CSS}{ARCH_CSS}</style>{three}</head>"
-           f"<body class='pz'>{body}<script>{PITCH_JS}</script></body></html>")
+           f"<style>{BASE_CSS}{SCORE3D_CSS}{PITCH_CSS}{ARCH_CSS}{FX_CSS}</style>{three}</head>"
+           f"<body class='pz'>{body}<script>{PITCH_JS}</script><script>{FX_JS}</script></body></html>")
     out = out_dir / "architecture.html"
     out.write_text(doc, encoding="utf-8")
     return out
@@ -885,4 +887,236 @@ border-right:3px solid var(--muted);transform:translateY(-50%) rotate(45deg)}
 .ax-loop{flex-direction:column}.ax-loop-arrow{width:3px;height:22px;margin:0 auto}
 .ax-loop-arrow::after{right:50%;bottom:-2px;top:auto;transform:translateX(50%) rotate(135deg)}}
 @media(prefers-reduced-motion:reduce){.ax-node{transition:none}}
+"""
+
+
+# --------------------------------------------------------------------------- "the whole machine": interactive factory
+
+_FACTORY = [
+    ("osint", "01", "Grounded OSINT", "blue", [
+        ("search", "Parallel search", "research.py",
+         "Breadth-first search over public sources with follow-up queries, all inside a fixed time budget."),
+        ("conflict", "Conflict filter", "engine.timing()",
+         "Strips numerically contradictory facts so a wrong fact can never reach a message — it protects the −5 penalty."),
+        ("temporal", "Temporal hygiene", "date parser",
+         "A strict date parser stamps past events PAST, so only fresh or upcoming hooks are ever allowed to lead."),
+    ]),
+    ("decide", "02", "Decision Core", "indigo", [
+        ("state", "Conversation state", "notebook",
+         "Every prior touch, the target's replies and the running notebook are the input to the next decision."),
+        ("choose", "Policy / Actor", "policy.py · actor.py",
+         "Deterministic rules (--policy) or a persona with a motive and a deadline (--actor) choose the next move."),
+        ("prereg", "Pre-register call", "api_client.py",
+         "Landing pages are registered before the agent dials, so a spoken URL resolves cleanly on a live call."),
+    ]),
+    ("gate", "03", "Deterministic Gate", "amber", [
+        ("shield", "Rule-void shield", "gate.py",
+         "Blocks real-org and target domains, simulator meta-text, scripts and any non-asset:// image."),
+        ("ledger", "Commitment ledger", "gate.py",
+         "Rejects attaching a file after the agent promised “no attachment” / “kein Anhang” earlier in the thread."),
+        ("ground", "Entity & date grounding", "schemas.py",
+         "Rejects ungrounded colleague names and past hooks pitched as upcoming, then hands back exact feedback to retry."),
+    ]),
+    ("exec", "04", "Execution & Audit", "green", [
+        ("craft", "EN / DE craft", "templates/",
+         "Offline-rendered HTML mail, brand logos and landing pages, matched to the target's language."),
+        ("send", "Send + API", "engine.py",
+         "Delivers over email, chat or a live phone call; the revel8 API reports real events like page.submitted."),
+        ("memory", "Replay + memory", "report.py · memory.py",
+         "Every touch is logged for full replay, and target preferences and corrections are saved for the next session."),
+    ]),
+]
+
+_FX_IO = {
+    "target": ("Input", "Target", "A consenting practice target: a name, a role, an employer and a public footprint. Nothing private, nothing invented."),
+    "incident": ("Output", "Incident", "A confirmed disclosure or action, reported by the revel8 API — or the loop continues to the next touch."),
+}
+
+# layout constants (SVG user units)
+_FX_CX, _FX_CW, _FX_CH = 150, 700, 196
+_FX_NODE_H, _FX_GAP_V = 104, 60
+_FX_STAGE_Y0 = 150
+_FX_SPINE_X = 500
+
+
+def _fx_node(k: str, x: float, y: float, w: float, title: str, files: str) -> str:
+    cx = x + w / 2
+    return (f"<g class='fx-node' data-k='{k}' tabindex='0' role='button' aria-label='{_e(title)}'>"
+            f"<rect class='fx-box' x='{x:.0f}' y='{y:.0f}' width='{w:.0f}' height='{_FX_NODE_H}' rx='16'/>"
+            f"<text class='fx-t' x='{cx:.0f}' y='{y + 44:.0f}'>{_e(title)}</text>"
+            f"<text class='fx-f' x='{cx:.0f}' y='{y + 68:.0f}'>{_e(files)}</text></g>")
+
+
+def _factory_svg() -> tuple[str, dict]:
+    details: dict = {}
+    parts: list[str] = []
+    stage_mid: dict = {}
+    # input pill
+    details["target"] = {"stage": _FX_IO["target"][0], "title": _FX_IO["target"][1], "desc": _FX_IO["target"][2], "files": "", "accent": "ink"}
+    parts.append("<g class='fx-node fx-io' data-k='target' tabindex='0' role='button' aria-label='Target'>"
+                 f"<rect class='fx-box' x='{_FX_SPINE_X - 150:.0f}' y='40' width='300' height='70' rx='18'/>"
+                 f"<text class='fx-t' x='{_FX_SPINE_X}' y='72'>Target &amp; public footprint</text>"
+                 f"<text class='fx-f' x='{_FX_SPINE_X}' y='94'>the only input</text></g>")
+    # stages
+    for si, (skey, num, slabel, accent, nodes) in enumerate(_FACTORY):
+        sy = _FX_STAGE_Y0 + si * (_FX_CH + _FX_GAP_V)
+        stage_mid[skey] = sy + _FX_CH / 2
+        parts.append(f"<g class='fx-stage fx-{accent}'>"
+                     f"<rect class='fx-band' x='{_FX_CX}' y='{sy}' width='{_FX_CW}' height='{_FX_CH}' rx='26'/>"
+                     f"<text class='fx-sn' x='{_FX_CX + 26}' y='{sy + 40}'>{num}</text>"
+                     f"<text class='fx-sl' x='{_FX_CX + 64}' y='{sy + 40}'>{_e(slabel)}</text></g>")
+        npad, n = 26, len(nodes)
+        area = _FX_CW - 2 * npad
+        gap = 20
+        nw = (area - gap * (n - 1)) / n
+        ny = sy + 64
+        for ni, (nk, nt, nf, nd) in enumerate(nodes):
+            nx = _FX_CX + npad + ni * (nw + gap)
+            parts.append(_fx_node(nk, nx, ny, nw, nt, nf))
+            details[nk] = {"stage": f"{num} · {slabel}", "title": nt, "desc": nd, "files": nf, "accent": accent}
+    # output pill
+    out_y = _FX_STAGE_Y0 + len(_FACTORY) * (_FX_CH + _FX_GAP_V)
+    details["incident"] = {"stage": _FX_IO["incident"][0], "title": _FX_IO["incident"][1], "desc": _FX_IO["incident"][2], "files": "", "accent": "amber"}
+    parts.append("<g class='fx-node fx-io fx-out' data-k='incident' tabindex='0' role='button' aria-label='Incident'>"
+                 f"<rect class='fx-box' x='{_FX_SPINE_X - 130:.0f}' y='{out_y:.0f}' width='260' height='68' rx='18'/>"
+                 f"<text class='fx-t' x='{_FX_SPINE_X}' y='{out_y + 31:.0f}'>Incident</text>"
+                 f"<text class='fx-f' x='{_FX_SPINE_X}' y='{out_y + 52:.0f}'>confirmed by the API, or next touch</text></g>")
+
+    view_h = out_y + 100
+    # spine (behind), as a path so flow dots can ride it
+    spine = f"M {_FX_SPINE_X} 110 L {_FX_SPINE_X} {out_y:.0f}"
+    spine_svg = (f"<path id='fx-spine' class='fx-spine' d='{spine}'/>"
+                 + "".join(
+                     f"<polygon class='fx-head' points='{_FX_SPINE_X - 7},{y - 6} {_FX_SPINE_X + 7},{y - 6} {_FX_SPINE_X},{y + 4}'/>"
+                     for y in [_FX_STAGE_Y0 + i * (_FX_CH + _FX_GAP_V) - 14 for i in range(len(_FACTORY) + 1)]))
+    # feedback edges
+    g_mid, d_mid, o_mid, e_mid = stage_mid["gate"], stage_mid["decide"], stage_mid["osint"], stage_mid["exec"]
+    edges = (
+        f"<path class='fx-edge fx-reject' marker-end='url(#fx-arrow)' d='M {_FX_CX} {g_mid:.0f} C 70 {g_mid:.0f} 70 {d_mid:.0f} {_FX_CX} {d_mid:.0f}'/>"
+        f"<text class='fx-elabel' x='34' y='{(g_mid + d_mid) / 2:.0f}' transform='rotate(-90 34 {(g_mid + d_mid) / 2:.0f})'>reject · retry with feedback</text>"
+        f"<path class='fx-edge fx-reply' marker-end='url(#fx-arrow)' d='M {_FX_CX + _FX_CW} {e_mid:.0f} C 930 {e_mid:.0f} 930 {d_mid:.0f} {_FX_CX + _FX_CW} {d_mid:.0f}'/>"
+        f"<text class='fx-elabel' x='966' y='{(e_mid + d_mid) / 2:.0f}' transform='rotate(90 966 {(e_mid + d_mid) / 2:.0f})'>reply · next touch, in-thread</text>"
+        f"<path class='fx-edge fx-mem dash' marker-end='url(#fx-arrow)' d='M {_FX_CX} {e_mid + 50:.0f} C 30 {e_mid:.0f} 30 {o_mid:.0f} {_FX_CX} {o_mid:.0f}'/>"
+    )
+    svg = (f"<svg class='fx-svg' viewBox='0 0 1000 {view_h:.0f}' xmlns='http://www.w3.org/2000/svg' "
+           "role='img' aria-label='The revel8 pipeline as a machine: target in, four stages, incident out, with reject, reply and memory feedback loops'>"
+           "<defs><marker id='fx-arrow' viewBox='0 0 10 10' refX='8' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>"
+           "<path d='M0 0L10 5L0 10z' class='fx-arrowfill'/></marker></defs>"
+           f"<g class='fx-spines'>{spine_svg}</g>"
+           f"<g class='fx-edges'>{edges}</g>"
+           f"{''.join(parts)}</svg>")
+    return svg, details
+
+
+def _render_factory_section() -> tuple[str, str]:
+    svg, details = _factory_svg()
+    panel = ("<aside class='fx-detail glass' id='fx-detail'>"
+             "<span class='fx-d-stage' id='fx-d-stage'>The whole machine</span>"
+             "<h3 class='fx-d-title' id='fx-d-title'>Hover any station.</h3>"
+             "<p class='fx-d-desc' id='fx-d-desc'>Move over a block to see what it does and which file owns it. "
+             "The grey spine is the main flow; the curved arrows are the feedback loops that make it adapt.</p>"
+             "<code class='fx-d-files' id='fx-d-files'></code></aside>")
+    section = ("<section class='pz-sec' id='machine'><div class='pz-sec-head reveal'>"
+               "<span class='pz-kicker'>The whole machine</span>"
+               "<h2 class='pz-h2'>Every station, and the loops between them.</h2>"
+               "<p class='pz-sub'>The target goes in at the top and an incident comes out at the bottom. Hover any "
+               "block to light it up and read what it does — the curved arrows are where the machine feeds back on "
+               "itself: the gate sends rejects back to the decision core, a reply reopens the thread, and memory "
+               "carries into the next run.</p></div>"
+               f"<div class='fx reveal'><div class='fx-stage-wrap'>{svg}</div>{panel}</div></section>")
+    data_js = f"<script type='application/json' id='fx-data'>{_json_for_script(details)}</script>"
+    return section, data_js
+
+
+FX_CSS = """
+.fx{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:30px;align-items:start}
+.fx-stage-wrap{min-width:0}
+.fx-svg{width:100%;height:auto;display:block;overflow:visible;font-family:var(--sans)}
+.fx-band{fill:rgba(255,255,255,.42);stroke:rgba(0,0,0,.07);stroke-width:1.2}
+.fx-blue .fx-band{fill:rgba(0,113,227,.05)}.fx-indigo .fx-band{fill:rgba(94,92,230,.06)}
+.fx-amber .fx-band{fill:rgba(255,159,10,.07);stroke:rgba(255,159,10,.3)}.fx-green .fx-band{fill:rgba(10,125,63,.055)}
+.fx-sn{font:800 20px var(--display);letter-spacing:-.03em}
+.fx-blue .fx-sn{fill:#0066cc}.fx-indigo .fx-sn{fill:#4b47d6}.fx-amber .fx-sn{fill:#9a5200}.fx-green .fx-sn{fill:#0a7d3f}
+.fx-sl{font:700 16px var(--display);letter-spacing:-.02em;fill:var(--text)}
+.fx-node{cursor:pointer;transform-box:fill-box;transform-origin:center;
+transition:transform .35s var(--ease),filter .35s var(--ease),opacity .3s}
+.fx-box{fill:rgba(255,255,255,.94);stroke:rgba(0,0,0,.09);stroke-width:1.2;transition:stroke .3s,stroke-width .3s,fill .3s}
+.fx-t{font:650 15px var(--sans);fill:var(--text);text-anchor:middle;pointer-events:none}
+.fx-f{font:600 11px var(--mono);fill:var(--muted);text-anchor:middle;pointer-events:none}
+.fx-io .fx-box{fill:var(--text)}.fx-io .fx-t{fill:#fff}.fx-io .fx-f{fill:rgba(255,255,255,.6)}
+.fx-out .fx-box{fill:#fff6e9;stroke:rgba(255,159,10,.5)}.fx-out .fx-t{fill:#9a5200}.fx-out .fx-f{fill:#b07a2e}
+.fx-svg:hover .fx-node:not(:hover){opacity:.4}
+.fx-node:hover,.fx-node:focus-visible{transform:translateY(-9px) scale(1.035);
+filter:drop-shadow(0 16px 20px rgba(0,0,0,.18));outline:none}
+.fx-node:hover .fx-box,.fx-node:focus-visible .fx-box,.fx-node.lit .fx-box{stroke:#1d1d1f;stroke-width:2.2}
+.fx-blue .fx-node:hover .fx-box,.fx-blue .fx-node:focus-visible .fx-box,.fx-blue .fx-node.lit .fx-box{stroke:#0071e3}
+.fx-indigo .fx-node:hover .fx-box,.fx-indigo .fx-node:focus-visible .fx-box,.fx-indigo .fx-node.lit .fx-box{stroke:#5e5ce6}
+.fx-amber .fx-node:hover .fx-box,.fx-amber .fx-node:focus-visible .fx-box,.fx-amber .fx-node.lit .fx-box{stroke:#ff9f0a}
+.fx-green .fx-node:hover .fx-box,.fx-green .fx-node:focus-visible .fx-box,.fx-green .fx-node.lit .fx-box{stroke:#0a9a4e}
+.fx-spine{fill:none;stroke:var(--hair);stroke-width:2.5}
+.fx-head{fill:#c7c7cc}
+.fx-edge{fill:none;stroke:#b8b8c0;stroke-width:2.2}
+.fx-reject{stroke:#ff9f0a}.fx-reply{stroke:#0071e3}.fx-mem{stroke:#9aa0a6}
+.fx-edge.dash{stroke-dasharray:7 7}
+.fx-arrowfill{fill:#b8b8c0}
+.fx-elabel{font:600 11px var(--sans);fill:var(--muted);text-anchor:middle}
+.fx-dot{fill:#0071e3}
+.fx-detail{position:sticky;top:84px;padding:28px;min-height:230px}
+.fx-d-stage{display:inline-block;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;
+color:var(--muted);margin-bottom:14px}
+.fx-detail.a-blue .fx-d-stage{color:#0066cc}.fx-detail.a-indigo .fx-d-stage{color:#4b47d6}
+.fx-detail.a-amber .fx-d-stage{color:#9a5200}.fx-detail.a-green .fx-d-stage{color:#0a7d3f}
+.fx-d-title{margin:0;font:750 clamp(22px,2vw,28px)/1.08 var(--display);letter-spacing:-.025em;color:var(--text)}
+.fx-d-desc{margin:14px 0 0;font-size:15.5px;line-height:1.55;color:var(--text-2)}
+.fx-d-files{display:none;margin-top:16px;background:rgba(0,0,0,.05);padding:6px 10px;border-radius:8px;
+font:600 12.5px var(--mono);color:var(--text-2)}
+.fx-d-files.show{display:inline-block}
+@media(max-width:900px){.fx{grid-template-columns:minmax(0,1fr)}
+.fx-detail{position:static;order:-1;min-height:0}}
+@media(prefers-reduced-motion:reduce){.fx-node{transition:none}}
+"""
+
+FX_JS = r"""
+(function(){
+  var data; try{ data = JSON.parse((document.getElementById("fx-data")||{}).textContent || "{}"); }catch(e){ return; }
+  var svg = document.querySelector(".fx-svg"); if(!svg) return;
+  var dStage=document.getElementById("fx-d-stage"), dTitle=document.getElementById("fx-d-title"),
+      dDesc=document.getElementById("fx-d-desc"), dFiles=document.getElementById("fx-d-files"),
+      panel=document.getElementById("fx-detail");
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var ACC=["a-blue","a-indigo","a-amber","a-green"];
+  var base={stage:dStage.textContent,title:dTitle.textContent,desc:dDesc.textContent};
+  function paint(k){
+    var d=data[k]; if(!d) return;
+    dStage.textContent=d.stage; dTitle.textContent=d.title; dDesc.textContent=d.desc;
+    if(d.files){ dFiles.textContent=d.files; dFiles.classList.add("show"); } else { dFiles.classList.remove("show"); }
+    panel.classList.remove.apply(panel.classList, ACC);
+    if(d.accent && d.accent!=="ink") panel.classList.add("a-"+d.accent);
+  }
+  function reset(){
+    dStage.textContent=base.stage; dTitle.textContent=base.title; dDesc.textContent=base.desc;
+    dFiles.classList.remove("show"); panel.classList.remove.apply(panel.classList, ACC);
+  }
+  Array.prototype.forEach.call(svg.querySelectorAll(".fx-node"), function(g){
+    var k=g.getAttribute("data-k");
+    g.addEventListener("mouseenter", function(){ paint(k); });
+    g.addEventListener("focus", function(){ paint(k); g.classList.add("lit"); });
+    g.addEventListener("blur", function(){ g.classList.remove("lit"); });
+  });
+  svg.addEventListener("mouseleave", reset);
+  // factory flow: dots travelling the spine (skipped when motion is reduced)
+  if(!reduce){
+    var spine=document.getElementById("fx-spine");
+    if(spine && spine.getTotalLength){
+      var len=spine.getTotalLength(), N=4, NS="http://www.w3.org/2000/svg";
+      for(var i=0;i<N;i++){
+        var c=document.createElementNS(NS,"circle"); c.setAttribute("r","4.5"); c.setAttribute("class","fx-dot");
+        var m=document.createElementNS(NS,"animateMotion");
+        m.setAttribute("dur","3.4s"); m.setAttribute("repeatCount","indefinite");
+        m.setAttribute("begin",(i*(3.4/N))+"s"); m.setAttribute("path", spine.getAttribute("d"));
+        c.appendChild(m); spine.parentNode.appendChild(c);
+      }
+    }
+  }
+})();
 """
