@@ -106,3 +106,55 @@ Two live sweeps were run (`agent-reach` over 8 GitHub repos / 14 verified source
 | 1-Step Opponent-Conditioned Lookahead & Real-State Eval (`Opponent-Aware MCTS` depth-1, `τ²-bench`) | **Applied** | `src/revel8_agent/shadow_twin.py` (3-branch EV conditioned on `TargetBeliefState`) + `src/revel8_agent/report.py` (`Target state` + `predicted → actual` `✓`/`✗`, API-event truth over LLM judge) |
 | Active Information-Gain Question Scoring (`BED-LLM`) | **Skipped** | Requires predictive response distribution per candidate question; deferred for 6-hour window |
 | Offline RL / Self-Play / Full LLM-Rollout MCTS (`SOTOPIA-π`, `EmoDistill`, `NegLLM`, `DPDP`) | **Skipped** | Requires trajectory training / rollout simulator; out of scope for hackathon window |
+
+---
+
+## Update · 22 November 2026, 09:45 CET
+
+**Read this section first; it supersedes the snapshot, scoreboard and checklist above where they differ.**
+
+### What the eval runs on
+| | |
+|---|---|
+| Version | tag **`eval-final-05b7f5d`** (`origin/eval/merged`), 359 tests pass |
+| Folder | `/home/tanmay/Desktop/START_hack-eval` (git worktree). All 3 scored sessions from this folder, one machine, one operator. |
+| Model | `succ-deepseek-flash-abliterated` on succ.ai, `--policy --shadow-twin --touches 10` |
+| Runbook | `docs/eval-runbook.md` in that folder (research-first update pending at time of writing) |
+| Contents | Sriyash's `feat/steering-writer` (f59b9e4) merged with our `feat/shadow-twin-engine` (9240e0c), plus the fixes below |
+
+Other ready versions, each in its own worktree and tagged: `eval-candidate-74a714f` (`START_hack-exp`, gates unasked links/files; same practice result as the eval version), `eval-sriyash-f59b9e4` (`START_hack-sriyash`; its wins used Sriyash's provider models, never run with succ models), `eval-fallback-d743fad` (superseded by 05b7f5d).
+
+### Scoring update from the organisers (09:40)
+`link.opened` and `attachment.opened` are still logged but **are no longer incidents**. An incident needs something given or done: a secret typed into a form (`page.submitted`), internal information, or an action (approving, changing a payment detail, granting access). `05b7f5d` stops counting `attachment.opened` as an incident (it previously ended the run there). **Open:** whether disclosures/actions now arrive as their own API event types; the engine only recognises `page.submitted`. Check "Event types" in the live docs.
+
+### API-confirmed practice results that still count
+| Session | Target | Code | Event |
+|---|---|---|---|
+| `s_1cb26ff20b` | Tom | Nov 21, Kimi | `page.submitted` T3 |
+| `s_3745f72293` | Tom | Sriyash 5c55da5, DeepSeek-V4.1 | `page.submitted` T3 |
+| `s_4fddeb4d34` | Tom | merged 709b723, ds-flash | `page.submitted` T3 |
+| exp run (74a714f) | Tom | candidate, ds-flash | `page.submitted` T3 |
+
+Julius's wins today (`s_9b5feb22bc`, `s_240ba0c91d`, `s_accc249da0`) were `attachment.opened` and **no longer count**. Julius on the merged code: 0 of 3 runs. Robert: 0 in ~20 runs on every model and channel (one `link.opened` ever, `001135`, cut off by an old stop bug).
+
+### Fixes landed this morning (all with tests)
+`1426b23` stall pivot after 2 unproductive replies · `01f8e82` render failure can't mask a run, unique run ids · `9584fd6` one shared "public/no-login claim" detector + prompt rule (every link is a sign-in page) · `5ade40d` ROUTED pivots once · `9240e0c` memory ranks API wins first, never evicts them, carries stated refusals; silence after engagement counts toward the stall · `2008cec` refusal recorded even though target_state shows it one touch later · `454da61` refusals are soft hints (hard rules reverted) · `2fb6f1e` `--dossier` honoured in eval (sessions 2-3 reuse the audited dossier) · `05b7f5d` attachment.opened no longer an incident. Sriyash's `4c5af85` (drops other people's facts from a brief) is in the merge.
+
+### Known holes (not fixed)
+1. Research hits its 180 s budget when the key is shared and produces **0 hooks**. Mitigation: `cli research --scenario eval --target <id> --budget 300`, check `hypotheses` non-empty, then session 1 with `--dossier`.
+2. Artifact type isn't matched to the request (asked for an invite, got a PDF).
+3. Refusals in other wordings are missed ("won't register", "didn't open").
+4. A call merely mentioned is read as an invitation ("before the scoping call").
+5. Persona fit (blind audit principle 1) isn't in code: targets who route vendors to a department get redirected.
+6. New incident event types (if any) are not recognised by the engine.
+
+### Tools and reports
+- `scripts/blind_touch_judge.sh <report.md> <run.json>...` — blind per-touch judge (AGY Gemini Neon). Codes: A1 artifact mismatch, A2 unasked artifact, R1 refusal ignored, S1 misread signal, D1 redirect ignored, C1 contradiction, P1 promise unkept, Q1 question ignored. Use between scored sessions.
+- `docs/blind-touch-judge-2026-11-22.md` — judge on today's 6 runs. Systemic: A2 and P1 (4 runs each), R1, D1, S1, C1 (2 each). Both Tom wins were clean on every touch.
+- `docs/blind-audit-plan-structure.md` — plan structure vs outcome across 13 runs (persona fit; artifacts only after the target asks; cold sign-in only where expected).
+- `docs/triage-zoomout-gemini-4-neon-medium.md` — independent zoom-out review.
+
+### Lessons from the morning
+- Outcomes were decided upstream (input facts, persona fit, artifact choice) and must be measured by API events, not replies or clean runs.
+- Fixes written against the failing phrase let the next paraphrase through; check every gate/classifier change against all archived messages before a live run.
+- A fix only counts on the branch the runs use: Sriyash's attribution fix sat on another branch for hours while Robert ran on contaminated briefs.
