@@ -1060,7 +1060,10 @@ class Runner:
                     ctx = (f"PERSONA: {json.dumps(persona, ensure_ascii=False)}\nCALL GOAL: {a.get('call_goal')}\n"
                            f"EARLIER IN THIS SESSION:\n{_history_text(self.state, 4000)}\n\nTHIS CALL SO FAR:\n"
                            + "\n".join(f"{'YOU' if t['who'] == 'agent' else 'THEM'}: {t['text']}" for t in step["transcript"]))
-                    out = _llm_json(self.llm, self.state, system, ctx, temperature=0.6, reasoning="none")
+                    try:
+                        out = _llm_json(self.llm, self.state, system, ctx, temperature=0.6, reasoning="none")
+                    except RuntimeError:
+                        break
                     line = out.get("say")
                     if out.get("end") and not line:
                         break
