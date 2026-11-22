@@ -1447,7 +1447,11 @@ class Runner:
                 if policy_move and policy_move.get("target_state"):
                     step["target_state"] = policy_move["target_state"]
                 feedback = ""
-                strip_link = False
+                strip_link = bool(
+                    policy_move
+                    and policy_move.get("objective") != "credentials"
+                    and not policy_move.get("require_link")
+                )
                 ts = (policy_move or {}).get("target_state") or {}
                 open_doors = set(ts.get("open_doors") or [])
                 attachment_pulled = bool(open_doors & {"wants_pdf", "wants_invite"}) or bool(ts.get("call_completed"))

@@ -207,3 +207,54 @@ def test_policy_and_shadow_twin_pivot_login_blocked_to_action_without_wants_pdf(
         _brief(), steps, touch=2, max_touches=6, plan=plan, today=datetime(2026, 11, 23, 10, 0)
     )
     assert st_move["objective"] == "action"
+
+
+def test_shadow_twin_action_attachments_blocked_does_not_switch_to_credentials():
+    # Bug (a): Julius loss on 709b723 — action + attachments blocked must NOT push a cold credentials login wall.
+    plan = {"objective": "action", "hook_id": "h1", "sequence": [{"channel": "email"}]}
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email", "hook_id": "h1"},
+            "events": [{"type": "reply", "channel": "email", "body": "I don't open attachments from outside."}],
+            "judge": {"sentiment": "hesitant"},
+        }
+    ]
+    move, _ = select_shadow_twin_move(
+        _brief(), steps, touch=2, max_touches=6, plan=plan, today=datetime(2026, 11, 23, 10, 0)
+    )
+    assert move["objective"] == "disclosure"
+    assert move["require_link"] is False
+
+
+def test_tom_winning_path_credentials_link_from_t1_and_kept_after_t1_open():
+    # Guard proven path: Tom's winning pattern (credentials on upcoming commitment, link from T1, kept after T1 link.opened).
+    plan = {"objective": "credentials", "hook_id": "h1", "sequence": [{"channel": "email"}]}
+    policy = RuleBasedPolicy()
+
+    # T1: cold start on upcoming commitment -> credentials + require_link=True
+    p1 = policy.choose_next_move(_brief(), [], touch=1, max_touches=6, plan=plan)
+    st1, _ = select_shadow_twin_move(
+        _brief(), [], touch=1, max_touches=6, plan=plan, base_move=p1, today=datetime(2026, 11, 23, 10, 0)
+    )
+    assert p1["objective"] == "credentials" and p1["require_link"] is True
+    assert st1["objective"] == "credentials" and st1["require_link"] is True
+
+    # T2: after T1 link.opened + logistics questions -> keep credentials + require_link=True
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email", "hook_id": "h1"},
+            "events": [
+                {"type": "link.opened", "url": "https://portal.csf2027-speakerdesk.de/speaker-entry"},
+                {"type": "reply", "channel": "email", "body": "I had a look at the entry link. Two quick questions first."},
+            ],
+            "judge": {"sentiment": "questioning"},
+        }
+    ]
+    p2 = policy.choose_next_move(_brief(), steps, touch=2, max_touches=6, plan=plan)
+    st2, _ = select_shadow_twin_move(
+        _brief(), steps, touch=2, max_touches=6, plan=plan, base_move=p2, today=datetime(2026, 11, 23, 10, 0)
+    )
+    assert p2["objective"] == "credentials" and p2["require_link"] is True
+    assert st2["objective"] == "credentials" and st2["require_link"] is True

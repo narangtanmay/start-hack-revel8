@@ -263,7 +263,7 @@ def select_shadow_twin_move(
     )
     plan_objective = str(plan.get("objective") or "disclosure")
     if plan_objective == "action" and attachments_blocked:
-        plan_objective = "disclosure" if login_blocked else "credentials"
+        plan_objective = "disclosure"
     elif plan_objective == "credentials" and login_blocked:
         plan_objective = "action" if not attachments_blocked else "disclosure"
     elif plan_objective == "credentials" and target_state["reaction_tag"] == "LINK_OPENED_BOUNCE" and link_bounces >= 2:
@@ -322,8 +322,18 @@ def select_shadow_twin_move(
     if base_move:
         alternatives.append({k: str(base_move.get(k) or "") for k in ("move_type", "channel", "hook_id")}
                             | {"reason": "Rejected: replaced by the shadow-twin winner."})
+    base_req_link = bool(base_move and base_move.get("require_link"))
+    base_page_type = base_move.get("link_page_type") if base_move else None
+    require_link = (
+        channel not in _LIVE_CHANNELS
+        and not login_blocked
+        and link_bounces < 2
+        and (objective == "credentials" or (base_req_link and base_page_type == "meeting"))
+    )
     selected_move = {
         "move_type": move_type, "hook_id": hook_id, "channel": channel, "objective": objective, "ask": ask,
+        "require_link": require_link,
+        "link_page_type": (base_page_type or "signin") if require_link else None,
         "cited_fact_ids": _cited_facts_for_hook(brief, hook),
         "promises": ["Keep persona and prior details consistent", "Keep the ask concrete and single-purpose"],
         "rationale": f"Shadow twin picked {tier} (EV {winner['ev_score']}): {winner['forecast']['rationale']}.",
