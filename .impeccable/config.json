@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-11-22T03:55:15.947Z",
+        "reason": "Brand match: user asked to emulate revel8.ai, whose stylesheet sets Geist as its primary family"
+      },
+      {
+        "rule": "marketing-buzzword",
+        "value": "*",
+        "files": [
+          "runs/20261122-021835-robert-actor-v3.html"
+        ],
+        "createdAt": "2026-11-22T03:55:16.096Z",
+        "reason": "Quoted content: the phrase is the target's own public words shown as evidence, not dashboard copy"
+      }
+    ]
+  }
+}
