@@ -152,8 +152,17 @@ _WANTS_DETAILS_RE = re.compile(
 _PROPOSES_CALL_RE = re.compile(
     r"\b(?:15|fifteen|twenty|zwanzig)[- ]?min|\b(?:two|three|zwei|drei) (?:slots|termine)|"
     r"\bslot(?:s)? (?:follow|that work|work on my side)|"
+    r"\b(?:mon|tue|wed|thu|fri|mo|di|mi|do|fr)(?:day|s|nstag|ttwoch|nerstag|eitag)?\.?[, ]"
+    r"[^.\n]{0,24}?\b\d{1,2}[:.]\d{2}|"
     r"\b(?:short|brief|quick) (?:call|phone call|telefonat|gespräch)|"
     r"\bkurze[sr]? (?:telefonat|call|gespräch)\b",
+    re.IGNORECASE,
+)
+
+# The target accepting a named slot: without this a call is only offered, not agreed.
+_ACCEPTS_SLOT_RE = re.compile(
+    r"\b(?:works for me|works|would work|that (?:slot|time|date) fits|fits me|confirmed|hold it|"
+    r"in my calendar|put it in|passt(?: mir)?|geht klar|ist notiert|halte ich mir frei)\b",
     re.IGNORECASE,
 )
 
@@ -193,6 +202,7 @@ class TargetBeliefState(BaseModel):
     link_opened_no_submit: bool = False
     call_completed: bool = False
     call_proposed: bool = False
+    call_accepted: bool = False
     engaged_replies: int = 0
     last_replied_channel: str | None = None
     phone_offered: bool = False
@@ -255,6 +265,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     any_reply = False
     call_completed = False
     call_proposed = False
+    call_accepted = False
     engaged_replies = 0
     last_replied_channel: str | None = None
     phone_offered = False
@@ -324,6 +335,8 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
 
         if reply_texts:
             combined = " ".join(reply_texts)
+            if _ACCEPTS_SLOT_RE.search(combined):
+                call_accepted = True
             last_reply_routed = bool(_ROUTED_RE.search(combined))
             last_reply_blocked = False
             last_reply_open_door = False
@@ -401,6 +414,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
         link_opened_no_submit=link_opened_no_submit,
         call_completed=call_completed,
         call_proposed=call_proposed,
+        call_accepted=call_accepted,
         engaged_replies=engaged_replies,
         last_replied_channel=last_replied_channel,
         phone_offered=phone_offered,

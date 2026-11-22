@@ -263,6 +263,18 @@ def test_a_chatty_target_gets_slot_asks_instead_of_endless_mail() -> None:
     assert "slot" in move["ask"].casefold()
 
 
+def test_an_unconfirmed_offer_keeps_the_thread_in_mail() -> None:
+    proposed = _step(2, "email", reply="Let me check my calendar.", sentiment="engaged")
+    proposed["action"]["paragraphs"] = ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]
+    steps = [
+        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        proposed,
+    ]
+    move, meta = _select(steps, WEEKDAY)
+    assert move["move_type"] == "STAY"
+    assert "hold" in move["ask"].casefold()
+
+
 def test_once_slots_are_on_the_table_the_call_wins_the_tier_ranking() -> None:
     proposed = _step(2, "email", reply="Thursday works.", sentiment="engaged")
     proposed["action"]["paragraphs"] = ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]

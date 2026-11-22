@@ -271,11 +271,12 @@ def test_a_target_offering_a_call_gets_slots_before_the_call_is_dialled() -> Non
     assert "slot" in move["ask"].casefold()
 
 
-def test_a_proposed_call_is_taken_instead_of_writing_another_email() -> None:
+def test_an_accepted_slot_is_dialled_instead_of_writing_another_email() -> None:
     policy = RuleBasedPolicy()
     steps = [
         _step(1, "email", "h_curr", "engaged", body="Happy to do a short call."),
-        _step(2, "email", "h_curr", "engaged", sent="For the fifteen minutes: Tuesday 09:30 or Thursday 16:00."),
+        _step(2, "email", "h_curr", "engaged", sent="For the fifteen minutes: Tuesday 09:30 or Thursday 16:00.",
+              body="Thursday 16:00 works for me."),
     ]
     move = policy.choose_next_move(
         _sample_brief(), steps, touch=3, max_touches=10, plan=_sample_plan(hook_id="h_curr")
@@ -294,8 +295,24 @@ def test_a_proposed_call_is_not_proposed_again() -> None:
     move = policy.choose_next_move(
         _sample_brief(), steps, touch=4, max_touches=10, plan=_sample_plan(hook_id="h_curr")
     )
-    # slots already on the table: dial instead of asking a fourth time
+    # offered but never confirmed: no third slot ask, but also no unanswered dial
+    assert move["move_type"] == "STAY"
+    assert "slot" not in move["ask"].casefold()
+
+
+def test_a_confirmed_slot_is_dialled() -> None:
+    policy = RuleBasedPolicy()
+    steps = [
+        _step(1, "email", "h_curr", "engaged"),
+        _step(2, "email", "h_curr", "engaged"),
+        _step(3, "email", "h_curr", "engaged", sent="For the fifteen minutes: Tue 09:30 or Thu 16:00."),
+        _step(4, "email", "h_curr", "engaged", body="Thu 16:00 works for me."),
+    ]
+    move = policy.choose_next_move(
+        _sample_brief(), steps, touch=5, max_touches=10, plan=_sample_plan(hook_id="h_curr")
+    )
     assert move["move_type"] == "ESCALATE_CALL"
+    assert move["channel"] == "phone_call"
     assert "call" in move["ask"].casefold()
 
 

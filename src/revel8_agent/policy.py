@@ -482,7 +482,8 @@ class RuleBasedPolicy:
             # A target who keeps answering can be walked out of mail only on purpose: an engaged
             # thread used to reject the call forever and ran to the touch budget (robert, julius
             # 2026-11-22). Offer concrete slots first, then dial; never re-ask for permission.
-            if target_state["call_proposed"] and not target_state["call_completed"]:
+            if (target_state["call_proposed"] and target_state["call_accepted"]
+                    and not target_state["call_completed"]):
                 return build_move(
                     "ESCALATE_CALL",
                     last_hook_id,
@@ -496,7 +497,8 @@ class RuleBasedPolicy:
                     ],
                 )
             if not target_state["call_completed"] and (
-                    target_state["engaged_replies"] >= 2 or "wants_call" in open_doors):
+                    "wants_call" in open_doors
+                    or (target_state["engaged_replies"] >= 2 and not target_state["call_proposed"])):
                 return build_move(
                     "STAY",
                     last_hook_id,

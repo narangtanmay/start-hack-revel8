@@ -210,7 +210,17 @@ def test_state_remembers_we_already_proposed_a_call_and_how_live_the_thread_is()
     ]
     state = extract_target_state(steps)
     assert state["call_proposed"] is True
+    assert state["call_accepted"] is True
     assert state["engaged_replies"] == 2
+
+
+def test_state_does_not_read_an_unanswered_offer_as_acceptance():
+    steps = [{"touch": 1, "action": {"channel": "email",
+                                     "paragraphs": ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]},
+              "events": [{"type": "reply", "channel": "email", "body": "Let me check my calendar."}]}]
+    state = extract_target_state(steps)
+    assert state["call_proposed"] is True
+    assert state["call_accepted"] is False
 
 
 def test_state_does_not_call_a_bare_call_mention_a_proposal():

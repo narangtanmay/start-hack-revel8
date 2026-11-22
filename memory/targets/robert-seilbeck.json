@@ -2,19 +2,6 @@
  "name": "Robert Seilbeck",
  "sessions": [
   {
-   "run": "20261121-231533-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:15:33+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "Follow-up on the seed round and scaling priorities — sharing a short engineering benchmark from a peer group.",
-   "persona": "Research Lead at SecOps Benchmark Collective",
-   "touches": 11,
-   "reply_rate": 0.09,
-   "silence": 10,
-   "brushoffs": 1,
-   "incidents": []
-  },
-  {
    "run": "20261121-231808-robert-DeepSeek-V4-Flash",
    "at": "2026-11-21T22:18:08+00:00",
    "scenario": "practice",
@@ -274,6 +261,21 @@
    "incidents": [
     "disclosure@t1 (llm-judge (estimate))"
    ]
+  },
+  {
+   "run": "20261122-103341-robert-loop4-robert-01a932",
+   "at": "2026-11-22T09:33:41+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO at a mid-sized German manufacturer who read Seilbeck's own revel8 vs. SoSafe comparison and is now shortlisting vendors asks a substantive follow-up about MS Teams vishing, deepfakes and works-",
+   "persona": "Head of IT Security (CISO) at Birnbach Präzisionsteile GmbH",
+   "touches": 10,
+   "reply_rate": 0.4,
+   "silence": 6,
+   "brushoffs": 2,
+   "incidents": [
+    "disclosure@t2 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [],
@@ -283,7 +285,8 @@
   "wants_plain_text",
   "wants_artifact",
   "deferring",
-  "refused: login_wall"
+  "refused: login_wall",
+  "refused: attachments"
  ],
  "disclosed": [
   {
@@ -340,6 +343,11 @@
    "run": "20261122-103028-robert-loop3-robert-ebd9d1",
    "touch": 1,
    "text": "Questions on pilots and works-council documentation are handled by our sales and solution engineering team. Please send them your three questions through the contact form on revel8.ai, or tell me which of our colleagues you have already talked to, and I will pass it on. The current comparison is the"
+  },
+  {
+   "run": "20261122-103341-robert-loop4-robert-01a932",
+   "touch": 2,
+   "text": "Public information on hosting: Germany, STACKIT, ISO 27001."
   }
  ]
 }
