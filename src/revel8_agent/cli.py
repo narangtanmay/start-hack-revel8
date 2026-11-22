@@ -88,6 +88,7 @@ def _run(
     runs_dir: str = "runs",
     actor: bool = False,
     dossier_file: str = "",
+    then: list[str] | None = None,
 ) -> int:
     import json
     from pathlib import Path
@@ -174,6 +175,48 @@ def _run(
         if mock and state.session_id:
             state.truth = api.truth(state.session_id)
             runner.save()
+        # Coverage chaining: after an API-confirmed incident, spend the session's leftover touches on the next
+        # target (same session, shared budget). The run already counts; this buys a second converted person.
+        queue = list(then or [])
+        if queue == ["all"]:
+            sc = next((s for s in api.get_scenarios() if isinstance(s, dict) and s.get("id") == scenario), {}) or {}
+            queue = [x["id"] for x in sc.get("targets", []) if x.get("id") != target]
+        prev = state
+        for nxt in queue:
+            won = any(i.get("source") == "api event" for i in prev.incidents)
+            if not won or prev.touches_used >= touches or not prev.session_id:
+                break
+            print(f"chain: {prev.target.get('id')} converted; continuing session {prev.session_id} on {nxt} "
+                  f"({touches - prev.touches_used} touches left)")
+            d2_path = Path("dossiers") / f"{nxt}.json"
+            if d2_path.exists() and scenario != "eval":
+                d2 = VerifiedDossier.model_validate_json(d2_path.read_text(encoding="utf-8-sig"))
+            else:
+                sc = next((s for s in api.get_scenarios() if isinstance(s, dict) and s.get("id") == scenario), {}) or {}
+                t2 = next((x for x in sc.get("targets", []) if x.get("id") == nxt), None)
+                if not t2:
+                    print(f"chain: unknown target {nxt!r}", file=sys.stderr)
+                    break
+                from .research import live_dossier
+
+                d2, stats2 = live_dossier(Target(t2["id"], t2["name"], t2.get("role", ""), str(sc.get("company", ""))), llm)
+                write_dossier(d2, stats2)
+            cfg2 = RunConfig(**{**cfg.__dict__, "target_id": nxt, "label": f"{label}-chain-{nxt}",
+                                "session_id": prev.session_id, "start_touches": prev.touches_used})
+            r2 = Runner(cfg2, api, llm, d2)
+            o2 = r2.save
+
+            def save2(o2=o2):
+                path = o2()
+                try:
+                    render_run(path)
+                    render_index(cfg.runs_dir)
+                except Exception:
+                    pass
+                return path
+
+            r2.save = save2  # type: ignore[method-assign]
+            prev = r2.run()
     print(json.dumps(estimate_score(state.__dict__), indent=1))
     print(f"report: {render_index(cfg.runs_dir).resolve()}")
     return 0 if state.status == "done" else 1
@@ -233,6 +276,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--mock", action="store_true", help="Offline: use the rule-based mock target, no API touches.")
     run.add_argument("--seed", type=int, default=0, help="Mock target seed.")
     run.add_argument("--runs-dir", default="runs")
+    run.add_argument("--then", action="append", default=[],
+                     help="After an API-confirmed incident, continue the SAME session on this target (repeatable; 'all' = every other target).")
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     rep.add_argument("--public-out", default="", help="Also write a public snapshot (landing pages not rendered) here.")
@@ -296,6 +341,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             runs_dir=args.runs_dir,
             actor=args.actor,
             dossier_file=args.dossier,
+            then=args.then,
         )
     if args.command == "report":
         from .report import render_index

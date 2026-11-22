@@ -77,6 +77,11 @@ class RunConfig:
     # Arihant's decision controller (decision.py). `use_policy` (Tanmay's RuleBasedPolicy) takes precedence:
     # when it is on, the controller is off so the two never steer the same touch.
     policy: str = "controller"          # controller: explicit belief + escalation policy; llm: the LLM alone decides
+    # Chaining: continue an existing session (its touch budget is shared) on a second target after the first
+    # converted. Results count a run once it has one incident; the leftover touches buy coverage: a second
+    # converted person is a backup path for sessions 2-3 (deja vu) and a chance at the own-angle bonus.
+    session_id: str = ""
+    start_touches: int = 0
 
 
 @dataclass
@@ -1219,7 +1224,15 @@ class Runner:
             self.plan()
             if self.cfg.scenario_id == "eval":
                 self.log("!!! EVAL SESSION: this uses one of the 3 scored runs")
-            st.session_id = str(self.api.create_session(self.cfg.scenario_id)["session_id"])
+            if self.cfg.session_id:
+                st.session_id = self.cfg.session_id
+                try:
+                    st.touches_used = int(self.api.get_session(st.session_id).get("touches_used") or self.cfg.start_touches)
+                except Exception:  # noqa: BLE001 - mock clients have no get_session
+                    st.touches_used = self.cfg.start_touches
+                self.log(f"continuing session {st.session_id} at touch {st.touches_used + 1} on a new target")
+            else:
+                st.session_id = str(self.api.create_session(self.cfg.scenario_id)["session_id"])
             st.status = "running"
             self.save()
             self.log(f"session {st.session_id} opened")
