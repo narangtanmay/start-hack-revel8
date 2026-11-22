@@ -374,3 +374,73 @@ def test_empty_drafts_do_not_crash_the_run(dossier, tmp_path) -> None:
     assert state.touches_used == 0 and not api.send_message.called
     assert [s["error"].startswith("no valid draft") for s in state.steps] == [True, True]
     assert state.steps[0]["attempts"][0]["raw"]["paragraphs"] == []
+
+
+# ---- steering + writer (2026-11-22)
+
+
+def test_policy_run_rejects_credentials_draft_without_link(dossier, tmp_path) -> None:
+    base = {"decision": "STAY", "rationale": "r", "discarded": [], "hook_id": "h_top", "kind": "message",
+            "channel": "email", "sender": {"name": "Event Desk", "address": "desk@workshop-crew.test"},
+            "subject": "Your session", "format": "plain", "paragraphs": ["Please confirm your session details."],
+            "attachment_filename": None, "cited_fact_ids": ["check-in"]}
+    no_link = dict(base, link=None)
+    with_link = dict(base, link={"url": "https://workshop-crew.test/speaker", "page_type": "signin"})
+    plan = {"hook_id": "h_top", "objective": "credentials", "persona": dict(_PERSONA), "language": "en"}
+    api = MagicMock()
+    api.create_session.return_value = {"session_id": "s1"}
+    api.send_message.return_value = {"message_id": "m1", "events": [{"type": "page.submitted", "fields": ["email"]}],
+                                     "touches_used": 1}
+    llm = _ScriptedLLM([plan, no_link, with_link])
+    cfg = RunConfig(target_id=dossier.target_id, runs_dir=tmp_path, max_touches=2, stop_at_first_incident=True,
+                    use_policy=True)
+    runner = Runner(cfg, api, llm, _hooked(dossier), log=lambda *_a, **_k: None)
+    runner.judge = lambda step: runner._incident(step["touch"], "credentials", "submitted", judged=False)  # type: ignore
+    runner._ensure_brand = lambda: False  # type: ignore[method-assign]
+    state = runner.run()
+
+    assert state.status == "done", state.error
+    step = state.steps[0]
+    assert step["policy"]["require_link"] is True
+    assert any("registered link" in e for e in step["attempts"][0]["errors"])
+    sent = api.send_message.call_args
+    assert "workshop-crew.test/speaker" in str(sent)
+
+
+def test_writer_problem_rejects_softening_and_urls() -> None:
+    from revel8_agent.engine import _writer_problem
+
+    draft = ["Please confirm your corrected profile in the speaker portal before Monday."]
+    assert _writer_problem(draft, ["Bitte bestätigen Sie Ihr Profil. Eine Anmeldung ist nicht erforderlich."], True)
+    assert _writer_problem(draft, ["Hinweis: Dies ist eine Simulation."], True)
+    assert _writer_problem(draft, ["Open https://x.test/login to confirm."], True) == "wrote a URL"
+    assert "added numbers" in _writer_problem(draft, ["Confirm by Monday, 9:00."], True)
+    assert _writer_problem(draft, ["Could you confirm your corrected profile in the speaker portal before Monday?"], True) == ""
+
+
+def test_polish_keeps_draft_when_writer_softens(dossier, tmp_path) -> None:
+    class _Writer:
+        def __init__(self, out): self.out = out
+        def chat(self, messages, *, json_mode=False): return self.out
+
+    cfg = RunConfig(target_id=dossier.target_id, runs_dir=tmp_path)
+    runner = Runner(cfg, MagicMock(), _ScriptedLLM([]), _hooked(dossier), log=lambda *_a, **_k: None)
+    runner.state.plan = {"persona": dict(_PERSONA), "language": "en"}
+    a = {"channel": "email", "subject": "s", "paragraphs": ["Please confirm your profile."],
+         "link": {"url": "https://workshop-crew.test/p", "page_type": "signin"}}
+    runner.writer = _Writer({"subject": "s", "paragraphs": ["Please confirm. No login is needed."]})
+    runner.polish(a)
+    assert a["paragraphs"] == ["Please confirm your profile."] and "rejected" in a["writer"]
+    runner.writer = _Writer({"subject": "s2", "paragraphs": ["Could you confirm your profile?"]})
+    runner.polish(a)
+    assert a["paragraphs"] == ["Could you confirm your profile?"] and a["subject"] == "s2"
+
+
+def test_meeting_page_has_credential_fields() -> None:
+    from revel8_agent.templates import meeting_page
+    from revel8_agent.templates.brand import Brand
+
+    brand = Brand(key="wc", name="Workshop Crew", domain="workshop-crew.test", sender_address="desk@workshop-crew.test",
+                  color="#1F4E8C", color_dark="#123456")
+    page = meeting_page(brand, url="https://workshop-crew.test/m", logo_asset="a_1", meeting_name="Vorgespräch Session 1.3")
+    assert page.fields == ["email", "password"] and "Vorgespräch Session 1.3" in page.html

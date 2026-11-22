@@ -261,7 +261,9 @@ def test_rule_based_policy_pivots_objective_when_attachments_declined() -> None:
     move = policy.choose_next_move(brief, [t1], touch=2, max_touches=10, plan=plan)
     assert move["move_type"] == "STAY"
     assert move["channel"] == "email"
-    assert move["objective"] == "disclosure"
+    # Files are closed, so the objective leaves "action"; with an upcoming hook the next open route is the portal.
+    assert move["objective"] == "credentials"
+    assert move["require_link"] is True
 
 
 def test_hook_with_timing_marks_year_only_and_undated_events_uncertain() -> None:
@@ -635,3 +637,63 @@ def test_swarm_cli_policy_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     assert swarm.main(["--target", "julius", "--policy"]) == 0
     assert swarm.main(["--target", "julius", "--no-policy"]) == 0
     assert [t.use_policy for t in captured_tasks] == [True, False]
+
+
+# ---- steering (2026-11-22): 10 DeepSeek --policy runs on Tom sent 1 link in 94 touches and 0 API incidents.
+
+
+def _upcoming_brief() -> dict[str, Any]:
+    return {
+        "facts": [{"id": "f1", "fact": "Speaks in session 1.3 on 2 March 2027"}, {"id": "f2", "fact": "Talks about NIS2"}],
+        "hooks": [
+            {"id": "theme", "topic": "NIS2 compliance", "confidence": 0.9, "timing": "undated", "supporting_fact_ids": ["f2"]},
+            {"id": "event", "topic": "Session 1.3, Cybersicherheitsforschung 2027", "confidence": 0.6,
+             "timing": "upcoming", "supporting_fact_ids": ["f1"]},
+        ],
+    }
+
+
+def test_upcoming_hook_outranks_theme_and_planner_choice() -> None:
+    from revel8_agent.policy import _rank_hooks
+
+    ranked = _rank_hooks(_upcoming_brief()["hooks"], preferred_id="theme")
+    assert ranked[0]["id"] == "event"
+
+
+def test_upcoming_hook_turns_disclosure_into_credentials_with_link_on_touch_one() -> None:
+    plan = _sample_plan(hook_id="theme")
+    plan["objective"] = "disclosure"
+    move = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [], touch=1, max_touches=10, plan=plan)
+    assert move["hook_id"] == "event"
+    assert move["objective"] == "credentials"
+    assert move["require_link"] is True and move["link_page_type"] == "signin"
+    assert "registered link" in move["ask"]
+
+
+def test_link_request_in_reply_demands_a_meeting_page() -> None:
+    plan = _sample_plan(hook_id="h_curr")
+    plan["objective"] = "disclosure"
+    t1 = _step(1, "email", "h_curr", "engaged")
+    t1["events"] = [{"type": "reply", "body": "Donnerstag 15:30 passt. Bitte schicken Sie den Link zum Termin."}]
+    move = RuleBasedPolicy().choose_next_move(_sample_brief(), [t1], touch=2, max_touches=10, plan=plan)
+    assert move["require_link"] is True
+    assert move["link_page_type"] == "meeting"
+
+
+def test_login_refusal_stops_link_pushing() -> None:
+    plan = _sample_plan(hook_id="theme")
+    plan["objective"] = "credentials"
+    t1 = _step(1, "email", "event", "refusing")
+    t1["events"] = [{"type": "reply", "body": "Ein Portal-Login kommt nicht in Frage, schicken Sie es per Mail."}]
+    move = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [t1], touch=2, max_touches=10, plan=plan)
+    assert move["require_link"] is False
+
+
+def test_disclosure_on_themes_only_is_left_alone() -> None:
+    brief = _upcoming_brief()
+    brief["hooks"] = [brief["hooks"][0]]
+    plan = _sample_plan(hook_id="theme")
+    plan["objective"] = "disclosure"
+    move = RuleBasedPolicy().choose_next_move(brief, [], touch=1, max_touches=10, plan=plan)
+    assert move["objective"] == "disclosure"
+    assert move["require_link"] is False

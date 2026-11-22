@@ -26,6 +26,10 @@ _TEXT = {
         "doc_title": "{brand}: {doc}",
         "doc_head": "Dokument ansehen",
         "doc_sub": "Melden Sie sich an, um „{doc}“ zu öffnen.",
+        "meeting_title": "{brand}: Besprechung beitreten",
+        "meeting_head": "Besprechung beitreten",
+        "meeting_sub": "{meeting}. Melden Sie sich an, um der Besprechung beizutreten.",
+        "join": "Anmelden und beitreten",
         "privacy": "Datenschutz",
         "imprint": "Impressum",
     },
@@ -43,6 +47,10 @@ _TEXT = {
         "doc_title": "{brand}: {doc}",
         "doc_head": "View document",
         "doc_sub": "Sign in to open “{doc}”.",
+        "meeting_title": "{brand}: Join meeting",
+        "meeting_head": "Join meeting",
+        "meeting_sub": "{meeting}. Sign in to join the meeting.",
+        "join": "Sign in and join",
         "privacy": "Privacy",
         "imprint": "Legal notice",
     },
@@ -112,4 +120,15 @@ def document_gate_page(
     title = t["doc_title"].format(brand=brand.name, doc=document_name)
     form = _field("email", t["email"]) + _field("password", t["password"]) + _submit(brand, t["signin"])
     html = _page(brand, lang, title, logo_asset, t["doc_head"], t["doc_sub"].format(doc=document_name), form)
+    return LandingPageSpec(url=url, title=title, html=html, fields=["email", "password"])
+
+
+def meeting_page(
+    brand: Brand, *, url: str, logo_asset: str, meeting_name: str, lang: Lang = "de"
+) -> LandingPageSpec:
+    """Join page for a meeting the target asked us to send a link for ("Bitte schicken Sie den Link zum Termin")."""
+    t = _TEXT[lang]
+    title = t["meeting_title"].format(brand=brand.name)
+    form = _field("email", t["email"]) + _field("password", t["password"]) + _submit(brand, t["join"])
+    html = _page(brand, lang, title, logo_asset, t["meeting_head"], t["meeting_sub"].format(meeting=meeting_name), form)
     return LandingPageSpec(url=url, title=title, html=html, fields=["email", "password"])

@@ -18,7 +18,7 @@ from .assets import render_logo
 from .brand import BRANDS, CRAFT_CHANNELS, Brand, get_brand, lookalike_brand, org_domains_from_dossier
 from .lint import lint_html, lint_text
 from .mail import colleague_note, shared_doc_notice, vendor_notice
-from .pages import document_gate_page, mfa_page, signin_page
+from .pages import document_gate_page, meeting_page, mfa_page, signin_page
 
 __all__ = [
     "BRANDS",
@@ -31,6 +31,7 @@ __all__ = [
     "get_brand",
     "lint_html",
     "lint_text",
+    "meeting_page",
     "mfa_page",
     "render_logo",
     "shared_doc_notice",
