@@ -14,8 +14,6 @@ Stops at the first incident (default) or when the touch budget is used up.
 
 from __future__ import annotations
 
-from .memory import is_confirmed_win as _confirmed
-from .memory import is_win as _is_win
 import json
 import os
 import re
@@ -37,6 +35,8 @@ from .decision import DELIVER, ELICIT, ESCALATE_CALL, PIVOT_CHANNEL, STOP, Advan
 from .gate import _META_TEXT, validate_contact_plan, validate_session_consistency
 from .llm_client import ChatMessage, LocalLLMClient, LocalLLMError
 from .osint import normalize
+from .memory import is_confirmed_win as _confirmed
+from .memory import is_win as _is_win
 from .policy import Policy, RuleBasedPolicy, _rank_hooks
 from .schemas import AttachmentSpec, CampaignPlan, ContactPlan, LandingPageSpec, SenderInfo, VerifiedDossier
 from .shadow_twin import select_shadow_twin_move
@@ -51,6 +51,8 @@ from .templates import (
     signin_page,
     vendor_notice,
 )
+
+LADDER_ON = os.environ.get("REVEL8_LADDER", "1") != "0"  # commitment ladder (A/B switch)
 
 MESSAGE_CHANNELS = [
     "email", "calendar_invite", "shared_document", "voicemail", "sms", "whatsapp", "signal", "telegram",
@@ -856,6 +858,10 @@ class Runner:
         _dp = _demand_prompt(self.state.steps)
         if _dp:
             user += "\n\n" + _dp
+        if LADDER_ON:
+            from .ladder import prompt as _ladder_prompt
+
+            user += "\n\n" + _ladder_prompt(self.state.steps, self.state.incidents)
         _opened = [e for s in self.state.steps for e in s.get("events") or [] if e.get("type") in ("attachment.opened", "link.opened")]
         if _opened and not any(_is_win(i) for i in self.state.incidents):
             user += ("\n\nTHEY ENGAGED (opened " + ", ".join(sorted({str(e.get('filename') or e.get('url') or e.get('type')) for e in _opened}))[:200] +
@@ -1283,6 +1289,10 @@ class Runner:
                 from .demands import summary as _demand_summary
 
                 step["demands"] = _demand_summary(st.steps)
+                if LADDER_ON:
+                    from .ladder import rung as _rung
+
+                    step["ladder_rung"] = _rung(st.steps, st.incidents)
                 feedback = ""
                 strip_link = False
                 strip_attachment = False
@@ -1315,6 +1325,10 @@ class Runner:
 
                         blocked = set((step.get("target_state") or {}).get("blocked_mechanisms") or [])
                         errors = check_draft(st.steps, a, plan.body, blocked)
+                        if not errors and LADDER_ON:
+                            from .ladder import check_draft as _ladder_check
+
+                            errors = _ladder_check(st.steps, st.incidents, a, plan.body)
                     attempt["errors"] = errors
                     attempt["paragraphs"] = a.get("paragraphs")
                     if not errors:

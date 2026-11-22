@@ -47,3 +47,11 @@ def plan() -> ContactPlan:
 def _isolated_memory(tmp_path, monkeypatch):
     """Tests must never write into the real memory/ (fake 'event-coordinator' wins polluted it)."""
     monkeypatch.setenv("REVEL8_MEMORY_DIR", str(tmp_path / "memory"))
+
+
+@pytest.fixture(autouse=True)
+def _ladder_off_for_scripted_llm(monkeypatch):
+    # scripted fake-LLM engine tests count calls exactly; the ladder gate's redraft is tested in test_ladder.py
+    import revel8_agent.engine as eng
+
+    monkeypatch.setattr(eng, "LADDER_ON", False)
