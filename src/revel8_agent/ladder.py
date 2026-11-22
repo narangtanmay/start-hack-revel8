@@ -111,8 +111,10 @@ def prompt(steps: list[dict], incidents: list[dict]) -> str:
         return out + (
             "\nCONVERSION POINT - THEY BOOKED A CALL / ASKED FOR THE INVITE. Send exactly what they asked for NOW: "
             "channel calendar_invite, subject = the meeting title, at the slot they named. Body: a 3-line agenda that "
-            "puts the internal question they deferred as agenda item 1, "
-            "and the one-page setup you promised, inline. Set link = {\"url\": a join/pre-read URL on YOUR persona's "
+            "puts the internal question they deferred as agenda item 1. Do NOT attach or paste the promised material: "
+            "give one teaser line of it only, and say the full version and the dial-in are in the portal (live 22 Nov: "
+            "with the file attached, the target said 'no need for me to sign into a portal ... you attached the file "
+            "directly'). The portal must be the ONLY way to get what they want. Set link = {\"url\": a join/pre-read URL on YOUR persona's "
             "own domain, \"page_type\": \"signin\", \"document_name\": \"Pre-read and dial-in\"} and say the dial-in and "
             "pre-read are in your meeting portal (sign in with their work account, as usual for external guests). "
             "No other ask in this touch.")
