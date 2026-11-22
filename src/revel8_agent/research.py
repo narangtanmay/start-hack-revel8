@@ -343,9 +343,38 @@ Return ONLY JSON:
 
 _OPEN_CUES = re.compile(
     r"\b(?:hiring|we(?:'re| are) (?:hiring|looking|searching|growing)|looking for|join (?:us|our team)|open (?:role|position)s?|"
-    r"apply|call for|seeking|searching for|feedback|beta|pilot|early access|partners?(?:hip)?s?|speak(?:er|ing)|keynote|"
+    r"apply|call for|seeking|searching for|feedback|beta|pilot|early access|partners?(?:hip)?s?|speak(?:s|er|ers|ing)?|scheduled to (?:speak|present)|keynote|"
     r"panel|podcast|webinar|launch(?:ed|ing)?|announc\w*|excited to|proud to|reach out|dm me|happy to (?:chat|talk|connect)|"
     r"interested in|recommend|new (?:role|product|feature)|expand\w*|opening|internship|intern)\b", re.I)
+# Who would contact them, and must THEY answer? Measured on 58 real practice runs (2026-11-22): buyer/practitioner
+# personas were routed to sales or a colleague in 45% of runs; event/research/media personas in 12%.
+_NEEDS_HIM = re.compile(
+    r"\b(?:speak\w*|session|panel\w*|keynote|moderat\w*|chair|program(?:me)? (?:coordinator|committee|director|lead)|"
+    r"conference|konferenz|organi[sz]er|host|podcast|interview\w*|journalist|editor\w*|reporter|press|article|co-?author|"
+    r"paper|research(?:er)?|professor|university|alumni|jury|award|mentor|fireside|roundtable|workshop|meetup|summit)\b", re.I)
+_ROUTED = re.compile(
+    r"\b(?:buyer|customer|prospect|evaluat\w*|shortlist\w*|vendor|procurement|purchas\w*|rfp|tender|pricing|quote|"
+    r"demo|pilot|trial|licen[cs]\w*|ciso|security awareness|head of (?:it )?security|it security|security officer|"
+    r"reseller|channel|distributor|business development|sales|integrat\w* partner|your platform|your product|"
+    r"compar\w* .{0,20}(?:vendor|platform|solution)s?)\b", re.I)
+_EVENT_FACT = re.compile(r"\b(?:speak\w*|session|panel|keynote|conference|konferenz|summit|talk|vortrag|podcast)\b", re.I)
+
+
+def needs_him(h: "HookHypothesis") -> float:
+    """1.0 when only this person can answer (their talk, their article, their interview); low when the natural
+    reply is 'please contact sales' (a buyer/vendor/partner asking product questions)."""
+    who = f"{h.sender_archetype} {h.natural_ask}"
+    routed = len(_ROUTED.findall(who))
+    personal = len(_NEEDS_HIM.findall(f"{who} {h.topic}"))
+    if routed and not personal:
+        return 0.15
+    if personal and not routed:
+        return 1.0
+    if personal and routed:
+        return 0.55
+    return 0.45
+
+
 _TIMING_SCORE = {"upcoming": 1.0, "current": 0.9, "this-year": 0.7, "undated": 0.45, "past": 0.15}
 
 
@@ -394,10 +423,12 @@ def recency_score(f: VerifiedFact) -> tuple[float, str]:
     if d is None:
         return 0.45, "undated"
     age = (datetime.now() - d).days
+    if age < 0:
+        # a future date is never a crawl date: Robert's and Julius's 2027 speaker slot was extracted as
+        # company_news and ranked "static" (0.20) while Tom's identical fact led his hooks (0.74)
+        return 1.0, "upcoming"
     if f.category in _STATIC_CATS:
         return 0.35, "static"
-    if age < 0:
-        return 1.0, "upcoming"
     if age <= 45:
         return 0.95, "recent"
     if age <= 120:
@@ -429,13 +460,14 @@ def about_person(f: VerifiedFact, surname: str, first: str = "") -> bool:
     slug = fold(urlsplit(f.source_url).path).replace("-", " ").replace("_", " ")
     if surname and any(v and v in slug for v in _variants(surname)):
         return True
-    return bool(re.match(r"^(?:he|she|they)\b", f.fact.strip(), re.I)) and f.category != "company_news"
+    return bool(re.match(r"^(?:he|she|they)\b", f.fact.strip(), re.I)) and (
+        f.category != "company_news" or bool(_EVENT_FACT.search(f.fact)))
 
 
 def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: str, first: str = "") -> tuple[float, dict]:
     """Deterministic, explainable ranking. What is specifically happening to them now leads; how often they
-    talk about a topic only helps a little: openness 25%, recency 25%, personal 20%, specificity 15%,
-    breadth 5%, LLM confidence 10%."""
+    talk about a topic only helps a little. needs_him 25% (must THEY answer, or does it go to sales?), openness 20%,
+    recency 20%, personal 15%, specificity 10%, breadth 5%, LLM confidence 5%."""
     facts = [by_id[i] for i in h.supporting_fact_ids if i in by_id]
     if not facts:
         return 0.0, {}
@@ -444,7 +476,9 @@ def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: s
     rs = [recency_score(f) for f in facts]
     recency = max(r for r, _ in rs)
     timings = [label for _, label in rs]
-    personal = sum(1 for f in facts if f.category != "company_news" and about_person(f, surname, first)) / len(facts)
+    # a speaker slot filed as company_news is still about them ("He is scheduled to speak at ...")
+    personal = sum(1 for f in facts if about_person(f, surname, first)
+                   and (f.category != "company_news" or _EVENT_FACT.search(f.fact))) / len(facts)
     own_voice = sum(1 for f in facts if getattr(f, "source_kind", "") in ("social", "own_article")
                     and (about_person(f, surname, first) or getattr(f, "source_kind", "") == "own_article")) / len(facts)
     personal = max(personal, own_voice)
@@ -452,10 +486,12 @@ def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: s
     theme_hits = max((th.count for th in themes if set(th.fact_ids) & set(h.supporting_fact_ids)), default=0)
     sources = len({f.source_url for f in facts} | {u for f in facts for u in f.corroborated_by})
     breadth = min(1.0, 0.15 * theme_hits + 0.15 * sources)
+    need = needs_him(h)
     parts = {"openness": round(openness, 2), "recency": round(recency, 2), "personal": round(personal, 2),
              "own_voice": round(own_voice, 2), "specificity": round(spec, 2), "breadth": round(breadth, 2),
-             "llm_confidence": round(h.confidence, 2)}
-    score = 0.25 * openness + 0.25 * recency + 0.20 * personal + 0.15 * spec + 0.05 * breadth + 0.10 * h.confidence
+             "llm_confidence": round(h.confidence, 2), "needs_him": round(need, 2)}
+    score = (0.25 * need + 0.20 * openness + 0.20 * recency + 0.15 * personal + 0.10 * spec + 0.05 * breadth
+             + 0.05 * h.confidence)
     if all(tg in ("past", "static") for tg in timings):
         score *= 0.6  # a hook built only on past events can be background, not the reason to write now
     return round(score, 3), parts
@@ -1036,6 +1072,25 @@ def live_dossier(t: Target, fallback_llm=None, *, budget_s: float | None = None,
     from .osint import build_dossier
 
     return build_dossier(t, fallback_llm or LocalLLMClient(timeout=120.0), budget_s=min(budget, 150.0))
+
+
+def rescore_dossier(path: Path, write: bool = True) -> VerifiedDossier:
+    """Re-score and re-order existing hooks with the current deterministic formula (no LLM, no new hooks).
+    Timing is re-derived from the supporting facts; ids are re-numbered so h1 is the strongest."""
+    d = VerifiedDossier.model_validate_json(Path(path).read_text(encoding="utf-8"))
+    by_id = {f.id: f for f in d.facts}
+    surname, first = normalize(d.target_name.split()[-1]), normalize(d.target_name.split()[0])
+    for h in d.hypotheses:
+        tims = [recency_score(by_id[i])[1] for i in h.supporting_fact_ids if i in by_id]
+        h.timing = next((x for x in ("upcoming", "recent", "undated", "static") if x in tims), "past")
+        h.score, h.score_breakdown = score_hook(h, by_id, d.themes, surname, first)
+    main = sorted([h for h in d.hypotheses if not h.is_own_angle], key=lambda h: h.score, reverse=True)
+    for i, h in enumerate(main):
+        h.id = f"h{i + 1}"
+    d.hypotheses = main + [h for h in d.hypotheses if h.is_own_angle]
+    if write:
+        Path(path).write_text(d.model_dump_json(indent=2), encoding="utf-8")
+    return d
 
 
 def rehook_dossier(path: Path, pool: LLMPool | None = None, log=print) -> VerifiedDossier:

@@ -3685,232 +3685,205 @@
   "hypotheses": [
     {
       "id": "h1",
-      "topic": "Continuous micro-training in the flow of work",
-      "rationale": "Robert emphasizes the Awareness Playlist delivering continuous micro-training within the daily workflow (f75, p42) and compares it to a Spotify playlist (f51, f170). This is a core product feature he talks about.",
-      "confidence": 0.7,
+      "topic": "Von der Idee zum Takeoff – Start-ups & Gründungen at Cybersicherheitsforschung 2027",
+      "rationale": "He is scheduled to speak at Cybersicherheitsforschung 2027 in Session 1.3 on 2027-03-02 (f152); conference logistics and audience questions are on his mind now.",
+      "confidence": 0.85,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f75",
-        "p42",
-        "f51"
+        "f152"
       ],
-      "open_signal": "continuous micro-training directly within the daily workflow",
-      "timing": "recent",
-      "sender_archetype": "L&D or HR manager looking for modern, engaging security training that fits into employees' daily routines",
-      "natural_ask": "Ask for a demo or trial of the Awareness Playlist feature.",
-      "incident_path": "action",
-      "first_line": "We're looking to replace boring e-learning with something employees actually use—how does your Awareness Playlist work in practice?",
-      "verify_risk": "The sender can be verified via LinkedIn and company email; the archetype is plausible for an L&D manager.",
+      "open_signal": "",
+      "timing": "upcoming",
+      "sender_archetype": "Conference program coordinator at Cybersicherheitsforschung 2027",
+      "natural_ask": "Confirm his speaker bio and whether he wants a pre-call with the session chair.",
+      "incident_path": "disclosure",
+      "first_line": "I'm coordinating Session 1.3 at Cybersicherheitsforschung 2027 and wanted to confirm your speaker details.",
+      "verify_risk": "He can check the conference program and organizer email domain; the sender should use the official conference communication channel.",
       "avoid": [
-        "Claiming to be a current customer",
-        "Mentioning specific customers like FC Bayern or Stihl",
-        "Referencing upcoming events not in the facts"
+        "Claiming the conference date changed",
+        "Mentioning other sessions or speakers not in the facts"
       ],
-      "score": 0.721,
+      "score": 0.79,
       "score_breakdown": {
-        "openness": 0.6,
-        "recency": 0.75,
-        "personal": 0.67,
-        "own_voice": 0.33,
-        "breadth": 1.0,
-        "llm_confidence": 0.7
+        "openness": 0.2,
+        "recency": 1.0,
+        "personal": 1.0,
+        "own_voice": 0.0,
+        "specificity": 1.0,
+        "breadth": 0.15,
+        "llm_confidence": 0.85,
+        "needs_him": 1.0
       }
     },
     {
       "id": "h2",
-      "topic": "Sovereign German hosting and data protection (STACKIT)",
-      "rationale": "Robert highlights sovereign German hosting on STACKIT and anonymization to shorten works council negotiations (f71, f76). This is a key differentiator for German enterprises.",
-      "confidence": 0.8,
+      "topic": "Human element in breaches and OSINT-driven multi-channel simulations",
+      "rationale": "He cites the 2026 Verizon DBIR human-interaction finding (f72) and describes revel8's OSINT-driven multi-channel simulations (f70), so he is actively making the case for continuous simulation.",
+      "confidence": 0.7,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f71",
-        "f76"
+        "f72",
+        "f70",
+        "f74"
       ],
-      "open_signal": "sovereign German hosting on STACKIT",
+      "open_signal": "OSINT-driven multi-channel simulations spanning email, SMS, vishing, MS Teams, and deepfake video",
       "timing": "recent",
-      "sender_archetype": "IT security lead at a German company with strong works council presence, concerned about data residency",
-      "natural_ask": "Ask how revel8 handles data residency and works council approval in practice.",
-      "incident_path": "action",
-      "first_line": "We're evaluating security training but our works council is strict on data—how does revel8's STACKIT hosting and anonymization work in practice?",
-      "verify_risk": "The sender can be verified via company email and LinkedIn; the archetype is plausible for an IT security lead.",
+      "sender_archetype": "Head of security awareness at a German company that recently ran a vishing test",
+      "natural_ask": "Ask whether his platform can run a small MS Teams vishing pilot and what the works-council timeline looks like.",
+      "incident_path": "disclosure",
+      "first_line": "Your point about the human-interaction finding in the 2026 Verizon DBIR landed with our team.",
+      "verify_risk": "He can check the sender's company and role on LinkedIn; a security awareness lead with recent vishing experience is plausible.",
       "avoid": [
-        "Claiming to be a works council member",
-        "Mentioning specific customers like FC Bayern or Stihl",
-        "Referencing upcoming events not in the facts"
+        "Claiming the sender already spoke with him",
+        "Inventing specific breach statistics beyond the 62% figure"
       ],
-      "score": 0.67,
+      "score": 0.643,
       "score_breakdown": {
         "openness": 0.6,
         "recency": 0.75,
         "personal": 1.0,
         "own_voice": 1.0,
-        "breadth": 0.15,
-        "llm_confidence": 0.8
+        "specificity": 1.0,
+        "breadth": 1.0,
+        "llm_confidence": 0.7,
+        "needs_him": 0.15
       }
     },
     {
       "id": "h3",
-      "topic": "Compliance with NIS2 and ISO 27001 through continuous training",
-      "rationale": "Robert argues that under BSIG, continuous training is a statutory baseline (f69) and revel8 helps meet NIS2/ISO 27001 (f155, f168). This is a current pain point for many organizations.",
-      "confidence": 0.85,
+      "topic": "Sovereign German hosting and STACKIT marketplace presence",
+      "rationale": "revel8 is among the first cybersecurity providers on STACKIT (f109) and uses sovereign hosting with group-level anonymization (f71), a current differentiator for German enterprises.",
+      "confidence": 0.7,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f69",
-        "f155",
-        "f168"
+        "f109",
+        "f71",
+        "f76"
       ],
-      "open_signal": "making continuous training a statutory baseline",
+      "open_signal": "",
       "timing": "recent",
-      "sender_archetype": "Compliance officer at a German essential entity (e.g., energy, finance) needing to meet BSIG/NIS2 requirements",
-      "natural_ask": "Ask for a whitepaper or case study on how revel8 supports BSIG/NIS2 compliance.",
-      "incident_path": "action",
-      "first_line": "Given the new BSIG fines and NIS2 deadlines, we're looking for training that counts as compliance—does revel8 have materials on that?",
-      "verify_risk": "The sender can be verified via company email domain and LinkedIn; the archetype is plausible for a compliance officer.",
+      "sender_archetype": "Enterprise architect at a German company with a sovereign-cloud mandate",
+      "natural_ask": "Ask whether the STACKIT deployment can be referenced in their internal cloud strategy review.",
+      "incident_path": "disclosure",
+      "first_line": "We're building a sovereign-cloud shortlist and noticed revel8 is among the first cybersecurity providers on the STACKIT marketplace.",
+      "verify_risk": "He can verify the sender's company cloud strategy publicly; a German enterprise architect with a sovereign-cloud mandate is plausible.",
       "avoid": [
-        "Claiming to be a legal expert",
-        "Mentioning specific fines or penalties beyond the facts",
-        "Referencing upcoming events not in the facts"
+        "Claiming STACKIT certification details not in the facts",
+        "Mentioning specific customers beyond FC Bayern, OBI, and Stihl"
       ],
-      "score": 0.587,
+      "score": 0.548,
       "score_breakdown": {
-        "openness": 0.6,
+        "openness": 0.0,
         "recency": 0.75,
-        "personal": 0.33,
-        "own_voice": 0.33,
-        "breadth": 0.45,
-        "llm_confidence": 0.85
+        "personal": 0.67,
+        "own_voice": 0.67,
+        "specificity": 1.0,
+        "breadth": 1.0,
+        "llm_confidence": 0.7,
+        "needs_him": 0.45
       }
     },
     {
       "id": "h4",
-      "topic": "AI-powered cyberattack simulations and deepfake defense",
-      "rationale": "Robert frequently discusses revel8's AI-native, deepfake-first platform and realistic simulations (f70, f116, f143). He is actively promoting these capabilities and seeking customers/partners (f77).",
-      "confidence": 0.9,
+      "topic": "Honest comparison of revel8 vs. SoSafe for DACH companies",
+      "rationale": "He authored this comparison (f68) and invites readers to book a live demonstration (f77), so he expects inbound from DACH buyers evaluating alternatives.",
+      "confidence": 0.75,
       "is_own_angle": false,
       "supporting_fact_ids": [
         "f68",
-        "f70",
         "f77",
-        "f116"
+        "f73"
       ],
       "open_signal": "",
       "timing": "recent",
-      "sender_archetype": "CISO of a mid-sized German company evaluating AI-driven security awareness training",
-      "natural_ask": "Request a live demo of revel8's deepfake and vishing simulations for their security team.",
-      "incident_path": "action",
-      "first_line": "I saw your comparison of revel8 vs. SoSafe and we're evaluating AI-driven training—could we see a live demo of your deepfake simulations?",
-      "verify_risk": "The sender can be verified via LinkedIn profile and company website; the archetype is plausible as a CISO evaluating vendors.",
+      "sender_archetype": "CISO at a mid-sized DACH manufacturing company evaluating security awareness vendors",
+      "natural_ask": "Ask whether the comparison covers MS Teams vishing and deepfake scenarios in German works-council environments.",
+      "incident_path": "disclosure",
+      "first_line": "I just read your revel8 vs. SoSafe comparison for DACH companies and wanted to ask a follow-up before we shortlist vendors.",
+      "verify_risk": "He can look up the sender's LinkedIn and company website; a DACH manufacturing CISO with public NIS2 concerns is plausible.",
       "avoid": [
-        "Claiming to be a current customer or partner",
-        "Mentioning specific funding amounts or investors",
-        "Referencing upcoming events not in the facts"
+        "Claiming to be an existing revel8 customer",
+        "Asking for pricing not mentioned in the facts"
       ],
-      "score": 0.578,
+      "score": 0.5,
       "score_breakdown": {
         "openness": 0.0,
         "recency": 0.75,
-        "personal": 0.75,
-        "own_voice": 0.75,
-        "breadth": 1.0,
-        "llm_confidence": 0.9
+        "personal": 1.0,
+        "own_voice": 1.0,
+        "specificity": 0.8,
+        "breadth": 0.9,
+        "llm_confidence": 0.75,
+        "needs_him": 0.15
       }
     },
     {
       "id": "h5",
-      "topic": "OSINT-driven personalization of attack simulations",
-      "rationale": "Robert describes revel8's OSINT risk profiling engine that mirrors real-world threat actor techniques (f74) and uses OSINT to tailor simulations (f116, f143). This is a unique selling point he promotes.",
-      "confidence": 0.75,
-      "is_own_angle": false,
-      "supporting_fact_ids": [
-        "f74",
-        "f116",
-        "f143"
-      ],
-      "open_signal": "",
-      "timing": "recent",
-      "sender_archetype": "Security researcher or red-team specialist interested in OSINT techniques for training",
-      "natural_ask": "Ask for a technical discussion or blog post on how revel8 uses OSINT to personalize simulations.",
-      "incident_path": "disclosure",
-      "first_line": "Your OSINT-driven approach to personalizing attacks is fascinating—could you share more about how you gather and use open-source data?",
-      "verify_risk": "The sender can be verified via LinkedIn and publications; the archetype is plausible for a security researcher.",
-      "avoid": [
-        "Claiming to be a competitor",
-        "Mentioning specific OSINT sources or methods not in the facts",
-        "Referencing upcoming events not in the facts"
-      ],
-      "score": 0.479,
-      "score_breakdown": {
-        "openness": 0.0,
-        "recency": 0.75,
-        "personal": 0.33,
-        "own_voice": 0.33,
-        "breadth": 1.0,
-        "llm_confidence": 0.75
-      }
-    },
-    {
-      "id": "h6",
-      "topic": "Building a world-class product with relentless customer focus",
-      "rationale": "Robert is credited with helping build a world-class product and working hand-in-hand with CISOs (p19, p20). He values customer feedback and rapid shipping (p21).",
+      "topic": "License revenue growth and scaling the team",
+      "rationale": "revel8 expects license revenue to exceed one million euros this year and triple next year (f21), and plans to expand the team (f54), so growth and scaling are current.",
       "confidence": 0.65,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "p19",
-        "p20",
-        "p21"
+        "f21",
+        "f54",
+        "f111"
       ],
       "open_signal": "",
       "timing": "static",
-      "sender_archetype": "CISO or security leader who wants to share feedback or collaborate on product improvements",
-      "natural_ask": "Offer to provide feedback on revel8's platform or suggest a feature based on real-world needs.",
+      "sender_archetype": "Business development lead at a DACH cybersecurity channel/partner",
+      "natural_ask": "Ask whether they are opening partner or reseller conversations for the DACH mid-market.",
       "incident_path": "disclosure",
-      "first_line": "I've been following revel8's growth and I'm impressed by your customer focus—I'd love to share some feedback from a CISO perspective.",
-      "verify_risk": "The sender can be verified via LinkedIn and company role; the archetype is plausible for a CISO.",
+      "first_line": "With revel8's license revenue growth, I wanted to ask about DACH channel partnerships.",
+      "verify_risk": "He can check the sender's company website and LinkedIn; a channel BD role at a security distributor is plausible.",
       "avoid": [
-        "Claiming to be an investor or advisor",
-        "Mentioning specific funding amounts",
-        "Referencing upcoming events not in the facts"
+        "Claiming a specific partner program exists",
+        "Using funding amounts from conflicting facts"
       ],
-      "score": 0.105,
+      "score": 0.222,
       "score_breakdown": {
-        "openness": 0.0,
+        "openness": 0.6,
         "recency": 0.35,
         "personal": 0.0,
         "own_voice": 0.0,
-        "breadth": 0.15,
-        "llm_confidence": 0.65
+        "specificity": 0.6,
+        "breadth": 1.0,
+        "llm_confidence": 0.65,
+        "needs_him": 0.15
       }
     },
     {
       "id": "own1",
-      "topic": "AI and image forensics expert panel participation",
-      "rationale": "Robert was part of an expert panel on AI and image forensics at a Merantix event (f125, f122). This shows interest in deepfake detection and forensics, a niche topic he might engage with.",
+      "topic": "Agentic AI forensics and deepfake detection beyond detection scores",
+      "rationale": "He was on an expert panel at a Merantix Momentum event on agentic AI systems in forensics (f122, f124, f125), a personal, less commercial topic that connects to his deepfake work.",
       "confidence": 0.6,
       "is_own_angle": true,
       "supporting_fact_ids": [
-        "f125",
-        "f122"
+        "f122",
+        "f123",
+        "f124",
+        "f125"
       ],
       "open_signal": "",
       "timing": "static",
-      "sender_archetype": "Researcher or journalist covering deepfake detection and AI forensics",
-      "natural_ask": "Ask for his perspective on the latest deepfake detection challenges or a brief interview for an article.",
+      "sender_archetype": "Researcher/attendee who was at the Merantix Momentum event",
+      "natural_ask": "Ask whether agentic AI forensics could be used to validate the realism of deepfake simulations.",
       "incident_path": "disclosure",
-      "first_line": "I saw you were on the panel about AI and image forensics—I'm writing a piece on deepfake detection and would love your take.",
-      "verify_risk": "The sender can be verified via LinkedIn and published articles; the archetype is plausible for a journalist.",
+      "first_line": "I was at the Merantix Momentum session on agentic AI forensics and wanted to follow up on your panel point.",
+      "verify_risk": "He could ask which talk or demo; the sender can reference Clyravision and the venue to stay plausible.",
       "avoid": [
-        "Claiming to have attended the event",
-        "Mentioning specific tools like Clyravision",
-        "Referencing upcoming events not in the facts"
+        "Claiming to have met him personally",
+        "Attributing specific panel statements not in the facts"
       ],
-      "score": 0.138,
+      "score": 0.369,
       "score_breakdown": {
-        "openness": 0.2,
+        "openness": 0.6,
         "recency": 0.35,
-        "personal": 0.0,
+        "personal": 0.25,
         "own_voice": 0.0,
+        "specificity": 1.0,
         "breadth": 0.15,
-        "llm_confidence": 0.6
+        "llm_confidence": 0.6,
+        "needs_him": 1.0
       }
     }
   ],
