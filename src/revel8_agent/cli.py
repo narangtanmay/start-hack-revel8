@@ -106,7 +106,10 @@ def _run(
         return 2
     from .llm_client import LLMPool
 
-    pool = LLMPool(timeout=300.0)
+    import os
+
+    # LLM_TIMEOUT: a slow call fails over to LLM_FALLBACK_MODEL instead of stalling the touch
+    pool = LLMPool(timeout=float(os.getenv("LLM_TIMEOUT") or 300.0))
     llm = pool.lane(0)  # same interface as LocalLLMClient; uses any key with room in its 20 req/min window
     dossier_path = Path(dossier_file) if dossier_file else Path("dossiers") / f"{target}.json"
     if dossier_file and not dossier_path.exists():

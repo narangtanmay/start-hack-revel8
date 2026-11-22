@@ -145,7 +145,9 @@ class LocalLLMClient:
                                    retry_rate_limit=retry_rate_limit, reasoning=reasoning)
         except LocalLLMError as error:
             fallback = os.getenv("LLM_FALLBACK_MODEL", "").strip()
-            if (not fallback or fallback == self.model or error.status_code in (400, 401, 403, 404, 429)
+            # 429 included on purpose: "Model 'DeepSeek-V4.1-Flash' is at capacity" (2026-11-22) is exactly when the
+            # fallback model should take the call
+            if (not fallback or fallback == self.model or error.status_code in (400, 401, 403, 404)
                     or (deadline is not None and time.monotonic() >= deadline)):
                 raise
             extra_raw = os.getenv("LLM_FALLBACK_EXTRA_BODY", "").strip()
