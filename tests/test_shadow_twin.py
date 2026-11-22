@@ -291,6 +291,24 @@ def test_once_slots_are_on_the_table_the_call_wins_the_tier_ranking() -> None:
     assert meta["selected_tier"] == "bold"
 
 
+def test_live_robert_accepted_slot_dials_despite_named_handoff() -> None:
+    # s_448d92dcd4 T1 -> T2: the target accepted Tuesday while adding Claudia to the call.
+    # Adding a participant is not a reason to replace the accepted call with another email.
+    step = _step(1, "email", reply=(
+        "For commercial and pilot scoping I'll bring in Solution Engineering (Claudia Lannes) and sales. "
+        "Tuesday 24 Nov, 14:00-16:00 would work."
+    ), sentiment="engaged")
+    step["payload"] = {"body": (
+        "Could we take fifteen minutes on the phone? I could do Tuesday 24 November "
+        "between 14:00 and 16:00, Wednesday 25 November before 11:00, or Thursday 26 November after 15:00."
+    )}
+    move, meta = _select([step], WEEKDAY)
+    assert meta["target_state"]["call_handoff"] == "Claudia Lannes"
+    assert move["channel"] == "phone_call"
+    assert move["move_type"] == "ESCALATE_CALL"
+    assert meta["selected_tier"] == "bold"
+
+
 def _completed_call(steps, *, reply: str = "Good talk, send it over.", transcript: str = "") -> list[dict]:
     call = _step(len(steps) + 1, "phone_call", reply=reply, sentiment="engaged")
     call["transcript"] = [{"who": "target", "text": transcript or reply}]

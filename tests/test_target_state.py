@@ -307,6 +307,32 @@ def test_slot_weekday_abbreviations_count_as_acceptance():
         assert extract_target_state(steps)["call_accepted"] is True, weekday
 
 
+def test_live_robert_tuesday_slot_proposal_is_remembered():
+    # s_448d92dcd4 T1 payload: the real Tuesday/Wednesday wording did not set call_proposed,
+    # so his accepted slot never reached the Shadow Twin's call-escalation branch.
+    steps = [{"touch": 1, "action": {"channel": "email"}, "payload": {
+        "body": ("Could we take fifteen minutes on the phone? I could do Tuesday 24 November "
+                 "between 14:00 and 16:00, Wednesday 25 November in the morning before 11:00, "
+                 "or Thursday 26 November after 15:00. If none of those fit, tell me what does.")
+    }, "events": [{"type": "reply", "channel": "email", "body": (
+        "For commercial and pilot scoping I'll bring in Solution Engineering (Claudia Lannes) and sales. "
+        "Tuesday 24 Nov, 14:00-16:00 would work."
+    )}]}]
+    state = extract_target_state(steps)
+    assert state["call_proposed"] is True
+    assert state["call_accepted"] is True
+    assert state["call_handoff"] == "Claudia Lannes"
+
+
+def test_live_robert_pass_it_to_name_does_not_capture_so():
+    # s_448d92dcd4 T4 reply became the addressee "Claudia Lannes so" on T5.
+    state = extract_target_state(_reply_step(
+        "Thanks, the sequence is clear. I'll pass it to Claudia Lannes so she can plan scoping "
+        "around the December dates."
+    ))
+    assert state["call_handoff"] == "Claudia Lannes"
+
+
 def test_robert_named_handoff_survives_pronoun_replies():
     steps = [
         {"touch": 1, "action": {"channel": "email"},
