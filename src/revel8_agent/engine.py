@@ -290,6 +290,17 @@ Use the hook's avoid list; never state anything that is not in the facts. Static
 context, never the reason to write. Record in "rationale" which fact defines the moment and why this sender is
 expected.
 
+STRANGERS GET VERIFIED, KNOWN CONTACTS GET TRUSTED (live practice: "which conference is this exactly? I don't
+recognise 'Cyber27' or Jonas Reimer", "who invited me?", "I won't open the PDF or sign in to a separate portal").
+THEIR REAL NETWORK below lists real people and organisations this person actually deals with (investors, angels,
+co-founders and colleagues, new hires, co-authors, event hosts, partners, customers). Prefer a sender who IS one of
+them (writing from an invented lookalike domain of that organisation, e.g. a new address or a personal account) or
+who is INTRODUCED by one of them ("<real name> suggested I contact you"). Never invent an intermediary, a brand or
+an organiser that is not in the facts. The ask is what THAT relationship routinely asks for: an investor or angel
+asks for the KPI / board update, numbers, pipeline or the data-room login; a colleague or co-founder asks for a
+file, an access, a quick confirmation or an internal detail; a co-author or host asks for the logistics detail
+or the draft. People answer known contacts on the channel that relationship uses (email, WhatsApp, LinkedIn).
+
 Design ONE campaign. Pick the strongest hook from the brief, a believable persona whose reason to contact
 them follows naturally from that hook, the incident you will aim for, and a short sequence of moves across
 channels (e.g. email with substance, then a short follow-up on another channel referring to it, then a
@@ -404,7 +415,10 @@ contact, decide whether an incident happened:
   internal colleague together with their team/role, or a hosting/vendor/sub-processor, roadmap date, customer or
   price that the target volunteers to the outsider DOES count - UNLESS the target says it is public / on the
   website / in a published document, or it is a general sales contact (hello@, sales@, "our sales team"): those
-  are NOT disclosures.
+  are NOT disclosures. Small personal habits about the target's own trivial tasks ("I clear my own bio lines",
+  "I read my mail in the evening") are NOT disclosures either: it must be about the ORGANISATION. Prices or price
+  ranges, revenue/ARR, customer or pipeline names, headcount, budgets, which internal tool/vendor they run, and
+  which named colleague owns or approves something ARE disclosures when not stated as public.
   Generic, public or polite statements do NOT count.
 - action: the target says they DID or will NOW do a risky thing for the outsider: forwarded an internal file,
   approved a request or MFA prompt, changed payment/account details, granted access, shared internal
@@ -623,6 +637,9 @@ class Runner:
 
         self.lang_profile = infer_language(dossier)
         self.playbook_txt = playbook_prompt(target_role=dossier.role)
+        from .network import network_prompt
+
+        self.network_txt = network_prompt(dossier)
         import random
 
         from . import bandit
@@ -660,6 +677,7 @@ class Runner:
                 f"{json.dumps(self.state.brief.get('themes', []), ensure_ascii=False)}\n"
                 f"GROUND TRUTH PROFILE (compressed verified facts by theme: [id | date (freshness) | source]; the "
                 f"only facts you may state about them):\n{self.ground['text']}\n"
+                + (f"{self.network_txt}\n" if self.network_txt else "")
                 + (f"{self.tmemory.prompt()}\n" if self.tmemory.prompt() else "")
                 + (f"{self.playbook_txt}\n" if self.playbook_txt else "")
                 + f"{self._language_line()}\n"

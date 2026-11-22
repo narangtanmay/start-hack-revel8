@@ -18,6 +18,13 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
 LENSES: dict[str, str] = {
+    "known-contact": (
+        "LENS: SOMEONE THEY KNOW. Strangers get verified and refused; known contacts get answers, opened links and "
+        "favours. Pick ONE real person or organisation from THEIR REAL NETWORK (investor/angel, co-founder or "
+        "colleague, new hire, event host, partner, co-author). Either the sender IS that contact writing from a new "
+        "address / personal account on an invented lookalike domain, or the sender is introduced by them by name. "
+        "The ask is what that relationship routinely asks for (investor: KPI/board update, pipeline numbers, "
+        "data-room login; colleague: a file, an access, a confirmation, an internal detail; host: logistics)."),
     "give-to-get": (
         "LENS: RECIPROCITY. The sender is someone the target routinely ANSWERS AS PART OF THEIR JOB (prospect doing "
         "vendor due diligence, partner scoping an integration). The sender opens by giving something concrete of "

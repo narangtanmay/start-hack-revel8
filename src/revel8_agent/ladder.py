@@ -77,6 +77,12 @@ _GATED_DOCS = re.compile(
     r"(?:need|needs|requires?) (?:an? )?(?:approval|sign-?off|ticket|PO|purchase order|verification)", re.I)
 
 
+# Live 22 Nov: "Katharina Pohl can confirm the slot", "send this to Claudia Lannes, Solution Engineering".
+_NAMED_CONTACT = re.compile(
+    r"\b([A-Z][a-zäöüé]+ [A-Z][a-zäöüé]+)(?=,? (?:can|will|is|from|at|handles|owns|confirms?|in our|on our|"
+    r"\((?:[A-Z]|our)|Solution|Sales|Finance|Legal|Operations|the conference|our))")
+
+
 def last_reply(steps: list[dict]) -> str:
     for s in reversed(steps):
         said = [e.get("body", "") for e in s.get("events") or [] if e.get("type") == "reply"]
@@ -130,6 +136,12 @@ def prompt(steps: list[dict], incidents: list[dict]) -> str:
             "Set link = {\"url\": a URL on YOUR persona's own domain, \"page_type\": \"signin\", \"document_name\": "
             "the name of that formal document}. Name the colleague or channel they pointed to, if any. Short and "
             "procedural.")
+    named = _NAMED_CONTACT.findall(said)
+    if named:
+        out += (f"\nTHEY NAMED A REAL CONTACT ({', '.join(dict.fromkeys(named))[:120]}). That person is now part of "
+                "this story and trusted by them: copy them in, cite them ('as <name> confirmed'), or let the next "
+                "touch come from that person's side of the same story (their office, same thread). Never contradict "
+                "what the target said about them.")
     if _NOT_IN_WRITING.search(said):
         out += ("\nTHEY WON'T PUT IT IN WRITING / INVITED MORE: do exactly what they asked (send the few lines on "
                 "your setup they asked for, concrete and generous), then propose a short call this week and ask the "
