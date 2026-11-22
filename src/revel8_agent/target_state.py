@@ -85,6 +85,7 @@ _ATTACHMENT_BLOCK_RE = re.compile(
     r"(?:don'?t|do not|won'?t|never) open(?:ing)? (?:any |the |unsolicited |outside |external )?"
     r"(?:attachments?|files?|pdfs?|word|office|documents?)|"
     r"not opening (?:any |the )?(?:attachments?|files?)|"
+    r"(?:don'?t|do not|won'?t|never) send (?:any |the |more |unsolicited )?(?:attachments?|files?|pdfs?)|"
     r"didn'?t (?:open|read|look at) (?:the |your |an? )?(?:attachments?|files?|pdfs?|documents?)|"
     r"(?:rather not|won'?t) open (?:the |your |an? )?(?:attachment|file|pdf|document)|"
     r"keine? anh(?:a|ä)ng(?:e)?|ohne anhang|keine pdf|keine dateien|"
@@ -264,6 +265,27 @@ def _snippet(match: re.Match[str], text: str) -> str:
     return re.sub(r"\s+", " ", match.group(0)).strip()[:80]
 
 
+def _sent_pdf(step: dict[str, Any]) -> bool:
+    """Return whether this executed touch actually dispatched a PDF attachment.
+
+    Prefer the final payload over the proposed action: the gate can strip or replace an
+    attachment before dispatch. Older run records without a payload fall back to the action.
+    """
+    payload = step.get("payload") if isinstance(step.get("payload"), dict) else {}
+    if "attachments" in payload:
+        attachments = payload.get("attachments") or []
+        return any(
+            isinstance(item, dict)
+            and str(item.get("filename") or item.get("name") or "").lower().endswith(".pdf")
+            for item in attachments
+        )
+    action = step.get("action") if isinstance(step.get("action"), dict) else {}
+    names = action.get("attachment_filename") or []
+    if isinstance(names, str):
+        names = re.split(r"\s*[,;]\s*", names)
+    return any(str(name).strip().lower().endswith(".pdf") for name in names)
+
+
 def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     history = _executed_steps(steps)
     if not history:
@@ -302,6 +324,11 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     for idx, step in enumerate(history, start=1):
         turn = int(step.get("touch") or idx)
         step_chan = _step_channel(step)
+
+        # Delivery supersedes the earlier request. Process this before the reply so a new PDF
+        # request in the same touch reopens the door instead of being erased by the old delivery.
+        if "wants_pdf" in open_doors and _sent_pdf(step):
+            open_doors.discard("wants_pdf")
 
         sent = _sent_blob(step)
         if sent:
@@ -404,7 +431,9 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
                     last_reply_blocked = True
 
             attachment_refused_here = bool(_ATTACHMENT_BLOCK_RE.search(combined))
-            if not attachment_refused_here:
+            if attachment_refused_here:
+                open_doors.discard("wants_pdf")
+            else:
                 m_pdf = _WANTS_PDF_RE.search(combined)
                 if m_pdf:
                     open_doors.add("wants_pdf")

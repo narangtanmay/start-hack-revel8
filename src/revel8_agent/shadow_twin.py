@@ -167,7 +167,7 @@ def _unproductive_replies_on_hook(history: list[dict[str, Any]]) -> int:
         cur = extract_target_state(history[:k])  # ponytail: O(n^2) over <=10 touches
         if hook and _step_hook(s) == hook and _replies(s):
             # Target pulling on an ask we have not delivered (Tom task-1805) is our delay, not a dead hook.
-            # ponytail: wants_pdf never clears once seen, so a PDF-asker never stalls; track delivery if that bites.
+            # wants_pdf is temporal: actual dispatch fulfills it; a later request can reopen it.
             pending_ask = ("wants_call" in cur["open_doors"] and not cur["call_completed"]) or "wants_pdf" in cur["open_doors"]
             progressed = (prev["engagement_stage"] == "cold" or pending_ask
                           or set(cur["open_doors"]) - set(prev["open_doors"])

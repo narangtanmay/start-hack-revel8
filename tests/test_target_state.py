@@ -85,6 +85,68 @@ def test_extract_target_state_weekend_files_and_email_body_pull():
     assert "wants_email_body" in st["open_doors"]
 
 
+def test_dispatched_pdf_fulfills_wants_pdf_but_a_new_request_reopens_it():
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email"},
+            "events": [{"type": "reply", "channel": "email", "body": "Please send the role brief as a PDF."}],
+            "judge": {"sentiment": "questioning"},
+        },
+        {
+            "touch": 2,
+            "action": {"channel": "email", "attachment_filename": "Role_Brief.pdf"},
+            "payload": {"attachments": [{"filename": "Role_Brief.pdf"}]},
+            "events": [{"type": "attachment.opened", "filename": "Role_Brief.pdf"}],
+            "judge": {"sentiment": "engaged"},
+        },
+    ]
+    assert "wants_pdf" not in extract_target_state(steps)["open_doors"]
+
+    steps[1]["events"].append({
+        "type": "reply", "channel": "email", "body": "That was the old version. Please send the updated PDF."
+    })
+    assert "wants_pdf" in extract_target_state(steps)["open_doors"]
+
+
+def test_only_the_dispatched_payload_counts_as_pdf_delivery():
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email"},
+            "events": [{"type": "reply", "channel": "email", "body": "Please send it as a PDF."}],
+        },
+        {
+            "touch": 2,
+            "action": {"channel": "email", "attachment_filename": "Candidate.pdf"},
+            "payload": {"attachments": []},
+            "events": [],
+        },
+    ]
+    assert "wants_pdf" in extract_target_state(steps)["open_doors"]
+
+
+def test_attachment_refusal_supersedes_an_earlier_pdf_request():
+    steps = [
+        {
+            "touch": 1,
+            "action": {"channel": "email"},
+            "events": [{"type": "reply", "channel": "email", "body": "Please send it as a PDF."}],
+        },
+        {
+            "touch": 2,
+            "action": {"channel": "email"},
+            "events": [{
+                "type": "reply", "channel": "email",
+                "body": "The mail body was enough. Please do not send attachments.",
+            }],
+        },
+    ]
+    state = extract_target_state(steps)
+    assert "wants_pdf" not in state["open_doors"]
+    assert "attachments" in state["blocked_mechanisms"]
+
+
 def test_policy_pivots_off_blocked_login_and_attaches_target_state():
     policy = RuleBasedPolicy()
     plan = {"objective": "credentials", "hook_id": "h1", "sequence": [{"channel": "email"}]}
