@@ -287,6 +287,14 @@ class RuleBasedPolicy:
         if objective == "disclosure" and initial_hook is not None and _is_upcoming_hook(initial_hook) and not login_declined:
             objective = "credentials"
 
+        handoff_ignored = 0
+        if target_state.get("call_handoff"):
+            for s in history[::-1]:
+                if any(str(e.get('body') or '').strip() for e in (s.get('events') or [])
+                       if e.get('type') == 'reply'):
+                    break
+                handoff_ignored += 1
+
         consecutive_silent = 0
         silent_channels: set[str] = set()
         for s, sent in zip(reversed(history), reversed(sentiments)):
@@ -504,8 +512,13 @@ class RuleBasedPolicy:
                     "STAY",
                     last_hook_id,
                     "email",
-                    f"Write to {handoff} instead of the target, cc the target, put the concrete detail in that "
-                    "mail and quote the target's own words as the reason for writing.",
+                    (f"One line only: the time stands, {handoff} has it, ask them to confirm and send the "
+                     "invite; say you stop and wait if you hear nothing.")
+                    if handoff_ignored >= 3 else
+                    (f"Shorten to two lines: {handoff} owns it, one sentence of substance, one yes/no question.")
+                    if handoff_ignored >= 2 else
+                    (f"Keep the target's greeting and thread and name {handoff} as the owner in the first "
+                     "sentence; put the concrete detail in that mail and quote the target's own words."),
                     ["Quote the agreed time on the call", "Keep persona and prior details consistent"],
                     "The call took place but scheduling was handed to a named person; the next step is that "
                     "person with the slots, not another mail to the target.",

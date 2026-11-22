@@ -203,6 +203,13 @@ def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str,
         if sent not in _NEGATIVE_SENTIMENTS:
             break
         negative += 1
+    # Handoff letters that nobody answered: the thread must shorten, not re-send the same letter.
+    handoff_ignored = 0
+    if target_state.get("call_handoff"):
+        for s in reversed(history):
+            if _replies(s):
+                break
+            handoff_ignored += 1
 
     return {
         "today": today or datetime.now(),
@@ -215,6 +222,7 @@ def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str,
         "phone_offered": bool(_PHONE_NUMBER.search(reply_text)) or bool(target_state["phone_offered"]),
         "silent_message_touches": silent_msgs,
         "consecutive_negative": negative,
+        "handoff_ignored": handoff_ignored,
         "target_state": target_state,
     }
 
@@ -296,8 +304,16 @@ def select_shadow_twin_move(
                  "Stay in-thread with one low-friction clarifying question.",
                  f"stay on {safe_channel} with the active hook"),
         "balanced": (balanced_channel, balanced_hook, plan_objective,
-                     f"Write to {handoff} instead of the target, cc the target, put the concrete detail in that "
-                     f"mail and quote the target's own words as the reason for writing."
+                     f"One line only: the time stands, {handoff} has it, ask them to confirm it and send the "
+                     f"invite; say you will stop and wait if you hear nothing."
+                     if after_handoff and c["handoff_ignored"] >= 3 else
+                     f"Shorten to two lines: {handoff} owns it, one sentence of substance, one yes/no question."
+                     if after_handoff and c["handoff_ignored"] >= 2 else
+                     # No recipient/cc field exists, so the mail still lands on the target's thread: greet the
+                     # target, name the owner in the first sentence, and stop claiming a cc that is not sent.
+                     f"Keep the target's greeting and thread, and name {handoff} in the first sentence as "
+                     f'the owner ("Robert, for Claudia:"); put the concrete detail in that mail and quote '
+                     f"the target's own words as the reason for writing."
                      if after_handoff else
                      "Send what was promised on the call, ask for one written line back and say when you "
                      "will check in; no second dial and no hook change."
