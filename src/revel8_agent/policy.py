@@ -46,7 +46,10 @@ _MEETING_REQUEST = re.compile(r"video|meeting|termin|call|zoom|teams|einladung|i
 # The target refuses logins: a sign-in page would only burn trust, so stop pushing one.
 _LOGIN_DECLINE = re.compile(
     r"kein(?:en)? (?:login|log-in)|nicht (?:ein)?loggen|portal-?login kommt nicht|log(?:-| )?in(?:s)? (?:is|are) out|"
-    r"won'?t (?:log|sign) in|no (?:login|log-in|sign-in)|don'?t (?:log|sign) in|keine anmeldung",
+    r"won'?t (?:log|sign) in|no (?:login|log-in|sign-in)|don'?t (?:log|sign) in|keine anmeldung|"
+    # "no need for me to sign in anywhere ... rather than through the link" (fast-SW Tom T1, 2026-11-22)
+    r"no need (?:for me )?to (?:log|sign) ?in|(?:log|sign) ?in anywhere|rather than (?:through|via) the link|"
+    r"nicht (?:extra )?(?:an|ein)melden|ohne (?:login|anmeldung)|lieber (?:direkt )?(?:hier|per mail)",
     re.IGNORECASE,
 )
 

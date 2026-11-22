@@ -747,6 +747,16 @@ class Runner:
                 + f"{self._language_line()}\n"
                 + f"TOUCH BUDGET: {self.cfg.max_touches}\n"
                 f"Channels: {MESSAGE_CHANNELS + LIVE_CHANNELS}")
+        upcoming = next((h for h in _rank_hooks(list(self.state.brief.get("hooks") or []))
+                         if _is_upcoming_hook(h)), None)
+        if upcoming and (self.cfg.use_policy or self.decider):
+            # fast-SW Tom T1 (2026-11-22): right hook, but a vendor persona put a sign-in page in front of a question
+            # ("no need for me to sign in anywhere"). The winning run was the session's own organiser.
+            user += (f"\nTHE MOMENT: {upcoming.get('id')} \"{upcoming.get('topic')}\" is the target's own upcoming "
+                     "commitment. Use this hook. Cast the persona as the natural counterpart who runs it (organiser, "
+                     "programme committee, session chair, speaker management), never a vendor or prospect. That person "
+                     "has a real reason to send them to a page: confirming THEIR OWN profile, session details or "
+                     "slides in the event's speaker portal. Objective: credentials.")
         for attempt in range(4):
             plan = self._validated_plan(user)
             persona = plan.get("persona") if isinstance(plan.get("persona"), dict) else {}

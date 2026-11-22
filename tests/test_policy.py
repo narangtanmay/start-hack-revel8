@@ -697,3 +697,11 @@ def test_disclosure_on_themes_only_is_left_alone() -> None:
     move = RuleBasedPolicy().choose_next_move(brief, [], touch=1, max_touches=10, plan=plan)
     assert move["objective"] == "disclosure"
     assert move["require_link"] is False
+
+
+def test_soft_login_refusal_is_detected() -> None:
+    from revel8_agent.policy import _LOGIN_DECLINE
+
+    assert _LOGIN_DECLINE.search("Happy to give you my take directly here rather than through the link - "
+                                 "no need for me to sign in anywhere")
+    assert not _LOGIN_DECLINE.search("Sure, I'll sign in tonight and confirm.")
