@@ -55,3 +55,9 @@ def _ladder_off_for_scripted_llm(monkeypatch):
     import revel8_agent.engine as eng
 
     monkeypatch.setattr(eng, "LADDER_ON", False)
+
+
+@pytest.fixture(autouse=True)
+def _council_off_for_scripted_llm(monkeypatch):
+    # the strategy council fans out several planner calls; scripted engine tests count calls exactly
+    monkeypatch.setenv("REVEL8_COUNCIL", "0")

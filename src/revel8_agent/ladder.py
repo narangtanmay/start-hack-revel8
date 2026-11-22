@@ -26,7 +26,10 @@ from .memory import is_win
 _ELICIT = re.compile(
     r"\b(?:which|what|who|how)\b[^?]{0,120}\b(?:tool|system|software|platform|crm|erp|stack|provider|vendor|"
     r"process|workflow|approv\w*|sign[- ]?off|owner|responsible|in charge|team|budget|timeline|roadmap|plan\w*|"
-    r"policy|setup|set up|use|using|internally|in[- ]house|portal|account|login|sso|teams|slack|google|microsoft)\b[^?]*\?",
+    r"policy|setup|set up|use|using|internally|in[- ]house|portal|account|login|sso|teams|slack|google|microsoft|"
+    r"host\w*|cloud|sub-?processor|data (?:cent(?:er|re)|residency)|pentest|audit|certif\w*|roadmap|release|ship\w*|"
+    r"pricing|price|discount|licen[cs]\w*|customers?|references?|implementation|onboarding|contact|who (?:would|will|is)|"
+    r"headcount|hiring|integrat\w*|api|model|llm|incident|dpo|security questionnaire)\b[^?]*\?",
     re.I)
 _APPROVAL = re.compile(r"\b(?:approve|confirm|sign off|authori[sz]e|grant|give .{0,20}access|update the (?:bank|payment|account))\b", re.I)
 
@@ -46,9 +49,37 @@ def rung(steps: list[dict], incidents: list[dict]) -> int:
     return 1 if _replies(steps) else 0
 
 
+_ROLE_NATURAL = (
+    " HOW TO ASK SO THEY ANSWER: never ask a stranger about 'your internal setup' (they refuse in writing). Ask for "
+    "what someone in YOUR sender's role is NORMALLY GIVEN as part of their job: a prospect/customer gets vendor due "
+    "diligence answers (which cloud/hosting provider and region, sub-processors, which LLM/model provider, last pentest "
+    "and by whom, who would be our implementation/onboarding contact, roadmap date for feature X, pricing tier, a "
+    "reference customer in our industry); a partner gets the integration owner and process; a journalist/event "
+    "organiser gets who decides and when. GIVE TO GET: first share a concrete (invented, plausible) detail of your "
+    "own side (our stack, our headcount, our timeline), then ask theirs as the matching item ('we're on Azure in "
+    "Frankfurt with ~800 seats; which hosting region are you on, so our DPO can sign off?'). If they asked YOU "
+    "something, answer it fully first.")
+
+_NOT_IN_WRITING = re.compile(
+    r"not (?:go into|discuss|share|put)[^.]{0,60}\b(?:by|via|over|in) (?:e-?mail|mail|writing)|rather not[^.]{0,80}"
+    r"(?:mail|writing)|(?:let'?s|happy to|could|can) (?:talk|chat|jump on|hop on|do) (?:a |it )?(?:call|quick call|phone)|"
+    r"(?:give me|book|schedule) a call|go deeper|send me a few lines", re.I)
+
+
+def last_reply(steps: list[dict]) -> str:
+    for s in reversed(steps):
+        said = [e.get("body", "") for e in s.get("events") or [] if e.get("type") == "reply"]
+        said += [t.get("text", "") for t in (s.get("transcript") or [])[1:] if t.get("who") == "target"]
+        if any(x.strip() for x in said):
+            return "\n".join(said)
+    return ""
+
+
 _RUNG_PROMPT = {
-    0: ("LADDER rung 0 (no reply yet): earn a first reply. End with ONE easy, specific question about their own "
-        "work that a busy person can answer in one line."),
+    0: ("LADDER rung 0 (no reply yet): earn a first reply AND make it worth something. End with ONE easy, specific "
+        "question about their own work whose one-line honest answer is an internal detail the story needs (which "
+        "tool/system they use for it, who on their side owns or signs it off, how their process for it runs) - "
+        "framed so answering is just helping us get it right for them."),
     1: ("LADDER rung 1 (they talk to us): replies alone do not score. Ask ONE question whose honest answer is an "
         "internal fact the story genuinely needs - which tool/system they use for it, who internally signs it off, "
         "how their process for it works, or what is planned next - framed as logistics so WE can tailor what we "
@@ -63,7 +94,13 @@ _RUNG_PROMPT = {
 
 
 def prompt(steps: list[dict], incidents: list[dict]) -> str:
-    return _RUNG_PROMPT[rung(steps, incidents)]
+    out = _RUNG_PROMPT[rung(steps, incidents)] + _ROLE_NATURAL
+    if _NOT_IN_WRITING.search(last_reply(steps)):
+        out += ("\nTHEY WON'T PUT IT IN WRITING / INVITED MORE: do exactly what they asked (send the few lines on "
+                "your setup they asked for, concrete and generous), then propose a short call this week and ask the "
+                "same question there. If they already agreed to talk, use a live channel (phone_call) now: a call is "
+                "one touch for up to 10 turns, and people say on the phone what they refuse to write.")
+    return out
 
 
 def check_draft(steps: list[dict], incidents: list[dict], a: dict, plan_body: str) -> list[str]:
@@ -71,8 +108,6 @@ def check_draft(steps: list[dict], incidents: list[dict], a: dict, plan_body: st
     if a.get("kind") == "conversation":
         return []
     r = rung(steps, incidents)
-    if r == 0:
-        return []
     text = " ".join([str(a.get("subject") or ""), plan_body or "", " ".join(a.get("paragraphs") or [])])
     if _ELICIT.search(text) or _APPROVAL.search(text) or a.get("link"):
         return []

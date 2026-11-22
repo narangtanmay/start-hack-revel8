@@ -11,9 +11,9 @@ def test_rungs_follow_events():
     assert rung(_st(True), [{"type": "disclosure", "source": "llm-judge (estimate)"}]) == 3
 
 
-def test_gate_requires_scoring_ask_after_reply():
+def test_gate_requires_scoring_ask_from_touch_one():
     a = {"kind": "message", "paragraphs": ["Thanks, great to hear."]}
-    assert check_draft(_st(), [], a, "") == []
+    assert check_draft(_st(), [], a, "")          # v3: the ask is required from touch 1
     assert check_draft(_st(reply=True), [], a, "")
     a2 = {"kind": "message", "paragraphs": ["So I set it up right on your side: which tool do you use for scheduling?"]}
     assert check_draft(_st(reply=True), [], a2, "") == []

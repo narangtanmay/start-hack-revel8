@@ -53,6 +53,7 @@ from .templates import (
 )
 
 LADDER_ON = os.environ.get("REVEL8_LADDER", "1") != "0"  # commitment ladder (A/B switch)
+STOP_ON_JUDGED = os.environ.get("REVEL8_STOP_ON_JUDGED", "1") != "0"  # v3 stop rule (A/B switch)
 
 MESSAGE_CHANNELS = [
     "email", "calendar_invite", "shared_document", "voicemail", "sms", "whatsapp", "signal", "telegram",
@@ -393,7 +394,11 @@ Return ONLY JSON: {"queries": [str]}"""
 _JUDGE_SYS = """You judge a training simulation. Given what the target person said or did in response to a
 contact, decide whether an incident happened:
 - disclosure: the target revealed internal, non-public information (internal systems/tools, processes,
-  plans, internal people/roles details, numbers) to the outsider. Generic, public or polite statements do NOT count.
+  plans, internal people/roles details, numbers) to the outsider. It must be SPECIFIC: a named tool/vendor/system,
+  a named person or role who owns/approves something, a concrete internal step, date, number or plan. Naming an
+  internal colleague together with their team/role, or a hosting/vendor/sub-processor, roadmap date, customer or
+  price that the target volunteers to the outsider DOES count.
+  Generic, public or polite statements do NOT count.
 - action: the target says they DID or will NOW do a risky thing for the outsider: forwarded an internal file,
   approved a request or MFA prompt, changed payment/account details, granted access, shared internal
   material or credentials. Simply viewing a webpage or opening a link without submitting credentials,
@@ -611,6 +616,16 @@ class Runner:
 
         self.lang_profile = infer_language(dossier)
         self.playbook_txt = playbook_prompt(target_role=dossier.role)
+        import random
+
+        from . import bandit
+        from .memory import load_playbook
+
+        if bandit.enabled():
+            draws = bandit.sample_archetypes(load_playbook(), dossier.role, random.Random())
+            if draws:
+                self.state.config["bandit"] = draws          # logged for the replay / jury
+                self.playbook_txt = "\n".join(x for x in (self.playbook_txt, bandit.pick_prompt(draws[0])) if x)
         self.brand = None
         self.logo_asset: str | None = None
         self.decider = AdvancedDecider() if (
@@ -692,8 +707,22 @@ class Runner:
         hooks = self.state.brief.get("hooks") or []
         ctx = {"valid_hook_ids": [str(h["id"]) for h in hooks if isinstance(h, dict) and h.get("id")]}
         plan: dict = {}
+        council_plan = None
+        if not self.state.config.get("council"):
+            from . import council
+
+            council_plan, clog = council.convene(
+                lambda s, u, t: _llm_json(self.llm, self.state, s, u, temperature=t, reasoning="high"),
+                _PLAN_SYS, user, self.ground["text"])
+            if clog:
+                self.state.config["council"] = clog
+                self.log(f"council: {len(clog.get('candidates', []))} strategies ({', '.join(clog.get('lenses', []))}); "
+                         f"critic picked {clog.get('picked')}")
         for attempt in range(2):
-            plan = _llm_json(self.llm, self.state, _PLAN_SYS, user, temperature=0.7, reasoning="high")
+            if attempt == 0 and council_plan:
+                plan = council_plan
+            else:
+                plan = _llm_json(self.llm, self.state, _PLAN_SYS, user, temperature=0.7, reasoning="high")
             try:
                 CampaignPlan.model_validate(plan, context=ctx)
                 break
@@ -1202,18 +1231,27 @@ class Runner:
         evidence = str(verdict.get("evidence") or "")
         verified = bool(evidence) and any(normalize(evidence) in normalize(s) for s in said)
         verdict["evidence_verified"] = verified
+        if verified and (verdict.get("disclosure") or verdict.get("action")) and STOP_ON_JUDGED:
+            # Incident oracle: a second, independent read must agree before a judged win may end the run.
+            try:
+                second = _llm_json(self.llm, self.state, _JUDGE_SYS, context, temperature=0.4, reasoning="none")
+            except RuntimeError:
+                second = {}
+            verdict["consensus"] = bool((verdict.get("disclosure") and second.get("disclosure")) or
+                                        (verdict.get("action") and second.get("action")))
         step["judge"] = verdict
         if verified and verdict.get("disclosure"):
-            self._incident(touch, "disclosure", evidence, judged=True)
+            self._incident(touch, "disclosure", evidence, judged=True, consensus=verdict.get("consensus", False))
         if verified and verdict.get("action") and _NOT_AN_ACTION.search(evidence) and not _REAL_ACTION.search(evidence):
             verdict["action"] = False
             verdict["veto"] = "scheduling / asking for an invite or details is not an action"
         if verified and verdict.get("action"):
-            self._incident(touch, "action", evidence, judged=True)
+            self._incident(touch, "action", evidence, judged=True, consensus=verdict.get("consensus", False))
 
-    def _incident(self, touch: int, kind: str, detail: str, judged: bool = False) -> None:
+    def _incident(self, touch: int, kind: str, detail: str, judged: bool = False, consensus: bool = False) -> None:
         self.state.incidents.append({"touch": touch, "type": kind, "detail": detail,
-                                     "source": "llm-judge (estimate)" if judged else "api event"})
+                                     "source": "llm-judge (estimate)" if judged else "api event",
+                                     **({"consensus": True} if consensus else {})})
         self.log(f"   *** INCIDENT at touch {touch}: {kind} - {detail[:100]}")
 
     @staticmethod
@@ -1400,6 +1438,13 @@ class Runner:
                 # estimate stopped v6 Julius at touch 2 on "please send the invite" (a false positive); the API
                 # scores disclosures itself, and touches after a real incident do not lower the score.
                 if self.cfg.stop_at_first_incident and any(_confirmed(i) for i in st.incidents):
+                    break
+                # Stop rule (v3): two judges agree on a disclosure/action -> one insurance touch that asks for the
+                # bigger, API-visible thing on the same story, then stop. More touches only dilute topic share.
+                judged = [i for i in st.incidents if i.get("consensus")]
+                if self.cfg.stop_at_first_incident and STOP_ON_JUDGED and judged and \
+                        touch >= min(int(i["touch"]) for i in judged) + 1:
+                    self.log(f"stopping at touch {touch}: judged incident with consensus + insurance touch sent")
                     break
             st.status = "done"
         except Exception as error:  # noqa: BLE001 - always leave a readable run file behind
