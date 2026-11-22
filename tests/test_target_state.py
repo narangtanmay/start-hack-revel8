@@ -357,6 +357,27 @@ def test_real_slot_acceptance_still_counts():
     assert state["call_handoff"] == ""
 
 
+def test_jonas_conditional_handover_confirmation_is_not_slot_acceptance():
+    # Official s_d35906078b T3: "confirmed" described an internal handover check, not a booking.
+    # The future offer of two slots must remain an offer until Jonas actually names/confirms one.
+    steps = [{"touch": 1, "action": {"channel": "email", "paragraphs": [
+        "Could we do a short 20-minute onboarding call? Ideally Tuesday 24 November at 09:00 "
+        "or Wednesday 25 November at 11:00."
+    ]}, "events": [{"type": "reply", "channel": "email", "body": (
+        "Thanks for digging that out. I will check the order number and the handover with sales internally first. "
+        "Once the handover is confirmed on our side, I will send you two slots for Tuesday or Wednesday morning. "
+        "Account provisioning for the 40 users comes after that."
+    )}]}]
+    state = extract_target_state(steps)
+    assert state["call_proposed"] is True
+    assert state["call_accepted"] is False
+
+
+def test_direct_appointment_confirmation_still_counts():
+    state = extract_target_state(_reply_step("Tuesday at 14:00 is confirmed."))
+    assert state["call_accepted"] is True
+
+
 def test_state_does_not_call_a_bare_call_mention_a_proposal():
     steps = [{"touch": 1, "action": {"channel": "email",
                                      "paragraphs": ["Before a call would help, here are numbers."]}}]
