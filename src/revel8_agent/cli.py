@@ -89,6 +89,7 @@ def _run(
     actor: bool = False,
     dossier_file: str = "",
     then: list[str] | None = None,
+    max_chain: int = 2,
 ) -> int:
     import json
     from pathlib import Path
@@ -181,6 +182,10 @@ def _run(
         if queue == ["all"]:
             sc = next((s for s in api.get_scenarios() if isinstance(s, dict) and s.get("id") == scenario), {}) or {}
             queue = [x["id"] for x in sc.get("targets", []) if x.get("id") != target]
+        # Hard bound: each target at most once, never the first target again, at most max_chain hops; the
+        # session's touch budget (and the API's 409 past it) is a second bound.
+        seen = {target}
+        queue = [t for t in queue if not (t in seen or seen.add(t))][:max(0, max_chain)]
         prev = state
         for nxt in queue:
             won = any(i.get("source") == "api event" for i in prev.incidents)
@@ -278,6 +283,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--runs-dir", default="runs")
     run.add_argument("--then", action="append", default=[],
                      help="After an API-confirmed incident, continue the SAME session on this target (repeatable; 'all' = every other target).")
+    run.add_argument("--max-chain", type=int, default=2, help="Most extra targets chained into one session.")
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     rep.add_argument("--public-out", default="", help="Also write a public snapshot (landing pages not rendered) here.")
@@ -342,6 +348,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             actor=args.actor,
             dossier_file=args.dossier,
             then=args.then,
+            max_chain=args.max_chain,
         )
     if args.command == "report":
         from .report import render_index
