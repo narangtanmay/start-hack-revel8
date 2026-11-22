@@ -317,6 +317,8 @@ Return ONLY JSON:
                                       #   ("we are hiring", "looking for", "join us", "excited to share", "speaking at") or ""
   "sender_archetype": str,            # who would naturally contact them about this (small, plausible, hard to disprove)
   "natural_ask": str,                 # the one small thing they would do for that sender (reply with a view, review a profile, take a call)
+  "answers_personally": "yes"|"maybe"|"no",  # would {name} handle this ask THEMSELVES, or hand it to someone else?
+  "handed_to": str,                   # if not "yes": who they would hand it to (a team, a colleague, an address), else ""
   "incident_path": "disclosure"|"action"|"credentials",
   "first_line": str,                  # one opening sentence that references a supporting fact correctly (no exact numbers or dates)
   "verify_risk": str,                 # what they could look up about the sender, and how the archetype stays plausible
@@ -336,6 +338,9 @@ Return ONLY JSON:
   open topics in its social media and online presence: facts from lane "social" or "media" (their own LinkedIn
   posts, X, podcasts, talks) are the strongest evidence of what matters to them now: prefer facts with source
   "social" or "own_article" (their own voice); "aggregator" facts are profile data, never a reason to write.
+- answers_personally: judge from their role, their company's size and which teams it has, and what the ask
+  really is. A hook they would hand off to someone else rarely reaches them again, however well the topic fits,
+  so rank such hooks lower. Be honest: "no" is a useful answer.
 - Facts with timing "past" are background only ("after your talk at ..."), never an upcoming occasion.
 - Never build on a fact marked CONFLICT. Never invent a role, event, product or person that is not in the facts.
 - Do NOT use "job applicant" (they route applicants to the careers page). Avoid invented networks, awards, panels.
@@ -346,33 +351,9 @@ _OPEN_CUES = re.compile(
     r"apply|call for|seeking|searching for|feedback|beta|pilot|early access|partners?(?:hip)?s?|speak(?:s|er|ers|ing)?|scheduled to (?:speak|present)|keynote|"
     r"panel|podcast|webinar|launch(?:ed|ing)?|announc\w*|excited to|proud to|reach out|dm me|happy to (?:chat|talk|connect)|"
     r"interested in|recommend|new (?:role|product|feature)|expand\w*|opening|internship|intern)\b", re.I)
-# Who would contact them, and must THEY answer? Measured on 58 real practice runs (2026-11-22): buyer/practitioner
-# personas were routed to sales or a colleague in 45% of runs; event/research/media personas in 12%.
-_NEEDS_HIM = re.compile(
-    r"\b(?:speak\w*|session|panel\w*|keynote|moderat\w*|chair|program(?:me)? (?:coordinator|committee|director|lead)|"
-    r"conference|konferenz|organi[sz]er|host|podcast|interview\w*|journalist|editor\w*|reporter|press|article|co-?author|"
-    r"paper|research(?:er)?|professor|university|alumni|jury|award|mentor|fireside|roundtable|workshop|meetup|summit)\b", re.I)
-_ROUTED = re.compile(
-    r"\b(?:buyer|customer|prospect|evaluat\w*|shortlist\w*|vendor|procurement|purchas\w*|rfp|tender|pricing|quote|"
-    r"demo|pilot|trial|licen[cs]\w*|ciso|security awareness|head of (?:it )?security|it security|security officer|"
-    r"reseller|channel|distributor|business development|sales|integrat\w* partner|your platform|your product|"
-    r"compar\w* .{0,20}(?:vendor|platform|solution)s?)\b", re.I)
-_EVENT_FACT = re.compile(r"\b(?:speak\w*|session|panel|keynote|conference|konferenz|summit|talk|vortrag|podcast)\b", re.I)
-
-
 def needs_him(h: "HookHypothesis") -> float:
-    """1.0 when only this person can answer (their talk, their article, their interview); low when the natural
-    reply is 'please contact sales' (a buyer/vendor/partner asking product questions)."""
-    who = f"{h.sender_archetype} {h.natural_ask}"
-    routed = len(_ROUTED.findall(who))
-    personal = len(_NEEDS_HIM.findall(f"{who} {h.topic}"))
-    if routed and not personal:
-        return 0.15
-    if personal and not routed:
-        return 1.0
-    if personal and routed:
-        return 0.55
-    return 0.45
+    """The hook LLM's judgement whether the target handles the ask personally (yes/maybe/no); unknown = 0.5."""
+    return {"yes": 1.0, "maybe": 0.5, "no": 0.1}.get(h.answers_personally.strip().lower(), 0.5)
 
 
 _TIMING_SCORE = {"upcoming": 1.0, "current": 0.9, "this-year": 0.7, "undated": 0.45, "past": 0.15}
@@ -460,13 +441,12 @@ def about_person(f: VerifiedFact, surname: str, first: str = "") -> bool:
     slug = fold(urlsplit(f.source_url).path).replace("-", " ").replace("_", " ")
     if surname and any(v and v in slug for v in _variants(surname)):
         return True
-    return bool(re.match(r"^(?:he|she|they)\b", f.fact.strip(), re.I)) and (
-        f.category != "company_news" or bool(_EVENT_FACT.search(f.fact)))
+    return bool(re.match(r"^(?:he|she|they)\b", f.fact.strip(), re.I))
 
 
 def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: str, first: str = "") -> tuple[float, dict]:
     """Deterministic, explainable ranking. What is specifically happening to them now leads; how often they
-    talk about a topic only helps a little. needs_him 25% (must THEY answer, or does it go to sales?), openness 20%,
+    talk about a topic only helps a little. needs_him 25% (LLM: do THEY handle the ask, or hand it off?), openness 20%,
     recency 20%, personal 15%, specificity 10%, breadth 5%, LLM confidence 5%."""
     facts = [by_id[i] for i in h.supporting_fact_ids if i in by_id]
     if not facts:
@@ -478,7 +458,7 @@ def score_hook(h: "HookHypothesis", by_id: dict, themes: list[Theme], surname: s
     timings = [label for _, label in rs]
     # a speaker slot filed as company_news is still about them ("He is scheduled to speak at ...")
     personal = sum(1 for f in facts if about_person(f, surname, first)
-                   and (f.category != "company_news" or _EVENT_FACT.search(f.fact))) / len(facts)
+                   and (f.category != "company_news" or re.match(r"^(?:he|she|they)\b", f.fact.strip(), re.I))) / len(facts)
     own_voice = sum(1 for f in facts if getattr(f, "source_kind", "") in ("social", "own_article")
                     and (about_person(f, surname, first) or getattr(f, "source_kind", "") == "own_article")) / len(facts)
     personal = max(personal, own_voice)
@@ -705,6 +685,8 @@ def rank_hooks(llm: PooledClient, t: Target, facts: list[VerifiedFact], themes: 
             id=hid, topic=str(raw["topic"]), rationale=str(raw.get("rationale", "")), confidence=conf,
             is_own_angle=own, supporting_fact_ids=ids, open_signal=sig, timing=tim,
             sender_archetype=str(raw.get("sender_archetype") or ""), natural_ask=str(raw.get("natural_ask") or ""),
+            answers_personally=str(raw.get("answers_personally") or "").strip().lower(),
+            handed_to=str(raw.get("handed_to") or ""),
             incident_path=path if path in ("disclosure", "action", "credentials") else "disclosure",
             first_line=first, verify_risk=str(raw.get("verify_risk") or ""),
             avoid=[str(x) for x in raw.get("avoid") or [] if str(x).strip()][:6])
@@ -1100,10 +1082,15 @@ def rehook_dossier(path: Path, pool: LLMPool | None = None, log=print) -> Verifi
     own = pool is None
     pool = pool or LLMPool(timeout=90.0)
     try:
-        d.hypotheses = rank_hooks(pool.lane(0), t, d.facts, d.themes)
+        hooks = rank_hooks(pool.lane(0), t, d.facts, d.themes)
     finally:
         if own:
             pool.close()
+    if not hooks:
+        # rank_hooks returns [] when the LLM call failed (_json swallows the error): never overwrite good hooks
+        log(f"[{t.id}] rehook produced no hooks (LLM call failed or empty); dossier left unchanged")
+        return d
+    d.hypotheses = hooks
     Path(path).write_text(d.model_dump_json(indent=2), encoding="utf-8")
     log(f"[{t.id}] rehooked: {len(d.hypotheses)} hooks")
     return d

@@ -3243,25 +3243,28 @@
   "hypotheses": [
     {
       "id": "h1",
-      "topic": "Speaking at Cybersicherheitsforschung 2027 session 1.3 on startups & founding",
-      "rationale": "This is a dated, upcoming commitment in his own conference circuit; a fellow speaker reaching out to align talking points is routine and expected.",
-      "confidence": 0.8,
+      "topic": "Von der Idee zum Takeoff – Start-ups & Gründungen",
+      "rationale": "Tom is a confirmed speaker at Cybersicherheitsforschung 2027 on a session about startups and founding, so he is currently in a public, open mode for founder conversations and advice.",
+      "confidence": 0.9,
       "is_own_angle": false,
       "supporting_fact_ids": [
         "p65"
       ],
       "open_signal": "",
       "timing": "upcoming",
-      "sender_archetype": "fellow founder-speaker in the same session",
-      "natural_ask": "Would you be open to a 15-minute prep call to align our session talking points?",
+      "sender_archetype": "a founder preparing a pitch for a cybersecurity startup and attending the same conference session",
+      "natural_ask": "reply with a one-line take on whether deepfake simulation is a defensible wedge for a small team",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "I'm also on the panel for session 1.3 at Cybersicherheitsforschung 2027 and wanted to compare notes before March.",
-      "verify_risk": "The conference program lists speakers, so the sender can be checked against the published agenda; the archetype is routine for panel prep.",
+      "first_line": "I'm speaking on the same startup track as you at Cybersicherheitsforschung 2027 and would love your take on one thing before I finalize my notes.",
+      "verify_risk": "The sender could be checked against the conference speaker list; the archetype is plausible because attendees often contact speakers before sessions.",
       "avoid": [
-        "Claiming to be the conference organizer",
-        "Claiming to have spoken at previous Cybersicherheitsforschung events"
+        "claiming the conference already happened",
+        "claiming to be an organizer if not in facts",
+        "mentioning exact session number or date"
       ],
-      "score": 0.787,
+      "score": 0.792,
       "score_breakdown": {
         "openness": 0.2,
         "recency": 1.0,
@@ -3269,95 +3272,70 @@
         "own_voice": 0.0,
         "specificity": 1.0,
         "breadth": 0.15,
-        "llm_confidence": 0.8,
+        "llm_confidence": 0.9,
         "needs_him": 1.0
       }
     },
     {
       "id": "h2",
-      "topic": "NIS-2-Congress participation in Frankfurt",
-      "rationale": "His company has an upcoming presence at a compliance-focused congress; another exhibitor networking beforehand is a normal, low-friction contact.",
-      "confidence": 0.7,
+      "topic": "NIS-2-Congress in Frankfurt",
+      "rationale": "revel8 has an upcoming presence at the NIS-2-Congress and the platform helps organizations meet NIS2 and ISO 27001, so a compliance officer would naturally reach out now.",
+      "confidence": 0.6,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "p39"
+        "p39",
+        "p85"
       ],
       "open_signal": "",
       "timing": "undated",
-      "sender_archetype": "another exhibitor at NIS-2-Congress",
-      "natural_ask": "Would you be open to a 20-minute call to explore a joint session on NIS2 readiness?",
+      "sender_archetype": "IT compliance lead at a German Mittelstand company preparing for NIS2",
+      "natural_ask": "reply with a yes/no on whether the platform maps to the awareness requirements they are implementing",
+      "answers_personally": "maybe",
+      "handed_to": "Claudia Lannes (Director Customer Value) or the sales team",
       "incident_path": "disclosure",
-      "first_line": "Saw revel8 is at the NIS-2-Congress in Frankfurt—are you open to connecting with other exhibitors beforehand?",
-      "verify_risk": "The event exhibitor list can confirm the sender's company; the archetype is standard conference networking.",
+      "first_line": "I'll be at the NIS-2-Congress in Frankfurt and wanted to ask whether your simulations map to the awareness requirements we're implementing.",
+      "verify_risk": "Sender's company and compliance role can be checked; the archetype is plausible because NIS2 affects many German companies.",
       "avoid": [
-        "Claiming a specific booth number or date",
-        "Saying Tom is a keynote speaker"
+        "claiming to have met him at the congress",
+        "claiming the congress is in a specific month not in facts",
+        "mentioning exact NIS2 article numbers not in facts"
       ],
-      "score": 0.573,
+      "score": 0.517,
       "score_breakdown": {
         "openness": 0.0,
         "recency": 0.45,
         "personal": 1.0,
         "own_voice": 0.0,
-        "specificity": 0.4,
-        "breadth": 0.15,
-        "llm_confidence": 0.7,
-        "needs_him": 1.0
+        "specificity": 1.0,
+        "breadth": 0.45,
+        "llm_confidence": 0.6,
+        "needs_him": 0.5
       }
     },
     {
       "id": "h3",
-      "topic": "First cybersecurity provider on Stackit marketplace",
-      "rationale": "Joining Schwarz Group's Stackit marketplace is a concrete recent milestone; another provider considering the same move would plausibly ask for advice.",
-      "confidence": 0.65,
-      "is_own_angle": false,
-      "supporting_fact_ids": [
-        "p74"
-      ],
-      "open_signal": "",
-      "timing": "past",
-      "sender_archetype": "enterprise architect at a Schwarz Group company",
-      "natural_ask": "Would you be open to a 15-minute chat about your experience listing on Stackit?",
-      "incident_path": "action",
-      "first_line": "Congrats on being one of the first cybersecurity providers on Stackit—we're considering listing and would love your take.",
-      "verify_risk": "The Stackit marketplace listing can be checked; the sender's Schwarz Group affiliation can be verified via email domain.",
-      "avoid": [
-        "Claiming Schwarz Group is a customer of revel8",
-        "Claiming a specific listing date"
-      ],
-      "score": 0.26,
-      "score_breakdown": {
-        "openness": 0.2,
-        "recency": 0.15,
-        "personal": 1.0,
-        "own_voice": 0.0,
-        "specificity": 0.6,
-        "breadth": 0.15,
-        "llm_confidence": 0.65,
-        "needs_him": 0.45
-      }
-    },
-    {
-      "id": "h4",
       "topic": "10 million human firewalls by 2028",
-      "rationale": "This is the company's stated current mission; a security awareness leader offering to help reach that scale speaks directly to what he is building now.",
-      "confidence": 0.75,
+      "rationale": "revel8's stated goal is to create 10 million human firewalls by 2028, so a large enterprise pilot partner is exactly the kind of help Tom would want right now.",
+      "confidence": 0.7,
       "is_own_angle": false,
       "supporting_fact_ids": [
         "p23"
       ],
       "open_signal": "",
       "timing": "undated",
-      "sender_archetype": "head of security awareness at a large enterprise",
-      "natural_ask": "Would you be open to a brief call to discuss how our awareness program could contribute to that goal?",
+      "sender_archetype": "head of security awareness at a large European company that wants to pilot a program",
+      "natural_ask": "reply with a short note on whether they are taking pilot partners for the coming year",
+      "answers_personally": "maybe",
+      "handed_to": "Jasper Albrecht (Growth Manager) or the sales team",
       "incident_path": "disclosure",
-      "first_line": "Your goal of 10 million human firewalls by 2028 is exactly the scale we're trying to reach on the enterprise side.",
-      "verify_risk": "The sender's company and role can be checked on LinkedIn; the message is a common partnership inquiry.",
+      "first_line": "",
+      "verify_risk": "Sender's company and role can be checked on LinkedIn; the archetype is plausible because large companies publicly run awareness programs.",
       "avoid": [
-        "Claiming revel8 is hiring",
-        "Claiming a specific current number of trained users"
+        "claiming a specific partnership exists",
+        "claiming to be an existing customer",
+        "using funding amounts"
       ],
-      "score": 0.188,
+      "score": 0.273,
       "score_breakdown": {
         "openness": 0.0,
         "recency": 0.45,
@@ -3365,106 +3343,153 @@
         "own_voice": 0.0,
         "specificity": 0.0,
         "breadth": 0.45,
-        "llm_confidence": 0.75,
-        "needs_him": 0.15
+        "llm_confidence": 0.7,
+        "needs_him": 0.5
+      }
+    },
+    {
+      "id": "h4",
+      "topic": "enterprise-grade features and international expansion",
+      "rationale": "revel8 is using its recent funding to strengthen enterprise capabilities and accelerate global expansion, so an enterprise security architect evaluating the platform is a timely contact.",
+      "confidence": 0.6,
+      "is_own_angle": false,
+      "supporting_fact_ids": [
+        "p18",
+        "p136",
+        "p144"
+      ],
+      "open_signal": "",
+      "timing": "static",
+      "sender_archetype": "enterprise security architect at a global company evaluating AI-powered awareness training",
+      "natural_ask": "reply with a view on how the platform handles voice and video simulations in non-English languages",
+      "answers_personally": "maybe",
+      "handed_to": "Claudia Lannes (Director Customer Value) or the sales team",
+      "incident_path": "disclosure",
+      "first_line": "Given your push into enterprise-grade features, I'd love your view on multilingual deepfake simulations.",
+      "verify_risk": "Sender's company and role can be checked; the archetype is plausible because global companies evaluate such tools.",
+      "avoid": [
+        "claiming to be an existing customer",
+        "mentioning specific funding amounts",
+        "claiming a product feature not in facts"
+      ],
+      "score": 0.257,
+      "score_breakdown": {
+        "openness": 0.6,
+        "recency": 0.35,
+        "personal": 0.0,
+        "own_voice": 0.0,
+        "specificity": 0.6,
+        "breadth": 0.45,
+        "llm_confidence": 0.6,
+        "needs_him": 0.5
       }
     },
     {
       "id": "h5",
-      "topic": "Seed round and international expansion",
-      "rationale": "The recent seed round and stated expansion plans make partnership inquiries timely; a business development contact would naturally reach out now.",
-      "confidence": 0.7,
+      "topic": "Stackit marketplace from Schwarz Group",
+      "rationale": "revel8 is among the first cybersecurity providers on Stackit, so a partner manager from another marketplace would plausibly want to talk about similar listings.",
+      "confidence": 0.5,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "p30",
-        "p18"
+        "p74",
+        "p139"
       ],
       "open_signal": "",
       "timing": "static",
-      "sender_archetype": "business development lead at a European cybersecurity platform",
-      "natural_ask": "Would you be open to a 20-minute call to explore a channel partnership for your international expansion?",
+      "sender_archetype": "a partner manager at another cloud marketplace evaluating security vendors",
+      "natural_ask": "reply with a short intro to the person who manages marketplace partnerships",
+      "answers_personally": "no",
+      "handed_to": "Jasper Albrecht (Growth Manager)",
       "incident_path": "disclosure",
-      "first_line": "I saw revel8's seed round led by Peak—are you open to exploring a technology partnership as you expand internationally?",
-      "verify_risk": "Funding news is public; the sender's company and role can be looked up on LinkedIn.",
+      "first_line": "I saw revel8 is one of the first cybersecurity providers on Stackit and wanted to ask who handles marketplace partnerships.",
+      "verify_risk": "Sender's company can be checked; the archetype is plausible because marketplaces recruit vendors.",
       "avoid": [
-        "Claiming specific funding amounts",
-        "Claiming a specific expansion market"
+        "claiming to represent Stackit",
+        "claiming a specific partnership exists beyond the facts",
+        "mentioning Schwarz Group if not needed"
       ],
-      "score": 0.168,
+      "score": 0.21,
       "score_breakdown": {
-        "openness": 0.0,
+        "openness": 0.2,
         "recency": 0.35,
-        "personal": 0.0,
+        "personal": 0.5,
         "own_voice": 0.0,
         "specificity": 1.0,
-        "breadth": 0.75,
-        "llm_confidence": 0.7,
-        "needs_him": 0.15
+        "breadth": 0.3,
+        "llm_confidence": 0.5,
+        "needs_him": 0.1
       }
     },
     {
       "id": "h6",
-      "topic": "Customers like FC Bayern, OBI, and Stihl",
-      "rationale": "Named enterprise customers are recent proof points; a security manager at a similar brand would naturally ask about rollout experience.",
-      "confidence": 0.7,
+      "topic": "customers like FC Bayern, OBI, and Stihl",
+      "rationale": "revel8 counts FC Bayern, OBI, and Stihl among its customers, so a peer in a similar industry would naturally ask for a reference before evaluating the product.",
+      "confidence": 0.5,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "p138"
+        "p138",
+        "f22"
       ],
       "open_signal": "",
       "timing": "static",
-      "sender_archetype": "security manager at a German brand evaluating deepfake training",
-      "natural_ask": "Could you share what a rollout with a top-tier brand like FC Bayern looks like from a buyer's perspective?",
+      "sender_archetype": "head of IT security at a German retail or sports organization",
+      "natural_ask": "reply with a short note on whether they can share a customer reference",
+      "answers_personally": "no",
+      "handed_to": "Claudia Lannes (Director Customer Value)",
       "incident_path": "disclosure",
-      "first_line": "I saw revel8 works with FC Bayern—we're evaluating deepfake simulation training and would value your perspective.",
-      "verify_risk": "The sender's corporate email domain can be verified; customer references are public.",
+      "first_line": "I noticed revel8 works with OBI and Stihl; as a retail security lead, I'd like to ask how you handle reference calls.",
+      "verify_risk": "Sender's company and role can be checked; the archetype is plausible because peer references are common in enterprise sales.",
       "avoid": [
-        "Claiming specific contract values",
-        "Claiming a named contact at FC Bayern"
+        "claiming to know those customers personally",
+        "claiming a specific result from those customers",
+        "mentioning funding"
       ],
-      "score": 0.154,
+      "score": 0.162,
       "score_breakdown": {
         "openness": 0.0,
         "recency": 0.35,
         "personal": 0.0,
         "own_voice": 0.0,
         "specificity": 1.0,
-        "breadth": 0.3,
-        "llm_confidence": 0.7,
-        "needs_him": 0.15
+        "breadth": 1.0,
+        "llm_confidence": 0.5,
+        "needs_him": 0.1
       }
     },
     {
       "id": "own1",
-      "topic": "From TUM mechanical engineering to deepfake-defense startup",
-      "rationale": "His personal background is less obvious but grounded in facts; a fellow TUM engineering alum considering a cybersecurity pivot would plausibly seek his advice.",
+      "topic": "transforming complex technology into simple, secure, enterprise-ready experiences",
+      "rationale": "Tom is described as obsessed with making complex technology simple and secure, and his mechanical engineering background at TUM supports a product-minded conversation about simplicity in security tools.",
       "confidence": 0.6,
       "is_own_angle": true,
       "supporting_fact_ids": [
-        "p60",
-        "p64"
+        "p21",
+        "p60"
       ],
       "open_signal": "",
       "timing": "undated",
-      "sender_archetype": "fellow TUM mechanical engineering alum considering a pivot into cybersecurity",
-      "natural_ask": "Would you be open to a 20-minute chat about your path from TUM to founding revel8?",
+      "sender_archetype": "a product engineer from TUM working on security tools",
+      "natural_ask": "reply with a short opinion on where simplicity breaks down in AI attack simulations",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "As a fellow TUM mechanical engineering grad, I'd love to hear how you went from engineering to deepfake defense.",
-      "verify_risk": "TUM alumni networks and LinkedIn can verify the sender's studies; the ask is a standard informational interview.",
+      "first_line": "Your background in mechanical engineering and your product work at revel8 make me curious how you keep AI attack simulations simple for end users.",
+      "verify_risk": "Sender's TUM affiliation can be checked; the archetype is plausible because alumni often reach out.",
       "avoid": [
-        "Claiming he studied acoustic comfort",
-        "Claiming a specific role at Celonis beyond Senior Value Engineer"
+        "claiming to be a current TUM student if not true",
+        "mentioning specific product features not in facts",
+        "claiming a shared network"
       ],
-      "score": 0.45,
+      "score": 0.595,
       "score_breakdown": {
         "openness": 0.0,
         "recency": 0.45,
         "personal": 1.0,
         "own_voice": 0.0,
         "specificity": 0.6,
-        "breadth": 0.15,
+        "breadth": 0.3,
         "llm_confidence": 0.6,
-        "needs_him": 0.45
+        "needs_him": 1.0
       }
     }
   ],

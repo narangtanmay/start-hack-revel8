@@ -51,15 +51,12 @@ def _hook(**kw):
     return HookHypothesis(**{**base, **kw})
 
 
-def test_needs_him_buyer_is_routed_speaker_is_personal():
+def test_needs_him_uses_llm_judgement_not_keywords():
     from revel8_agent.research import needs_him
-    buyer = _hook(sender_archetype="Head of security awareness at a German company that recently ran a vishing test",
-                  natural_ask="Ask whether his platform can run a small MS Teams vishing pilot")
-    speaker = _hook(sender_archetype="Conference program coordinator at Cybersicherheitsforschung 2027",
-                    natural_ask="Confirm his speaker bio and whether he wants a pre-call with the session chair")
-    assert needs_him(buyer) == 0.15
-    assert needs_him(speaker) == 1.0
-
+    assert needs_him(_hook(answers_personally="yes")) == 1.0
+    assert needs_him(_hook(answers_personally="no", handed_to="sales team")) == 0.1
+    assert needs_him(_hook(answers_personally="maybe")) == 0.5
+    assert needs_him(_hook()) == 0.5  # older dossiers without the field stay neutral
 
 def test_speaker_slot_filed_as_company_news_outranks_sales_pilot_hook():
     from revel8_agent.research import score_hook
@@ -68,10 +65,11 @@ def test_speaker_slot_filed_as_company_news_outranks_sales_pilot_hook():
               "2026-09-08", "publication")
     by_id = {"t": talk, "b": blog}
     speaker = _hook(supporting_fact_ids=["t"], sender_archetype="Conference program coordinator",
-                    natural_ask="Confirm his speaker bio for Session 1.3")
+                    natural_ask="Confirm his speaker bio for Session 1.3", answers_personally="yes")
     buyer = _hook(supporting_fact_ids=["b"], open_signal="multi-channel simulations",
                   sender_archetype="Head of security awareness evaluating vendors",
-                  natural_ask="Ask whether his platform can run a vishing pilot")
+                  natural_ask="Ask whether his platform can run a vishing pilot", answers_personally="no",
+                  handed_to="sales")
     s_talk, parts = score_hook(speaker, by_id, [], "seilbeck", "robert")
     s_buy, _ = score_hook(buyer, by_id, [], "seilbeck", "robert")
     assert parts["personal"] == 1.0 and parts["needs_him"] == 1.0
