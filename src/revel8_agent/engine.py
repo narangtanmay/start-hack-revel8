@@ -825,6 +825,7 @@ class Runner:
             user += f"\n\nYOUR PREVIOUS DRAFT WAS REJECTED: {feedback}\nFix it."
         system = _DECIDE_SYS.replace("{msg}", ", ".join(MESSAGE_CHANNELS)).replace("{live}", ", ".join(LIVE_CHANNELS))
         a = _llm_json(self.llm, self.state, system, user, temperature=0.7, reasoning="high")
+        self._last_raw = {k: v for k, v in a.items()} if isinstance(a, dict) else {"_non_dict": str(a)[:500]}
         return self._enforce(a) if self.decider else a
 
     def _enforce(self, a: dict) -> dict:
@@ -1018,7 +1019,9 @@ class Runner:
         if any(lint_text(p) for p in a.get("paragraphs") or []) or re.search(r"\[[^\]]{2,300}\]", " ".join(a.get("paragraphs") or [])):
             errors.append("The text contains a placeholder in square brackets. Write the real content (the link is added for you).")
         if a.get("kind") != "call" and not a.get("paragraphs"):
-            errors.append("The message has no text. Put the full message text in 'paragraphs' (list of strings).")
+            errors.append(f"The message has no text. This touch is a written {a.get('channel') or 'message'}, not a call: "
+                          "put the full message text in 'paragraphs' (list of strings); an opening_line or call_goal "
+                          "is not sent.")
         return errors
 
     # ---- execution
@@ -1179,6 +1182,7 @@ class Runner:
             self.save()
             self.log(f"session {st.session_id} opened")
             failures = 0
+            draft_failures = 0
             while st.touches_used < self.cfg.max_touches:
                 touch = st.touches_used + 1
                 step: dict[str, Any] = {"touch": touch, "at": _now(), "attempts": [], "timing": {}}
@@ -1226,11 +1230,23 @@ class Runner:
                     attempt["paragraphs"] = a.get("paragraphs")
                     if not errors:
                         break
+                    attempt["raw"] = getattr(self, "_last_raw", None)
                     feedback = "; ".join(errors)
                     self.log(f"touch {touch}: draft rejected by gate: {feedback}")
                 else:
                     if a.get("decision") != "STOP":
-                        raise RuntimeError(f"Could not produce a valid draft: {feedback}")
+                        # three rejected drafts cost no API touch: log it and redo this touch from scratch;
+                        # end the run (keeping its data) only after two such touches in a row
+                        draft_failures += 1
+                        step["error"] = f"no valid draft after 3 tries: {feedback}"
+                        st.steps.append(step)
+                        self.save()
+                        self.log(f"touch {touch}: no valid draft after 3 tries ({draft_failures} in a row)")
+                        if draft_failures >= 2:
+                            self.log("ending run: two touches in a row without a valid draft")
+                            break
+                        continue
+                draft_failures = 0
                 step["timing"]["decide_s"] = round(time.monotonic() - t0, 1)
                 step["action"] = a
                 if a.get("decision") == "STOP":

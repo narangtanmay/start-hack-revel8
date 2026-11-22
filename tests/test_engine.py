@@ -355,3 +355,22 @@ def test_stop_at_first_incident_ignores_llm_judge_estimates(dossier, tmp_path) -
     # Did NOT abort at touch 1 on llm-judge (estimate); stopped at touch 2 on API-confirmed page.submitted.
     assert state.touches_used == 2
     assert any(i["source"] == "api event" and i["touch"] == 2 for i in state.incidents)
+
+
+def test_empty_drafts_do_not_crash_the_run(dossier, tmp_path) -> None:
+    empty = {"decision": "STAY", "rationale": "r", "discarded": [], "hook_id": "h_top", "kind": "message",
+             "channel": "email", "sender": {"name": "Event Desk", "address": "desk@workshop-crew.test"},
+             "subject": "s", "format": "plain", "paragraphs": [], "link": None, "attachment_filename": None,
+             "cited_fact_ids": ["check-in"]}
+    plan = {"hook_id": "h_top", "objective": "credentials", "persona": dict(_PERSONA), "language": "en"}
+    api = MagicMock()
+    api.create_session.return_value = {"session_id": "s1"}
+    llm = _ScriptedLLM([plan] + [empty] * 6)
+    cfg = RunConfig(target_id=dossier.target_id, runs_dir=tmp_path, max_touches=3)
+    runner = Runner(cfg, api, llm, _hooked(dossier), log=lambda *_a, **_k: None)
+    state = runner.run()
+
+    assert state.status == "done", state.error
+    assert state.touches_used == 0 and not api.send_message.called
+    assert [s["error"].startswith("no valid draft") for s in state.steps] == [True, True]
+    assert state.steps[0]["attempts"][0]["raw"]["paragraphs"] == []
