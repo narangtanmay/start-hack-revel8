@@ -340,7 +340,7 @@ class LLMPool:
                 L.cooldown_until = max(L.cooldown_until, time.monotonic() + (error.retry_after or 5.0))
             elif error.status_code == 402:
                 L.errors += 1
-                L.cooldown_until = max(L.cooldown_until, time.monotonic() + 300.0)
+                L.cooldown_until = max(L.cooldown_until, time.monotonic() + (5.0 if len(self.clients) == 1 else 300.0))
             else:
                 L.errors += 1
                 if error.status_code in (500, 502, 503, 504):

@@ -664,6 +664,13 @@ def rank_hooks(llm: PooledClient, t: Target, facts: list[VerifiedFact], themes: 
         if not isinstance(raw, dict) or not raw.get("topic"):
             return None
         ids = [i for i in raw.get("supporting_fact_ids") or [] if isinstance(i, str) and i in known]
+        # Drop company_news facts that come from another person's profile/speaker page (no target surname in quote or URL)
+        ids = [
+            i for i in ids
+            if by_id[i].category != "company_news"
+            or (surname and (surname in normalize(by_id[i].verbatim_quote) or surname in normalize(by_id[i].source_url)))
+            or not re.search(r"/(?:sprecher|speaker|team|author|people)/", by_id[i].source_url, re.I)
+        ]
         if not ids:
             return None
         try:
