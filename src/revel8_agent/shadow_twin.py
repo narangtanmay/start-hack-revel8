@@ -204,8 +204,9 @@ def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str,
             break
         negative += 1
     # Handoff letters that nobody answered: the thread must shorten, not re-send the same letter.
+    ignored_on = bool(target_state.get("call_handoff")) or bool(target_state.get("call_completed"))
     handoff_ignored = 0
-    if target_state.get("call_handoff"):
+    if ignored_on:
         for s in reversed(history):
             if _replies(s):
                 break
@@ -315,6 +316,11 @@ def select_shadow_twin_move(
                      f'the owner ("Robert, for Claudia:"); put the concrete detail in that mail and quote '
                      f"the target's own words as the reason for writing."
                      if after_handoff else
+                     "One line only: the material is with them, say you will hold the slot and stop writing "
+                     "until they answer."
+                     if c["handoff_ignored"] >= 3 else
+                     "Shorten to two lines: the material stands, one yes/no question, no second dial."
+                     if c["handoff_ignored"] >= 2 else
                      "Send what was promised on the call, ask for one written line back and say when you "
                      "will check in; no second dial and no hook change."
                      if after_call else

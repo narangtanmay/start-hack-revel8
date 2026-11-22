@@ -316,6 +316,16 @@ def test_the_advance_ask_names_an_internal_detail() -> None:
     assert "internal" in move["ask"].casefold()
 
 
+def test_an_ignored_after_call_letter_shortens() -> None:
+    # loop6-julius and loop5-julius both sent five identical after-call letters.
+    steps = _completed_call([_step(1, "email", reply="Good talk.", sentiment="engaged")])
+    steps += [{"touch": n, "action": {"channel": "email"}, "events": []} for n in (2, 3)]
+    move, _ = _select(steps, WEEKDAY)
+    assert "two lines" in move["ask"].casefold()
+    move2, _ = _select(steps + [{"touch": 4, "action": {"channel": "email"}, "events": []}], WEEKDAY)
+    assert "one line" in move2["ask"].casefold()
+
+
 def test_the_first_touch_offers_a_slot_as_well_as_the_internal_question() -> None:
     # loop7-robert T1 asked only for internal detail and got "not by mail with me", then silence.
     # A router needs something to accept first; the internal question rides along, and lives on the call.

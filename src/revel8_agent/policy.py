@@ -288,7 +288,7 @@ class RuleBasedPolicy:
             objective = "credentials"
 
         handoff_ignored = 0
-        if target_state.get("call_handoff"):
+        if target_state.get("call_handoff") or target_state.get("call_completed"):
             for s in history[::-1]:
                 if any(str(e.get('body') or '').strip() for e in (s.get('events') or [])
                        if e.get('type') == 'reply'):
