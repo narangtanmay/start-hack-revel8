@@ -72,3 +72,20 @@ def test_memory_ignores_blocks_inferred_from_our_own_messages(tmp_path):
     m = TargetMemory("Tom Müller", root=tmp_path)
     m.learn_from_run(_session_state("r1", replies=2, blocked=["login_wall"], reply="Thanks, noted."))
     assert "refused: login_wall" not in m.data["rules"]
+
+
+def test_memory_records_refusal_stated_one_touch_before_the_block_appears(tmp_path):
+    # Julius dryrun (runs/20261122-084411-julius-dryrun-709b723-*.json): he said "don't open attachments" in the
+    # T2 reply, but a step's target_state is computed before its own reply, so the block first shows on T3,
+    # whose reply does not repeat it. The refusal was dropped and the session-2 hard rules saw nothing.
+    steps = [
+        {"touch": 1, "action": {"channel": "email"}, "events": [{"type": "reply", "body": "Interesting, tell me more."}],
+         "target_state": {"blocked_mechanisms": []}},
+        {"touch": 2, "action": {"channel": "email"}, "events": [{"type": "reply", "body": "Please, I don't open attachments."}],
+         "target_state": {"blocked_mechanisms": []}},
+        {"touch": 3, "action": {"channel": "email"}, "events": [{"type": "reply", "body": "Sure, Wednesday works."}],
+         "target_state": {"blocked_mechanisms": ["attachments"]}},
+    ]
+    m = TargetMemory("Julius Muth", root=tmp_path)
+    m.learn_from_run({"run_id": "r1", "plan": {"hook_id": "h1", "persona": {}}, "steps": steps, "incidents": []})
+    assert "refused: attachments" in m.data["rules"]

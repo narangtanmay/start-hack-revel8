@@ -158,6 +158,11 @@ class TargetMemory:
         plan = state.get("plan") or {}
         persona = plan.get("persona") or {}
         replies = silence = brushoffs = 0
+        # A step's target_state predates its own reply, so a refusal shows up one touch after the reply
+        # that stated it: match against everything the target said in the run (Julius dryrun T2 -> T3).
+        all_said = " ".join(e.get("body", "") for st in state.get("steps") or [] for e in st.get("events") or []
+                            if e.get("type") == "reply") + " " + " ".join(
+            t.get("text", "") for st in state.get("steps") or [] for t in (st.get("transcript") or []) if t.get("who") == "target")
         for s in state.get("steps") or []:
             said = " ".join([e.get("body", "") for e in s.get("events") or [] if e.get("type") == "reply"] +
                             [t["text"] for t in (s.get("transcript") or [])[1:] if t.get("who") == "target"])
@@ -177,7 +182,7 @@ class TargetMemory:
             # (never blocks inferred from our own sent text, which would poison Session 2+).
             for blocked in ((s.get("target_state") or {}).get("blocked_mechanisms") or []):
                 matcher = _REFUSAL_MATCHERS.get(blocked)
-                if matcher is not None and not matcher.search(said):
+                if matcher is not None and not matcher.search(all_said):
                     continue
                 rule = f"refused: {blocked}"
                 if rule not in self.data["rules"]:
