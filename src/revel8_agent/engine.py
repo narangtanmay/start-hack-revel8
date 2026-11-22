@@ -402,7 +402,8 @@ Return ONLY JSON: {"disclosure": bool, "action": bool, "evidence": str, "reason"
 def _llm_json(llm: LocalLLMClient, state: RunState, system: str, user: str, temperature: float = 0.6,
               reasoning: str | None = None) -> dict:
     last_error = ""
-    for _ in range(3):
+    attempts, transient = 0, 0
+    while attempts < 3:
         msgs: list[ChatMessage] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         if last_error:
             msgs.append({"role": "user", "content": f"Your previous answer was invalid ({last_error}). Return valid JSON only."})
@@ -413,8 +414,16 @@ def _llm_json(llm: LocalLLMClient, state: RunState, system: str, user: str, temp
             out = llm.chat(msgs, json_mode=True, temperature=temperature)
         except LocalLLMError as error:
             last_error = str(error)
+            # Rate limits and server hiccups are not the model's fault: back off on their own budget
+            # (10+20+40+60+60+60 s) instead of burning the JSON retries; a crash here wastes a scored run.
+            if getattr(error, "status_code", None) in (None, 429, 500, 502, 503, 504) and transient < 6:
+                time.sleep(min(60, 10 * 2 ** transient))
+                transient += 1
+                continue
+            attempts += 1
             time.sleep(10)
             continue
+        attempts += 1
         if isinstance(out, dict):
             return out
         last_error = "not a JSON object"
