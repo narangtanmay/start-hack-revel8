@@ -739,7 +739,7 @@ class Runner:
 
             council_plan, clog = council.convene(
                 lambda s, u, t: _llm_json(self.llm, self.state, s, u, temperature=t, reasoning="high"),
-                _PLAN_SYS, user, self.ground["text"])
+                _PLAN_SYS, user, "\n".join(x for x in (self.ground["text"], self.network_txt) if x))
             if clog:
                 self.state.config["council"] = clog
                 self.log(f"council: {len(clog.get('candidates', []))} strategies ({', '.join(clog.get('lenses', []))}); "
