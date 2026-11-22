@@ -47,6 +47,7 @@ class Task:
     label: str = ""
     keep_going: bool = False
     use_policy: bool = False
+    use_shadow_twin: bool = False
 
 
 def assign_keys(n_tasks: int, keys: list[str]) -> list[str]:
@@ -102,6 +103,7 @@ def run_one(task: Task, api_key: str | Any, log=print) -> dict[str, Any]:
             label=task.label,
             stop_at_first_incident=not task.keep_going,
             use_policy=task.use_policy,
+            use_shadow_twin=task.use_shadow_twin,
         )
         runner = Runner(cfg, api, llm, dossier, log=log)
         orig_save = runner.save
@@ -123,6 +125,8 @@ def run_swarm(tasks: list[Task], keys: list[str], max_parallel: int | None = Non
 
     assigned = assign_keys(len(tasks), keys)
     workers = parallelism(len(tasks), len(keys), max_parallel)
+    if any(t.scenario == "eval" for t in tasks):
+        workers = 1  # eval sessions are single-shot per target; parallel workers must never collide
     key_index = {k: i for i, k in enumerate(keys)}
     log(f"swarm: {len(tasks)} task(s), {len(keys)} key(s), {workers} in parallel (API cap {REVEL8_PARALLEL_CAP})")
     results: dict[int, dict[str, Any]] = {}
@@ -185,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-parallel", type=int, default=0, help="Cap workers (default: min(keys, 6)).")
     ap.add_argument("--policy", action=argparse.BooleanOptionalAction, default=False,
                     help="Enable deterministic policy controller.")
+    ap.add_argument("--shadow-twin", action=argparse.BooleanOptionalAction, default=False,
+                    help="Enable the shadow-twin engine.")
     args = ap.parse_args(argv)
 
     if args.scenario == "eval" and not args.allow_eval:
@@ -214,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     tasks = [Task(target=t, scenario=args.scenario, touches=args.touches, keep_going=args.keep_going,
-                  use_policy=args.policy)
+                  use_policy=args.policy, use_shadow_twin=args.shadow_twin)
              for t in targets]
     states = run_swarm(tasks, keys, max_parallel=args.max_parallel or None)
     _summary(states, scored_runs=len(tasks) if args.scenario == "eval" else 3)

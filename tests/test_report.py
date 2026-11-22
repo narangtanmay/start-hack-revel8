@@ -165,3 +165,29 @@ def test_render_run_backward_compatible_without_shadow_twin_or_ledger(tmp_path: 
     assert "Plain text email." in html
     assert "Counterfactual Branch Comparison" not in html
     assert "Ledger:" not in html
+
+
+def test_actor_html_renders_and_escapes() -> None:
+    from revel8_agent.report import _actor_html
+
+    html = _actor_html(
+        {"inner_monologue": "I need <b>the PDF</b>", "decision_read_off": "STAY", "notebook_added": ["Target <i>prefers</i> email"]},
+        [{"errors": ["Social-norm violation: <x>"]}],
+    )
+    assert "I need &lt;b&gt;the PDF&lt;/b&gt;" in html
+    assert "Target &lt;i&gt;prefers&lt;/i&gt; email" in html
+    assert "Social-norm violation: &lt;x&gt;" in html
+    assert "<b>the PDF</b>" not in html
+    assert _actor_html(None) == "" and _actor_html({}) == ""
+
+
+def test_render_run_shows_actor_and_casting(tmp_path: Path) -> None:
+    step = {"touch": 1, "action": {"channel": "email", "decision": "DELIVER", "kind": "message"},
+            "actor": {"inner_monologue": "Mono-logue-xyz", "notebook_added": ["note-abc"]}}
+    state = _base_state([step])
+    state["casting"] = {"persona": {"name": "Lena Fischer", "role": "Lead", "organisation": "Crew"},
+                        "character": {"need": "needs-agenda-123"}}
+    f = tmp_path / "run.json"
+    f.write_text(json.dumps(state), encoding="utf-8")
+    html = render_run(f).read_text(encoding="utf-8")
+    assert "Mono-logue-xyz" in html and "note-abc" in html and "needs-agenda-123" in html

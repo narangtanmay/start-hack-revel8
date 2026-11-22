@@ -219,3 +219,32 @@ def test_rejects_credential_form_after_no_login_promise(plan: ContactPlan, dossi
     errors = _check(plan, dossier, steps=[_sent("It is a public page, no login.")])
     assert any("Cross-turn contradiction" in e and "credential" in e for e in errors)
     assert _check(plan, dossier, steps=[_sent("Hello again.")]) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["Your colleague Ihre Arbeit is great.", "Ihre Kollegin Die Human-Firewall-Mission hat gefragt.",
+     "Kollege Der Mann, Kollegin Das Team, Kollege Unsere Eine, Kollege Sein Eine"],
+)
+def test_german_nouns_not_flagged_as_person(body: str, plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.body, plan.is_html = body, False
+    assert not any("Ungrounded person claim" in e for e in _check(plan, dossier))
+
+
+def _email_reply(body: str = "Thanks, please send it by mail.") -> dict:
+    return {"action": {"channel": "email"}, "events": [{"type": "reply", "channel": "email", "body": body}]}
+
+
+@pytest.mark.parametrize("channel", ["whatsapp", "sms"])
+def test_rejects_jump_to_sms_after_email_only(channel: str, plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.channel = channel
+    errs = _check(plan, dossier, [_email_reply()])
+    assert any(e.startswith("Social-norm violation") for e in errs)
+
+
+def test_social_norm_allows_when_phone_offered_or_no_reply(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.channel = "whatsapp"
+    assert not any("Social-norm" in e for e in _check(plan, dossier, [_email_reply("Call me on +49 170 1234567")]))
+    assert not any("Social-norm" in e for e in _check(plan, dossier, []))
+    plan.channel = "email"
+    assert not any("Social-norm" in e for e in _check(plan, dossier, [_email_reply()]))

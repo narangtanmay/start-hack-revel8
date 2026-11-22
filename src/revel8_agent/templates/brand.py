@@ -136,17 +136,28 @@ def lookalike_brand(
     )
 
 
+_LEGAL_SUFFIXES = {"gmbh", "ag", "inc", "ltd", "ug", "llc", "se", "kg", "corp", "group", "holding", "systems",
+                   "technologies"}
+
+
+def company_tokens(company: str) -> set[str]:
+    """Joined slug plus every >=4-letter word of the company name, minus legal suffixes."""
+    words = _slug(company).split("-")
+    joined = "".join(words)
+    return ({joined} if joined else set()) | {w for w in words if len(w) >= 4 and w not in _LEGAL_SUFFIXES}
+
+
 def org_domains_from_dossier(dossier: VerifiedDossier, extra: Collection[str] = ()) -> set[str]:
     """Real domains of the target's company, to pass to the gate as blocked_org_domains.
 
     Taken from dossier source URLs whose host contains the company name (e.g. revel8.ai),
     plus any `extra` the planner knows (partners or vendors it imitates).
     """
-    company = _slug(dossier.company).replace("-", "")
+    tokens = company_tokens(dossier.company)
     domains = {_normalize(d) for d in extra if d.strip()}
     for fact in dossier.facts:
         host = _normalize(urlsplit(fact.source_url).hostname or "")
         labels = host.split(".")
-        if company and len(labels) >= 2 and company in labels[-2].replace("-", ""):
+        if len(labels) >= 2 and any(t in labels[-2].replace("-", "") for t in tokens):
             domains.add(".".join(labels[-2:]))
     return domains

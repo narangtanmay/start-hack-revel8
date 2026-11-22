@@ -65,6 +65,37 @@ def _is_blocked(host: str, blocked_domains: set[str]) -> bool:
 
 _NAME = r"[A-ZÄÖÜ][\w'’-]+\s+[A-ZÄÖÜ][\w'’-]+"
 _COLLEAGUE_RE = re.compile(rf"(?i:colleague|coworker|co-worker|teammate|kolleg(?:e|in))\s+({_NAME})")
+# Capitalised German articles/pronouns/nouns that look like a first name ("Ihre Arbeit", "Die Human-Firewall-Mission").
+_NOT_A_NAME = frozenset(
+    "der die das den dem des ein eine einen einem einer eines ihr ihre ihren ihrem ihrer ihres sein seine seinen "
+    "seinem seiner unser unsere unseren unserem unserer euer eure dein deine mein meine arbeit mission team".split()
+)
+_PHONE_RE = re.compile(r"\+?\d[\d\s()/.-]{6,}\d|\b(?:phone|telefon|handy|mobile|whatsapp|call me)\b", re.IGNORECASE)
+_LIVE_CHANNELS = frozenset({"sms", "whatsapp", "phone_call"})
+
+
+def _looks_like_person(name: str) -> bool:
+    return name.split()[0].casefold() not in _NOT_A_NAME
+
+
+def _social_norm_error(plan: ContactPlan, steps: list[dict[str, Any]]) -> str | None:
+    """Email-only targets who never offered a phone number must not be pulled onto sms/whatsapp."""
+    if plan.channel not in ("sms", "whatsapp"):
+        return None
+    replied: set[str] = set()
+    said = ""
+    for s in steps:
+        action = s.get("action") if isinstance(s.get("action"), dict) else {}
+        for e in s.get("events") or []:
+            if e.get("type") == "reply":
+                replied.add(str(e.get("channel") or action.get("channel") or ""))
+                said += f" {e.get('body') or ''}"
+    if "email" in replied and not (replied & _LIVE_CHANNELS) and not _PHONE_RE.search(said):
+        return ("Social-norm violation: target has only replied by email and never offered a phone number; "
+                "stay on email instead of jumping to sms/whatsapp.")
+    return None
+
+
 _UPCOMING_PITCH = ("upcoming", "next month", "register for", "join us at", "invite you to")
 _NO_ATTACHMENT_CLAIMS = ("no attachment", "kein anhang", "without attachment", "no pdf")
 
@@ -118,11 +149,14 @@ def validate_session_consistency(
         claimed += [m.group(1) for m in re.finditer(
             rf"({_NAME})\s+(?i:at|from|von|bei)\s+{re.escape(org)}", text)]
     for name in dict.fromkeys(claimed):
-        if _norm(name) not in known:
+        if _looks_like_person(name) and _norm(name) not in known:
             errors.append(
                 f"Ungrounded person claim: {name!r} is not the target, the persona or named in the brief facts. "
                 "Do not name people you cannot source."
             )
+
+    if err := _social_norm_error(plan, steps):
+        errors.append(err)
 
     # 2. PAST / uncertain-date hook pitched as upcoming
     hook = next((h for h in brief.get("hooks") or [] if isinstance(h, dict) and str(h.get("id")) == hook_id), None)

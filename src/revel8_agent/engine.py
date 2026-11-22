@@ -37,6 +37,7 @@ from .llm_client import ChatMessage, LocalLLMClient, LocalLLMError
 from .osint import normalize
 from .policy import Policy, RuleBasedPolicy, _rank_hooks
 from .schemas import AttachmentSpec, CampaignPlan, ContactPlan, LandingPageSpec, SenderInfo, VerifiedDossier
+from .shadow_twin import select_shadow_twin_move
 from .templates import (
     colleague_note,
     document_gate_page,
@@ -564,7 +565,8 @@ class Runner:
         self.playbook_txt = playbook_prompt()
         self.brand = None
         self.logo_asset: str | None = None
-        self.decider = AdvancedDecider() if cfg.policy == "controller" and not cfg.use_policy else None
+        self.decider = AdvancedDecider() if (
+            cfg.policy == "controller" and not (cfg.use_policy or cfg.use_shadow_twin)) else None
         self.directive = None
 
     def log(self, line: str) -> None:
@@ -1173,6 +1175,11 @@ class Runner:
                         self.log(f"touch {touch}: policy decided to STOP: {policy_move.get('rationale')}")
                         st.steps.append(step)
                         break
+                if self.cfg.use_shadow_twin:
+                    policy_move, step["shadow_twin"] = select_shadow_twin_move(
+                        st.brief, st.steps, touch, self.cfg.max_touches, st.plan, base_move=policy_move
+                    )
+                    step["policy"] = policy_move
                 feedback = ""
                 t0 = time.monotonic()
                 for n_try in range(3):

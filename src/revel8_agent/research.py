@@ -943,6 +943,13 @@ def merge_dossiers(prev: VerifiedDossier, new: VerifiedDossier) -> tuple[Verifie
     new.anchors = list(dict.fromkeys([*new.anchors, *prev.anchors]))
     return new, added
 
+def same_person(prev: VerifiedDossier, t: Target) -> bool:
+    def n(x: str) -> str:
+        return (x or "").strip().casefold()
+
+    return n(prev.target_name) == n(t.name) and n(prev.company) == n(t.company)
+
+
 def live_dossier(t: Target, fallback_llm=None, *, budget_s: float | None = None, anchors: list[str] | None = None,
                  log=print):
     """Research a target live (eval targets are hidden until the scoring window opens, so nothing can be
@@ -956,7 +963,11 @@ def live_dossier(t: Target, fallback_llm=None, *, budget_s: float | None = None,
         if dossier.facts and prev_path.exists() and os.getenv("RESEARCH_ACCUMULATE", "1") == "1":
             try:
                 prev = VerifiedDossier.model_validate_json(prev_path.read_text(encoding="utf-8"))
-                dossier, added = merge_dossiers(prev, dossier)
+                if not same_person(prev, t):  # same id, different person (practice vs eval): never leak facts
+                    log(f"[{t.id}] previous dossier is for {prev.target_name!r}/{prev.company!r}; not merging")
+                    added = 0
+                else:
+                    dossier, added = merge_dossiers(prev, dossier)
                 if added:
                     dossier.hypotheses = rank_hooks(pool.lane(0), t, dossier.facts, dossier.themes) or dossier.hypotheses
                     stats["merged_from_previous"] = added

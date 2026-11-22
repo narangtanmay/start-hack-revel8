@@ -435,6 +435,43 @@ def _policy_html(policy: object) -> str:
     )
 
 
+def _actor_html(actor: object, attempts: object = None) -> str:
+    """Method-actor view: the character's reasoning, notebook additions and gate rejections for one touch."""
+    if not isinstance(actor, dict) or not actor:
+        return ""
+    rows: list[str] = []
+    if actor.get("inner_monologue"):
+        rows.append(f"<dt>Reasoning</dt><dd>{_e(actor['inner_monologue'])}</dd>")
+    notes = [str(x) for x in (actor.get("notebook_added") or []) if str(x).strip()]
+    if notes:
+        rows.append(f"<dt>Notebook</dt><dd><ul class='policy-alts'>{''.join(f'<li>{_e(n)}</li>' for n in notes)}</ul></dd>")
+    rejected = [str(e) for at in (attempts or []) if isinstance(at, dict) for e in (at.get("errors") or []) if str(e).strip()]
+    rejected += [str(x) for x in (actor.get("gate_notes") or []) if str(x).strip()]
+    if rejected:
+        rows.append(f"<dt>Gate</dt><dd><ul class='policy-alts'>{''.join(f'<li>{_e(r)}</li>' for r in rejected)}</ul></dd>")
+    head = "<span class='policy-title'>Character</span>"
+    if actor.get("decision_read_off"):
+        head += f"<span class='badge b-live'>{_e(actor['decision_read_off'])}</span>"
+    return f"<div class='policy'><div class='policy-head'>{head}</div><dl class='policy-grid'>{''.join(rows)}</dl></div>"
+
+
+def _casting_html(casting: object) -> str:
+    if not isinstance(casting, dict) or not casting:
+        return ""
+    ch = casting.get("character") if isinstance(casting.get("character"), dict) else {}
+    pe = casting.get("persona") if isinstance(casting.get("persona"), dict) else {}
+    rows = []
+    for label, val in (("Cast", f"{pe.get('name', '')} · {pe.get('role', '')} · {pe.get('organisation', '')}".strip(" ·")),
+                       ("Need", ch.get("need")), ("Unblocks", ch.get("unblocks_me")),
+                       ("Deadline", ch.get("deadline")), ("Pretext", casting.get("pretext"))):
+        if val:
+            rows.append(f"<dt>{label}</dt><dd>{_e(val)}</dd>")
+    if not rows:
+        return ""
+    return (f"<div class='card' style='margin-bottom:16px'><h2>Casting</h2>"
+            f"<dl class='policy-grid'>{''.join(rows)}</dl></div>")
+
+
 _REDACT = False  # public snapshots: landing pages listed (URL + fields), never rendered
 _FACTS: dict[str, dict[str, dict]] = {}  # target id -> fact id -> fact (from dossiers/), for cited-fact lookups
 
@@ -529,6 +566,7 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     pol_html = _policy_html(step.get("policy"))
     if pol_html:
         out.append(pol_html)
+    out.append(_actor_html(step.get("actor"), step.get("attempts")))
     twin_html = _shadow_twin_html(step.get("shadow_twin"))
     if twin_html:
         out.append(twin_html)
@@ -655,7 +693,7 @@ def render_run(path: Path, out_dir: Path | None = None) -> Path:
               "<span class='badge'>⇄</span> Click to switch between the full record (agent reasoning + decision records) "
               "and the conversation only</label>"
               f"<div class='tl' style='margin-top:16px'>{steps or '<div class=empty-state>Planning the campaign…</div>'}</div>{_LEGEND}</div>")
-    body = (head + error + _run_tiles(state)
+    body = (head + error + _casting_html(state.get("casting")) + _run_tiles(state)
             + f"<div class='grid side'><div class='grid'>{_workflow_card(state)}{_plan_card(state)}{_research_card(state)}</div>{thread}</div>"
             + _activity_card(state))
     out = (out_dir or path.parent) / path.with_suffix(".html").name
