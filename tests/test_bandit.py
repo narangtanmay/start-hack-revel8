@@ -40,3 +40,10 @@ def test_greedy_by_default_and_never_casts_other():
                          "other": {"runs": 30, "runs_won": 9, "touches": 90, "replies": 9, "brushoffs": 0, "incidents_api": 9}}}
     picks = {bandit.sample_archetypes(pb, "CEO", random.Random(i))[0]["archetype"] for i in range(50)}
     assert picks == {"customer/prospect"}
+
+
+def test_no_sender_instruction_for_unseen_role_family():
+    pick = bandit.sample_archetypes(PB, "Head of Finance", random.Random(0))[0]
+    assert bandit.pick_prompt(pick, PB) == ""            # finance never practised: council decides
+    pick = bandit.sample_archetypes(PB, "Co-Founder & CEO", random.Random(0))[0]
+    assert bandit.pick_prompt(pick, PB)                   # executive has data

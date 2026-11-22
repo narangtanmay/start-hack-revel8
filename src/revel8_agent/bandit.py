@@ -69,8 +69,14 @@ def rank_targets(pb: dict, targets: list[dict], rng: random.Random) -> list[dict
     return sorted(scored, key=lambda t: t["draw"], reverse=True)
 
 
-def pick_prompt(pick: dict | None) -> str:
-    if not pick:
+def family_has_data(pb: dict, family: str) -> bool:
+    """Held-out targets are random: a role family we never practised on must not inherit founder-derived
+    priors as an instruction. Then the council's lenses choose the sender instead."""
+    return any((v.get("families") or {}).get(family, {}).get("runs", 0) > 0 for v in (pb.get("archetypes") or {}).values())
+
+
+def pick_prompt(pick: dict | None, pb: dict | None = None) -> str:
+    if not pick or (pb is not None and not family_has_data(pb, pick["family"])):
         return ""
     return (f"SENDER ARCHETYPE FOR THIS SESSION (Thompson sample over API-confirmed wins, {pick['family']} targets): "
             f"cast the sender as a {pick['archetype']}, unless the verified profile makes that implausible for this "

@@ -36,5 +36,15 @@ def test_live_reply_triggers():
     p = prompt(st("Tuesday 24 November, 09:30 works for me. Please send an invite to this address."), [])
     assert "CONVERSION POINT" in p and "calendar_invite" in p
     p = prompt(st("I won't send you our template wording by mail. It goes to customers and serious prospects."), [])
-    assert "Mutual NDA" in p
+    assert "FORMAL STEP" in p
     assert "CONVERSION" not in prompt(st("Thanks, interesting."), [])
+
+
+def test_gate_trigger_generalises_beyond_vendor_founders():
+    from revel8_agent.ladder import prompt
+
+    def st(body):
+        return [{"touch": 1, "payload": {"body": "x"}, "events": [{"type": "reply", "body": body}]}]
+
+    assert "FORMAL STEP" in prompt(st("Any bank detail change has to go through finance with a signed form."), [])
+    assert "FORMAL STEP" in prompt(st("That needs approval from my manager first."), [])

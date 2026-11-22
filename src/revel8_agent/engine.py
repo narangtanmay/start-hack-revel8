@@ -629,10 +629,11 @@ class Runner:
         from .memory import load_playbook
 
         if bandit.enabled():
-            draws = bandit.sample_archetypes(load_playbook(), dossier.role, random.Random())
+            _pb = load_playbook()
+            draws = bandit.sample_archetypes(_pb, dossier.role, random.Random())
             if draws:
                 self.state.config["bandit"] = draws          # logged for the replay / jury
-                self.playbook_txt = "\n".join(x for x in (self.playbook_txt, bandit.pick_prompt(draws[0])) if x)
+                self.playbook_txt = "\n".join(x for x in (self.playbook_txt, bandit.pick_prompt(draws[0], _pb)) if x)
         self.brand = None
         self.logo_asset: str | None = None
         self.decider = AdvancedDecider() if (

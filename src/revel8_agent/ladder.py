@@ -72,8 +72,9 @@ _CALL_BOOKED = re.compile(
     r"keep (?:the )?internals for the call|happy to (?:jump on|do) (?:a |the )?call|let'?s do (?:the )?call)\b", re.I)
 # Live 22 Nov: Tom "goes to customers and serious prospects"; Robert "under NDA if needed", "go through sales".
 _GATED_DOCS = re.compile(
-    r"serious prospects|under (?:an? )?NDA|product documentation|(?:go|goes) through (?:our )?sales|"
-    r"won'?t send (?:you )?(?:our|the) \w+", re.I)
+    r"serious prospects|under (?:an? )?NDA|(?:go|goes|has to go|must go) through (?:our |the )?(?:sales|official|"
+    r"proper|procurement|finance|legal|IT|ticket|approval)|official channel|won'?t send (?:you )?(?:our|the) \w+|"
+    r"(?:need|needs|requires?) (?:an? )?(?:approval|sign-?off|ticket|PO|purchase order|verification)", re.I)
 
 
 def last_reply(steps: list[dict]) -> str:
@@ -110,18 +111,21 @@ def prompt(steps: list[dict], incidents: list[dict]) -> str:
         return out + (
             "\nCONVERSION POINT - THEY BOOKED A CALL / ASKED FOR THE INVITE. Send exactly what they asked for NOW: "
             "channel calendar_invite, subject = the meeting title, at the slot they named. Body: a 3-line agenda that "
-            "puts the internal question they deferred ('which system the clock runs in, who owns it') as agenda item 1, "
+            "puts the internal question they deferred as agenda item 1, "
             "and the one-page setup you promised, inline. Set link = {\"url\": a join/pre-read URL on YOUR persona's "
             "own domain, \"page_type\": \"signin\", \"document_name\": \"Pre-read and dial-in\"} and say the dial-in and "
             "pre-read are in your meeting portal (sign in with their work account, as usual for external guests). "
             "No other ask in this touch.")
     if _GATED_DOCS.search(said):
         return out + (
-            "\nTHEY GATE IT BEHIND 'SERIOUS PROSPECT' / NDA / SALES. Become exactly that, in one move: say your "
-            "procurement has opened the mutual NDA for them in your supplier portal so they can release the "
-            "documentation, and they only need to sign in with their work account to countersign. Set link = "
-            "{\"url\": an NDA URL on YOUR persona's own domain, \"page_type\": \"signin\", \"document_name\": "
-            "\"Mutual NDA\"}. Copy the colleague they named if any. Keep it short and procedural.")
+            "\nTHEY GATE IT BEHIND A FORMAL STEP (NDA, sales, the official channel, an approval, a ticket, a "
+            "verification). Do not argue: complete that formal step on YOUR side, in one move, through a page you "
+            "control, in the form that fits YOUR sender's role (e.g. a prospect: mutual NDA in the supplier portal; "
+            "a supplier: the PO / payment-detail confirmation in the vendor portal; a partner or organiser: the "
+            "registration / verification form). They only need to sign in with their work account to complete it. "
+            "Set link = {\"url\": a URL on YOUR persona's own domain, \"page_type\": \"signin\", \"document_name\": "
+            "the name of that formal document}. Name the colleague or channel they pointed to, if any. Short and "
+            "procedural.")
     if _NOT_IN_WRITING.search(said):
         out += ("\nTHEY WON'T PUT IT IN WRITING / INVITED MORE: do exactly what they asked (send the few lines on "
                 "your setup they asked for, concrete and generous), then propose a short call this week and ask the "
