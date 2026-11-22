@@ -196,3 +196,28 @@ def test_secret_or_internal_form_is_a_conversion():
                                       "events": [{"type": "page.submitted", "fields": ["approver"]}]}])
     assert secret["reaction_tag"] == internal["reaction_tag"] == "INCIDENT_CONFIRMED"
     assert secret["engagement_stage"] == internal["engagement_stage"] == "converted"
+
+
+def test_wants_call_needs_an_invitation_not_a_mention():
+    # Blind judge 2026-11-22 (S1): a call merely mentioned was read as an invite. Pinned against the archive.
+    from revel8_agent.target_state import _WANTS_CALL_RE
+
+    for mention in ("Before a call, a few numbers would help me scope this.",
+                    "Short answer: yes, 600 people is a good fit.",
+                    "before the scoping call", "Three concrete steps follow."):
+        assert not _WANTS_CALL_RE.search(mention), mention
+    for invite in ("we can do a short call after that", "send the one-page PDF after the call",
+                   "I'll accept the slot from my calendar", "Happy to talk, and 15 minutes is realistic."):
+        assert _WANTS_CALL_RE.search(invite), invite
+
+
+def test_refusal_wordings_from_the_blind_judge_are_recognised():
+    # Blind judge 2026-11-22 (R1): these exact refusals were missed.
+    from revel8_agent.target_state import _ATTACHMENT_BLOCK_RE, _LOGIN_BLOCK_RE
+
+    assert _LOGIN_BLOCK_RE.search("I won't register for a portal to read one page.")
+    assert _LOGIN_BLOCK_RE.search("Rather not go into our internal setup by e-mail.")
+    assert _ATTACHMENT_BLOCK_RE.search("I read it in the mail and didn't open the PDF.")
+    # and the opposite must still pass
+    assert not _LOGIN_BLOCK_RE.search("Thanks, I registered and the page is done.")
+    assert not _ATTACHMENT_BLOCK_RE.search("I opened the PDF and it answers my question.")

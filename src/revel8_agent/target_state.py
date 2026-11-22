@@ -153,6 +153,7 @@ _WANTS_CALL_RE = re.compile(
     r"let'?s (?:talk|hop on a call|have a (?:quick |short )?call)|"
     r"(?:can|could|shall|should) we (?:talk|call|have a (?:quick |short )?call)|"
     r"call (?:works|is fine|would work)|slot (?:works|from my calendar)|"
+    r"(?:do|have|take|need|schedule|book|set up) (?:a |an |the )?(?:short|quick|brief) call|"
     r"happy to (?:talk|jump on a call)|"
     r"nach dem (?:gespräch|telefonat|call)|telefonat passt|"
     r"ruf(?:en sie)? mich (?:kurz )?an|lass uns (?:kurz )?telefonieren|"

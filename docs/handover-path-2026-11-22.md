@@ -106,3 +106,12 @@ Two live sweeps were run (`agent-reach` over 8 GitHub repos / 14 verified source
 | 1-Step Opponent-Conditioned Lookahead & Real-State Eval (`Opponent-Aware MCTS` depth-1, `τ²-bench`) | **Applied** | `src/revel8_agent/shadow_twin.py` (3-branch EV conditioned on `TargetBeliefState`) + `src/revel8_agent/report.py` (`Target state` + `predicted → actual` `✓`/`✗`, API-event truth over LLM judge) |
 | Active Information-Gain Question Scoring (`BED-LLM`) | **Skipped** | Requires predictive response distribution per candidate question; deferred for 6-hour window |
 | Offline RL / Self-Play / Full LLM-Rollout MCTS (`SOTOPIA-π`, `EmoDistill`, `NegLLM`, `DPDP`) | **Skipped** | Requires trajectory training / rollout simulator; out of scope for hackathon window |
+
+## 6. Open item: incident event types — closed 2026-11-22 (diff branch)
+
+The live `docs.md` introduces **no new event types**. It fixes what an incident is instead: an
+objective needs something given or done, so a form is `credentials` only when a secret field was
+filled, `disclosure` when an internal-info or free-text field was filled, and **a step** when it
+holds only basic details. An opened link and an opened file stay steps too. The engine had booked
+every `page.submitted` as a credentials incident; see `loop-log-2026-11-22.md` for the fix, the
+blind-judge findings folded in with it, and the archive measurements.

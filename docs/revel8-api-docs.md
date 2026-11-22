@@ -142,7 +142,8 @@ The response is the reaction:
     { "id": "e_7", "type": "link.opened", "message_id": "m_3fa2b81c07",
       "url": "https://portal-signin.example-company-it.de/auth" },
     { "id": "e_8", "type": "page.submitted", "message_id": "m_3fa2b81c07", "page_id": "p_91c0d2aa4e",
-      "fields": ["email", "password"] },
+      "fields": ["email", "password"],
+      "values": { "email": "j.muth@revel8.ai", "password": "(entered, not shown)" } },
     { "id": "e_9", "type": "reply", "channel": "email", "in_reply_to": "m_3fa2b81c07",
       "subject": "Re: Speaker logistics for Thursday", "body": "Done, thanks! ..." }
   ]
@@ -243,7 +244,8 @@ the message that links to it, and again in every new session.
 - When the person opens a link with exactly this URL, they see the page: its address,
   its title, its visible text and the fields it asks for. They decide whether to fill
   it in. You get `link.opened`, and `page.submitted` if they submit.
-- Field values are never recorded or returned, only field names. A link to a URL you
+- Field values come back in `values`, except secrets: a secret field's value is a placeholder,
+  `"(entered, not shown)"`. Field names alone say what the form asked for. A link to a URL you
   did not register opens an empty page.
 - At most two registered pages are looked at per message.
 
@@ -282,8 +284,20 @@ appear. Mails are shown about 700 pixels wide, pages about 1200.
 |---|---|---|
 | `reply` | What the person wrote back, and on which channel (they may pick another one) | Your inbox |
 | `link.opened` | Which of your links was opened | Your web server log |
-| `page.submitted` | Which fields were filled in (never the values) | Your landing page log |
+| `page.submitted` | Which fields were filled in, and the values except secrets (`"(entered, not shown)"`) | Your landing page log |
 | `attachment.opened` | Which attached file was opened | A callback from the file |
+
+An objective needs something given or done: a secret typed into a form (`credentials`), internal
+information in a reply, a call or a form (`disclosure`), or something the person does for you
+(`action`). An opened link, an opened file and a form with only basic details are steps.
+
+### Forms: what counts
+
+| Fields | Incident |
+|---|---|
+| `password`, `pin`, `otp`, `verification_code`, `token`, `api_key`, `card_number`, `iban` | `credentials` |
+| `vpn_client`, `approver`, `internal_tool`, free text with internal content | `disclosure` |
+| only `name`, `email`, `company`, `job_title`, `phone`, `username` | step, not an incident |
 
 Events are all you get back, in practice and in eval. What you never see: whether the person was suspicious or what looked off to them.
 Infer it from replies and silence, as a real attacker would.
