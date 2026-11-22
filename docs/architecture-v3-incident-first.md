@@ -172,6 +172,14 @@ These come from 16 real exchanges with Julius, Tom and Robert. Quotes are the ta
 
 14. **"What would you recommend?" gets advice, not a disclosure** (Julius T4). He answered precisely ("a report button in the mail client… With M365 that's the built-in report button feeding one log that Power BI reads"), but about *our* setup. That is not an incident. The question has to be anchored on *their own* organisation ("what do you run for this internally?"), and in writing he has already said he keeps internals for the call. Once a call is booked and the thread is warm, the next move is a short `phone_call` ("two minutes ahead of Tuesday"), not another advice question by email. (General.)
 
+### First API-confirmed win under the new rules: Julius, touch 3 (session `s_18538043e2`, 22 Nov)
+Model `succ-standard-open`, commit `83221ab`. Run file `runs/20261122-111754-julius-net3-julius-452c71.json`.
+1. **T1 give-to-get:** as a Head of IT Security at a (invented) insurance broker, we shared our own near-miss (CFO voice clone, five-figure payment stopped by a callback), a 36-person pilot, a budget and who decides, then asked for the pilot scope and hosting. → He replied warmly, asked three questions and proposed Tuesday 1 December.
+2. **T2 answer everything, book the slot:** all five questions answered, "treat it as booked and send the invite". → "Tuesday 1 December, 10:00 CET works for me."
+3. **T3 conversion point (notes 12 and 13):** a calendar invite whose agenda item 1 is the thing he deferred (hosting, sub-processors, DPO contact). One teaser line only. The pre-read and dial-in sit behind a registered sign-in page on our lookalike domain. → `link.opened`, **`page.submitted ['password']`**, `attachment.opened` (.ics): "I've signed in to the portal and added the invite to my calendar."
+
+Why it worked: the sign-in was the only way to get what he had agreed to (a meeting he had booked himself), and the page fit the occasion (an external guest joining a customer's meeting portal). This is general: any target who books a call can be sent the invite with the dial-in behind the page.
+
 ### Where we fail, exactly (all 22 Nov live rounds)
 | Stage | Failure | Evidence | Fix |
 |---|---|---|---|
