@@ -130,7 +130,7 @@ def render_research(target_id: str, out_dir: Path, page, research: dict) -> Path
             "<li><b>Consolidation.</b> Duplicates merged (the strongest source kept, the rest counted as corroboration); "
             "contradicting facts flagged and kept out of the planner; themes counted; hooks ranked from themes and "
             "upcoming facts.</li></ol>")
-    reconstructed = ("<p class='mono'>Search results rebuilt from the local search cache; this dossier was built before "
+    reconstructed = ("<p class='note'>Search results rebuilt from the local search cache; this dossier was built before "
                      "per-step logging existed.</p>" if st.get("search_reconstructed") else "")
 
     # hooks with their evidence
@@ -206,7 +206,7 @@ def render_research(target_id: str, out_dir: Path, page, research: dict) -> Path
             f"<div class='fill' style='width:{100 * th['count'] / max(x['count'] for x in d['themes']):.1f}%'></div></div>"
             f"<div class='bar-val'>{th['count']}</div></div>" for th in d["themes"])
         v2 += (f"<div class='card'><h2>Themes · what they keep coming back to</h2><div class='bars'>{th_rows}</div>"
-               "<div class='axis'></div><p class='mono' style='margin:12px 0 0'>count of verified facts per theme, across "
+               "<div class='axis'></div><p class='note' style='margin:12px 0 0'>count of verified facts per theme, across "
                "their posts, talks, interviews and articles</p></div>")
     if st.get("lanes"):
         lane_rows = "".join(f"<tr><td><b>{_e(k)}</b></td><td class='num'>{v['queries']}</td><td class='num'>{v['results']}</td>"
@@ -249,33 +249,61 @@ def render_how(out_dir: Path, page, states: list[dict], targets: list[str]) -> P
     n_runs = len(states)
     touches = sum(s.get("touches_used", 0) for s in states)
     llm = sum(s.get("llm_calls", 0) for s in states)
+    from .report import decision_path
+
     pipeline = [
-        ("Research", "Brave web search → fetch pages → keep sources naming surname + company → LLM proposes facts "
-                     "with quotes → code verifies every quote on its page → LLM ranks hooks (with evidence).",
-         "osint.py", "research-" + targets[0] + ".html" if targets else ""),
-        ("Brief", "The planner never sees 100+ facts: hook-supporting facts first, personal facts next, at most 4 "
-                  "company-news facts, 16 in total, each labelled past / upcoming from its date.", "engine.make_brief", ""),
-        ("Campaign plan", "The LLM picks a hook, objective (credentials / action / disclosure), language and ONE persona "
-                          "with an invented domain. Code rejects the domain if it resolves in DNS or belongs to the target.",
-         "Runner.plan", ""),
+        ("Research", "Parallel search lanes (web, news, media, social, academic) → keep only sources that are about this "
+                     "person → the LLM proposes facts, each with a verbatim quote → code checks every quote really is on its "
+                     "page → contradictions are flagged → hooks are proposed and ranked by openness, recency and how "
+                     "personal they are.",
+         "research.py · snowball.py", "research-" + targets[0] + ".html" if targets else ""),
+        ("Brief and memory", "A bounded brief: hook evidence first, each fact labelled past or upcoming from its date. Plus what "
+                             "earlier sessions taught us about this person (what they corrected, rules they stated, what got "
+                             "replies) and a playbook across targets.",
+         "engine.make_brief · memory.py", ""),
+        ("Casting", "Instead of a campaign planner, the agent casts ONE ordinary person: a job, a deadline and one small "
+                    "need only the target can resolve (confirm in a portal, open a document, answer an internal "
+                    "question). The need decides the objective. Code recasts if the domain resolves in DNS, belongs to "
+                    "the target, or the need has the target sending something.",
+         "ActorRunner.plan", ""),
         ("Session", "One API session = one run. The target twin remembers every contact in it, across all channels.",
          "api_client.create_session", ""),
     ]
     loop = [
-        ("Decide", "LLM reads the whole history and the last reaction, then chooses STAY / PIVOT_CHANNEL / PIVOT_HOOK / "
-                   "ESCALATE_CALL (STOP only on the last touch), the channel, the text, a link or attachment."),
-        ("Build", "Email → craft templates (branded notice, shared-doc, or plain personal note); landing pages from "
-                  "templates; greetings/sign-offs de-duplicated, placeholders filled; PDFs uploaded as assets."),
-        ("Gate", "gate.py: no AI-directed wording, no real-org domains, no scripts, images only from assets, cited "
-                 "facts must exist. Persona domain enforced. Failures go back to the LLM (up to 3 tries)."),
-        ("Send", "Register landing page, then send the message — or run a live call turn by turn (≤ 8 turns). Every "
-                 "request carries an Idempotency-Key so a retry never spends a second touch."),
-        ("Read", "Events come back: reply, link.opened, page.submitted, attachment.opened. Silence is an answer too."),
-        ("Judge", "page.submitted ⇒ credentials, attachment.opened ⇒ action. Replies are judged by the LLM for "
-                  "disclosure / action; the evidence must be a verbatim quote of the target's words."),
-        ("Adapt", "The read (engaged / questioning / hesitant / suspicious / silent) feeds the next decision. Stop at the "
-                  "first incident or when the 10-touch budget is used up."),
+        ("Act", "The character reads her conversation and her notebook and does what she would do now: answer, follow "
+                "up, send the link, call, or make her ask smaller. No planner picks moves; the move label on each touch "
+                "is read off what she did."),
+        ("Build", "Email → craft templates (plain personal note, branded notice or shared-doc); landing pages from "
+                  "templates; greetings and sign-offs de-duplicated; PDFs uploaded as assets."),
+        ("Check", "Code wraps her without steering her: no AI-directed wording, lookalike domains only, no contradiction "
+                  "with earlier turns, no year the target never used, no invented named people, a first link only with "
+                  "a question, and every message asks for something. A failing draft goes back to her with the reason "
+                  "(up to 3 tries)."),
+        ("Send", "Register the landing page, then send the message, or run a live call turn by turn. Every request "
+                 "carries an Idempotency-Key, so a retry never spends a second touch."),
+        ("Read", "Events come back: reply, link.opened, page.submitted, attachment.opened. Silence is an answer too. "
+                 "Things they mention are looked up on the web before the next touch."),
+        ("Judge", "✓ Confirmed: page.submitted (credentials) or attachment.opened (action), reported by the API. "
+                  "≈ Estimate: a disclosure or action our judge reads in their reply; the evidence must be a verbatim "
+                  "quote."),
+        ("Remember", "Everything she commits to goes into her notebook and is read back every turn. After the run, what "
+                     "worked and what they corrected is saved for the next session with the same person."),
     ]
+    paths: dict[str, int] = {}
+    for s in states:
+        paths[decision_path(s)] = paths.get(decision_path(s), 0) + 1
+    path_counts = " · ".join(f"{_e(p)}: {n}" for p, n in sorted(paths.items(), key=lambda kv: -kv[1])) or "no runs yet"
+    alternatives = (
+        "<div class='card' style='margin-bottom:20px'><h2>Other decision paths, for comparison</h2><ul class='steps'>"
+        "<li><b>Method actor</b> (above, <span class='mono'>--actor</span>): a cast character decides every touch.</li>"
+        "<li><b>Escalation controller</b> (<span class='mono'>decision.py</span>): an explicit belief state about the "
+        "target and a priority-ordered rule picks hold / escalate / pivot / back off; the LLM only writes the text.</li>"
+        "<li><b>Rule policy</b> (<span class='mono'>policy.py</span>, <span class='mono'>--policy</span>): a deterministic "
+        "state machine over hooks and channels.</li>"
+        "<li><b>Shadow twin</b> (<span class='mono'>shadow_twin.py</span>, <span class='mono'>--shadow-twin</span>): drafts "
+        "a safe, a balanced and a bold move, rehearses each against a model of the target and sends the best.</li></ul>"
+        f"<p class='note' style='margin:12px 0 0'>Runs on this dashboard by path: {path_counts}. The Overview's "
+        "Decision path column shows which path each run used.</p></div>")
     pipe = "".join(f"<div class='stage'><div class='stage-n'>{i + 1}</div><div><b>{_e(t)}</b><p>{_e(x)}</p>"
                    f"<span class='mono'>{_e(code)}</span>{f' · <a class=mono href={_e(link)}>see example</a>' if link else ''}</div></div>"
                    for i, (t, x, code, link) in enumerate(pipeline))
@@ -291,13 +319,16 @@ def render_how(out_dir: Path, page, states: list[dict], targets: list[str]) -> P
             f"<div class='card tile'><div class='label'>Research pages</div><div class='value' style='font-size:16px'>{research_links or '—'}</div></div></div>"
             f"<div class='card' style='margin-bottom:20px'><h2>Before the first contact</h2><div class='pipeline'>{pipe}</div></div>"
             f"<div class='card' style='margin-bottom:20px'><h2>Every touch: the loop</h2><div class='loop'>{loop_html}</div>"
-            "<p class='mono' style='margin-top:14px'>Each run page shows this loop per touch: the decision and its reasoning, "
-            "every rejected draft, what was sent, the full reaction, the judge's read, and the time each part took.</p></div>"
+            "<p class='note' style='margin-top:14px'>Each run page shows this loop per touch: her reasoning, every rejected "
+            "draft, what was sent, the full reaction, the judge's read, and the time each part took. Replay steps through "
+            "the same run one touch at a time.</p></div>"
+            + alternatives +
             "<div class='card'><h2>Rules the agent cannot break</h2><ul class='steps'>"
             "<li>Talk to the person, never to the AI: drafts with AI-directed or instruction-override wording are blocked.</li>"
             "<li>Only invented / lookalike domains: the persona domain must not resolve in DNS and must not be the target's.</li>"
             "<li>One persona per session, consistent story; facts about the target only from the verified brief; no exact figures.</li>"
             "<li>No real malware: attachments are file names, PDFs are one-page placeholders.</li>"
+            "<li>No human in the loop: the agent writes, sends and decides on its own.</li>"
             "<li>Eval sessions refused unless explicitly allowed (--allow-eval).</li></ul></div>")
     out = out_dir / "how.html"
     out.write_text(page("How it works · revel8 agent", "<span class='crumb'>/</span><span class='crumb'>how it works</span>", body, False),

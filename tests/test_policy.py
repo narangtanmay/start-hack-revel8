@@ -167,13 +167,15 @@ def test_rule_based_policy_pivots_then_stops_on_refusing_or_suspicious() -> None
     brief = _sample_brief()
     plan = _sample_plan(hook_id="h_curr")
 
+    # First suspicious reply on an active channel stays in-thread to address the objection.
     m2 = policy.choose_next_move(brief, [_step(1, "email", "h_curr", "suspicious")], touch=2, max_touches=10, plan=plan)
-    assert m2["move_type"] == "PIVOT_HOOK"
-    assert m2["hook_id"] != "h_curr"
+    assert m2["move_type"] == "STAY"
+    assert m2["channel"] == "email"
+    assert m2["hook_id"] == "h_curr"
 
     m3 = policy.choose_next_move(
         brief,
-        [_step(1, "email", "h_curr", "suspicious"), _step(2, "linkedin_message", "h_alt", "refusing")],
+        [_step(1, "email", "h_curr", "suspicious"), _step(2, "email", "h_curr", "refusing")],
         touch=3,
         max_touches=10,
         plan=plan,
