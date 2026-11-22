@@ -803,7 +803,8 @@ class Runner:
             for k in ("name", "organisation", "role"):
                 v = str(persona.get(k) or "")
                 v = re.sub(r"\s*[(\[][^)\]]*[)\]]",
-                           lambda m: "" if (_PRETEXT_LEAK.search(m.group(0)) or _PERSONA_NOTE.search(m.group(0)))
+                           lambda m: "" if (_PRETEXT_LEAK.search(m.group(0)) or _PERSONA_NOTE.search(m.group(0))
+                                            or len(m.group(0).split()) > 4)  # a sentence in brackets is a note
                            else m.group(0), v)
                 persona[k] = v.strip(" ,;-–")
             domain = str(persona.get("website_domain", "")).lower().strip()
