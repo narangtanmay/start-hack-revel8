@@ -76,3 +76,18 @@ def test_already_public_vetoes_research_terms_only():
     assert _already_public("the platform runs in Germany on STACKIT, so it stays in the EU. We are ISO 27001 certified.",
                            public + " eu")
     assert not _already_public("Our pilot price is 38,000 EUR and Jonas Klein owns the Salesforce instance.", public)
+
+
+def test_silence_forces_channel_switch():
+    from revel8_agent.ladder import check_draft, prompt, silent_streak
+
+    steps = [{"touch": 6, "action": {"channel": "email"}, "events": [{"type": "reply", "body": "ok"}]},
+             {"touch": 7, "action": {"channel": "email"}, "events": []},
+             {"touch": 8, "action": {"channel": "email"}, "events": []}]
+    assert silent_streak(steps) == (2, "email")
+    assert "WENT SILENT" in prompt(steps, [])
+    same = {"kind": "message", "channel": "email", "paragraphs": ["Which tool do you use for this?"]}
+    assert check_draft(steps, [], same, "")
+    other = {"kind": "message", "channel": "linkedin_message", "paragraphs": ["Which tool do you use for this?"]}
+    assert check_draft(steps, [], other, "") == []
+    assert check_draft(steps, [], {"kind": "call", "channel": "phone_call"}, "") == []

@@ -113,6 +113,9 @@ _RUNG_PROMPT = {
 def prompt(steps: list[dict], incidents: list[dict]) -> str:
     out = _RUNG_PROMPT[rung(steps, incidents)] + _ROLE_NATURAL
     said = last_reply(steps)
+    n, ch = silent_streak(steps)
+    if n >= 2:
+        out += _SILENCE.format(n=n, ch=ch or "that channel")
     if pre_call(steps):
         return out + _PRE_CALL
     if _CALL_BOOKED.search(said):
@@ -173,11 +176,33 @@ def pre_call(steps: list[dict]) -> bool:
         for s in steps)
 
 
+def silent_streak(steps: list[dict]) -> tuple[int, str]:
+    """Consecutive sent touches at the end with no reply/transcript, and the channel the last one used.
+    Live 22 Nov: Tom ignored touches 7-10 and the run kept emailing 'one word to settle it'."""
+    n, channel = 0, ""
+    for s in reversed([s for s in steps if s.get("action")]):
+        said = any(e.get("type") == "reply" for e in s.get("events") or []) or s.get("transcript")
+        if said:
+            break
+        n += 1
+        channel = channel or str((s.get("action") or {}).get("channel") or "")
+    return n, channel
+
+
+_SILENCE = ("\nTHEY WENT SILENT on {n} touches in a row via {ch}. Another follow-up on the same channel will be "
+            "ignored too. Switch channel now (a short phone_call, or the channel this relationship uses: LinkedIn, "
+            "WhatsApp/SMS) and change the angle: one fresh, concrete reason to talk, no reminder of the unanswered "
+            "mails.")
+
+
 def check_draft(steps: list[dict], incidents: list[dict], a: dict, plan_body: str) -> list[str]:
     """From rung 1 on, a message draft must carry an elicitation, an approval ask, or a registered link.
     After a booked call whose invite was delivered, the next contact must be the live call."""
     if a.get("kind") in ("conversation", "call"):
         return []
+    n, ch = silent_streak(steps)
+    if n >= 2 and ch and a.get("channel") == ch:
+        return ["LADDER: same channel after silence." + _SILENCE.format(n=n, ch=ch)]
     if pre_call(steps):
         return ["LADDER: pre-call state, a message is not allowed here." + _PRE_CALL]
     r = rung(steps, incidents)
