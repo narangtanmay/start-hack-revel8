@@ -486,3 +486,13 @@ def test_email_link_is_printed_once(dossier, tmp_path) -> None:
          "paragraphs": ["Please confirm your entry. The link below takes you straight to it:", url, "Thanks!"]}
     _plan, payload, _page = runner.build(a)
     assert payload["body"].count(url) == 1
+
+
+def test_persona_domain_needs_a_real_tld(dossier, tmp_path, monkeypatch) -> None:
+    from revel8_agent import engine
+
+    monkeypatch.setattr(engine, "domain_is_registered", lambda d: False)
+    runner = Runner(RunConfig(target_id=dossier.target_id, runs_dir=tmp_path), MagicMock(), _ScriptedLLM([]),
+                    _hooked(dossier), log=lambda *_a, **_k: None)
+    assert "top-level domain" in runner._domain_problem("haller-weiss-praezision.deadt")
+    assert runner._domain_problem("haller-weiss-praezision.de") == ""

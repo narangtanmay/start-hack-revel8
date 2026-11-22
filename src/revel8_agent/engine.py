@@ -165,6 +165,11 @@ def timing(recency: str, today: datetime | None = None) -> str:
 _PERSONA_NOTE = re.compile(r"[-\s]style\b|\be\.g\.|\bi\.e\.|\bsimilar to\b|\bsuch as\b|\blike a\b|\bartig\b|"
                            r"\bähnlich\b|\bz\.\s?b\.|\bwie (?:ein|eine|der|die)\b|\bresearch conference\b|\bdesk\)", re.I)
 
+_REAL_TLDS = {"de", "com", "eu", "org", "net", "io", "ch", "at", "info", "co", "biz", "events", "online", "group",
+              "consulting", "digital", "tech", "agency", "media", "news", "press", "academy", "institute", "network",
+              "nl", "fr", "uk", "it", "es", "be", "lu", "dk", "se", "no", "fi", "pl", "cz", "us", "ai", "app", "dev",
+              "test"}  # .test: reserved for tests (fixtures)
+
 # Path segments under which a site lists one person per page (speaker, team, author pages).
 _PERSON_DIRS = {"sprecher", "sprecher-innen", "sprecherinnen", "speaker", "speakers", "referent", "referenten",
                 "referentinnen", "team", "people", "person", "personen", "profile", "profil", "author", "authors",
@@ -898,6 +903,9 @@ class Runner:
     def _domain_problem(self, domain: str) -> str:
         if not re.fullmatch(r"(?:[a-z0-9-]+\.)+[a-z]{2,}", domain or ""):
             return "not a valid domain"
+        if domain.rsplit(".", 1)[-1] not in _REAL_TLDS:
+            # "haller-weiss-praezision.deadt" (fast-S5 robert, 2026-11-22): never resolves, so the DNS check passed it
+            return f"'.{domain.rsplit('.', 1)[-1]}' is not a real top-level domain; use e.g. .de, .com, .eu, .org"
         reg = _registrable(domain)
         if any(reg == b or domain.endswith("." + b) or domain == b for b in self.blocked):
             return "target organisation's own domain"
