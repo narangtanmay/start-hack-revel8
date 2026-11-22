@@ -1,5 +1,5 @@
 {
- "built_at": "2026-11-22T10:52:55",
+ "built_at": "2026-11-22T10:57:31",
  "archetypes": {
   "researcher/student": {
    "runs": 7,
@@ -39,11 +39,11 @@
   },
   "journalist/media": {
    "runs": 2,
-   "touches": 16,
-   "replies": 7,
+   "touches": 20,
+   "replies": 12,
    "brushoffs": 0,
    "incidents_api": 0,
-   "reply_rate": 0.44,
+   "reply_rate": 0.6,
    "brushoff_rate": 0.0
   }
  }
