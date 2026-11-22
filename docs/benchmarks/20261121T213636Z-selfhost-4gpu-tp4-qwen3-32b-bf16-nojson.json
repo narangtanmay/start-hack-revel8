@@ -1,0 +1,108 @@
+{
+  "label": "selfhost-4gpu-tp4-qwen3-32b-bf16-nojson",
+  "url": "https://jupyter.anruicloud.com/inference/rgapi-hackathon-44522-b354f09a/v1",
+  "model": "qwen3-32b",
+  "json_mode": false,
+  "started_utc": "2026-11-21T21:36:36.385680+00:00",
+  "finished_utc": "2026-11-21T21:37:52.126404+00:00",
+  "seq_median_ttft_s": 0.41904000000067754,
+  "seq_median_total_s": 17.56011633399976,
+  "seq_median_tok_per_s": 19.34428816454931,
+  "par_n": 6,
+  "par_wall_s": 22.812490500000422,
+  "par_aggregate_tok_per_s": 89.77537985166337,
+  "sequential": [
+    {
+      "ok": true,
+      "ttft_s": 0.39813233300083084,
+      "total_s": 19.93878416699954,
+      "completion_tokens": 378,
+      "tok_per_s": 19.34428816454931,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The user is Julius, the Head of Finance at a Munich startup. The simulation has already sent two emails. The first was an invoice follow-up mentioning their Series A news, whi"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.41904000000067754,
+      "total_s": 17.56011633399976,
+      "completion_tokens": 329,
+      "tok_per_s": 19.19366051403862,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The user is Julius, Head of Finance at a Munich startup. They've already had two email touches. The first was an invoice follow-up related to their Series A news, which was op"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.8229207080003107,
+      "total_s": 15.42900129100235,
+      "completion_tokens": 284,
+      "tok_per_s": 19.4439568086806,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The target is Julius, the Head of Finance at a startup. They've already sent two emails, both opened but no reply. The first was an invoice follow-up related to their Series A"
+    }
+  ],
+  "parallel": [
+    {
+      "ok": true,
+      "ttft_s": 0.4141072090023954,
+      "total_s": 15.747001250001631,
+      "completion_tokens": 274,
+      "tok_per_s": 17.87007718616854,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The user is Julius, the Head of Finance at a Munich startup. The first two touches were emails. The first one was an invoice follow-up related to their Series A news, which wa"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.587705707999703,
+      "total_s": 22.395428749998246,
+      "completion_tokens": 391,
+      "tok_per_s": 17.929427994247273,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The user is Julius, Head of Finance at a Munich startup. They've had two email touches. The first was an invoice follow-up related to their Series A news, which was opened but"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.5435079589988163,
+      "total_s": 14.805013917000906,
+      "completion_tokens": 255,
+      "tok_per_s": 17.88029965074763,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The user is Julius, the Head of Finance at a Munich startup. The simulation has had two email touches so far. The first was an invoice follow-up referencing their Series A new"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.5927090000004682,
+      "total_s": 21.899643958000524,
+      "completion_tokens": 382,
+      "tok_per_s": 17.928435073040458,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The target is Julius, the Head of Finance at a Munich startup. They've had two emails so far. The first one was an invoice follow-up, referencing their Series A news. He opene"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.7038335840006766,
+      "total_s": 20.013772166999843,
+      "completion_tokens": 346,
+      "tok_per_s": 17.918234100683517,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The user is Julius, the Head of Finance at a Munich startup. They've already had two email touches. The first was an invoice follow-up related to their Series A news, which wa"
+    },
+    {
+      "ok": true,
+      "ttft_s": 0.51749566700164,
+      "total_s": 22.806736708000244,
+      "completion_tokens": 400,
+      "tok_per_s": 17.945877980512844,
+      "json_valid": true,
+      "usage_reported": true,
+      "sample": "<think>\nOkay, let's see. The target is Julius, the Head of Finance at a Munich startup. They've already sent two emails. The first one was an invoice follow-up related to their Series A news, which wa"
+    }
+  ]
+}

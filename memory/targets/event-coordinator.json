@@ -1,0 +1,47 @@
+{
+ "name": "Event Coordinator",
+ "sessions": [
+  {
+   "run": "20261122-000645-event-coordinator",
+   "at": "2026-11-21T23:06:45+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 1,
+   "reply_rate": 0.0,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-000654-event-coordinator",
+   "at": "2026-11-21T23:06:54+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 1,
+   "reply_rate": 0.0,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-000655-event-coordinator",
+   "at": "2026-11-21T23:06:55+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Workshop logistics",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 2,
+   "reply_rate": 0.0,
+   "silence": 2,
+   "brushoffs": 0,
+   "incidents": []
+  }
+ ],
+ "corrections": [],
+ "rules": [],
+ "disclosed": []
+}

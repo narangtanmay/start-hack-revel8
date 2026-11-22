@@ -110,7 +110,7 @@ def main() -> int:
     for i in range(args.seq):
         r = one_call(client, args.model, json_mode)
         seq.append(r)
-        print(f"  seq {i + 1}: " + (f"ttft {r['ttft_s']:.2f}s total {r['total_s']:.2f}s "
+        print(f"  seq {i + 1}: " + (f"ttft {r['ttft_s'] or 0:.2f}s total {r['total_s']:.2f}s "
                                      f"{r['completion_tokens']} tok {r['tok_per_s'] or 0:.1f} tok/s json={r['json_valid']}"
                                      if r["ok"] else f"HTTP {r['status']}: {r['error']}"))
         if not r["ok"]:

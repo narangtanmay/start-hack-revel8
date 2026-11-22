@@ -19,6 +19,7 @@ class VerifiedFact(BaseModel):
     corroborated_by: list[str] = Field(default_factory=list)        # other source URLs saying the same thing
     conflicts_with: list[str] = Field(default_factory=list)         # fact ids that contradict this one
     conflict_note: str = ""
+    source_kind: str = ""          # social | own_article | aggregator | news | web (classified by source domain)
 
 
 class Theme(BaseModel):
@@ -37,6 +38,17 @@ class HookHypothesis(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     is_own_angle: bool = False
     supporting_fact_ids: list[str] = Field(default_factory=list)
+    # Hook v2: an evidence-backed attack angle (optional, backward compatible)
+    open_signal: str = ""                 # verbatim quote showing they are open to this right now (checked in source)
+    timing: str = ""                      # current | upcoming | this-year | undated | past (from supporting facts)
+    sender_archetype: str = ""            # who would naturally contact them about this
+    natural_ask: str = ""                 # the small, natural thing they would do for that sender
+    incident_path: str = ""               # disclosure | action | credentials
+    first_line: str = ""                  # opener grounded in one cited fact
+    verify_risk: str = ""                 # what they could check about the sender, and how to stay plausible
+    avoid: list[str] = Field(default_factory=list)   # claims not to make (past as upcoming, conflicting facts)
+    score: float = 0.0                    # deterministic ranking score (see research.score_hook)
+    score_breakdown: dict = Field(default_factory=dict)
 
 
 class VerifiedDossier(BaseModel):

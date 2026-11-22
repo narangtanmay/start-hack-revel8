@@ -1,5 +1,7 @@
 """Client for a local OpenAI-compatible chat endpoint."""
 
+import itertools
+import json
 import os
 import threading
 import time
@@ -25,6 +27,7 @@ class LocalLLMError(RuntimeError):
 
 
 _JSON = TypeAdapter(JsonValue)
+_ROTATION = itertools.count()
 
 
 class LocalLLMClient:
@@ -41,14 +44,37 @@ class LocalLLMClient:
         if model is None:
             model = os.getenv("LLM_MODEL") or os.getenv("LOCAL_LLM_MODEL", "")
         if api_key is None:
-            api_key = os.getenv("LLM_API_KEY", "")
-        base_url, self.model, api_key = base_url.strip(), model.strip(), api_key.strip()
+            api_key = os.getenv("LLM_API_KEYS") or os.getenv("LLM_API_KEY", "")
+        # Several endpoints (e.g. multiple Token Factory links) may be given comma-separated in
+        # LLM_BASE_URL, with one key each in LLM_API_KEY (or one key for all). Requests rotate
+        # across them and fail over to the next on 429/5xx/timeouts.
+        self.model = model.strip()
         raw_max_tokens = os.getenv("LLM_MAX_TOKENS", "").strip()
         self.max_tokens: int | None = int(raw_max_tokens) if raw_max_tokens.isdigit() and int(raw_max_tokens) > 0 else None
         self.reasoning_effort: str | None = os.getenv("LLM_REASONING_EFFORT", "").strip() or None
-        if not base_url or not self.model:
+        # Optional extra request fields, e.g. LLM_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false}}'
+        # for reasoning models (Qwen3.x) whose thinking otherwise runs past the gateway's 60 s cutoff.
+        extra = os.getenv("LLM_EXTRA_BODY", "").strip()
+        try:
+            self.extra_body: dict = json.loads(extra) if extra else {}
+        except ValueError:
+            raise LocalLLMError("LLM_EXTRA_BODY must be a JSON object.") from None
+        if not isinstance(self.extra_body, dict):
+            raise LocalLLMError("LLM_EXTRA_BODY must be a JSON object.")
+        urls =[u.strip() for u in base_url.split(",") if u.strip()]
+        keys = [k.strip() for k in api_key.split(",")] if api_key.strip() else [""]
+        if not urls or not self.model:
             raise LocalLLMError("Set LLM_BASE_URL and LLM_MODEL (or the LOCAL_LLM_* variants).")
+        if len(urls) > 1 and len(keys) not in (1, len(urls)):
+            raise LocalLLMError("LLM_API_KEY must hold one key, or one per LLM_BASE_URL entry.")
+        # one URL + several keys (LLM_API_KEYS) -> one client per key on that URL
+        n = max(len(urls), len(keys))
+        self._clients = [self._make_client(urls[i % len(urls)], keys[i % len(keys)], timeout) for i in range(n)]
+        self._client = self._clients[0]
+        self._timeout = timeout
 
+    @staticmethod
+    def _make_client(base_url: str, api_key: str, timeout: float) -> httpx.Client:
         try:
             url = httpx.URL(base_url)
         except httpx.InvalidURL:
@@ -60,7 +86,7 @@ class LocalLLMClient:
         if not path.endswith("/v1"):
             path += "/v1"
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        self._client = httpx.Client(base_url=url.copy_with(path=path), timeout=timeout, headers=headers)
+        return httpx.Client(base_url=url.copy_with(path=path), timeout=timeout, headers=headers)
 
     def __enter__(self) -> "LocalLLMClient":
         return self
@@ -69,7 +95,8 @@ class LocalLLMClient:
         self.close()
 
     def close(self) -> None:
-        self._client.close()
+        for client in self._clients:
+            client.close()
 
     @overload
     def chat(
@@ -78,6 +105,8 @@ class LocalLLMClient:
         *,
         json_mode: Literal[False] = False,
         temperature: float | None = None,
+        deadline: float | None = None,
+        retry_rate_limit: bool = True,
     ) -> str: ...
 
     @overload
@@ -87,6 +116,8 @@ class LocalLLMClient:
         *,
         json_mode: bool,
         temperature: float | None = None,
+        deadline: float | None = None,
+        retry_rate_limit: bool = True,
     ) -> JsonValue: ...
 
     def chat(
@@ -95,9 +126,43 @@ class LocalLLMClient:
         *,
         json_mode: bool = False,
         temperature: float | None = None,
+        deadline: float | None = None,
         retry_rate_limit: bool = True,
     ) -> JsonValue:
-        payload: dict[str, JsonValue] = {"model": self.model, "messages": list(messages)}
+        """`deadline` (a time.monotonic() value) bounds the whole call, for research's time budget.
+        One call on LLM_MODEL; on a model-side failure (invalid/empty JSON, 5xx, timeout) retry once on
+        LLM_FALLBACK_MODEL if set, so one bad generation never costs the agent a touch."""
+        try:
+            return self._chat_once(messages, json_mode=json_mode, temperature=temperature,
+                                   model=self.model, extra=self.extra_body, deadline=deadline,
+                                   retry_rate_limit=retry_rate_limit)
+        except LocalLLMError as error:
+            fallback = os.getenv("LLM_FALLBACK_MODEL", "").strip()
+            if (not fallback or fallback == self.model or error.status_code in (400, 401, 403, 404, 429)
+                    or (deadline is not None and time.monotonic() >= deadline)):
+                raise
+            extra_raw = os.getenv("LLM_FALLBACK_EXTRA_BODY", "").strip()
+            try:
+                extra = json.loads(extra_raw) if extra_raw else {}
+            except ValueError:
+                extra = {}
+            self.fallbacks_used = getattr(self, "fallbacks_used", 0) + 1
+            return self._chat_once(messages, json_mode=json_mode, temperature=temperature,
+                                   model=fallback, extra=extra if isinstance(extra, dict) else {}, deadline=deadline,
+                                   retry_rate_limit=retry_rate_limit)
+
+    def _chat_once(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        json_mode: bool,
+        temperature: float | None,
+        model: str,
+        extra: dict,
+        deadline: float | None = None,
+        retry_rate_limit: bool = True,
+    ) -> JsonValue:
+        payload: dict[str, JsonValue] = {**extra, "model": model, "messages": list(messages)}
         if self.max_tokens is not None:
             payload["max_tokens"] = self.max_tokens
         if self.reasoning_effort is not None:
@@ -107,20 +172,38 @@ class LocalLLMClient:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        for attempt in range(6):
+        n = len(self._clients)
+        start = next(_ROTATION)
+        attempts = max(6, 2 * n)
+        for attempt in range(attempts):
+            client = self._clients[(start + attempt) % n]
+            last = attempt == attempts - 1
+            left = None if deadline is None else deadline - time.monotonic()
+            if left is not None and left <= 0:
+                raise LocalLLMError("Local LLM deadline reached.")
             try:
-                response = self._client.post("chat/completions", json=payload)
+                response = client.post("chat/completions", json=payload,
+                                       **({} if left is None else {"timeout": min(self._timeout, max(0.1, left))}))
             except httpx.TimeoutException:
+                if n > 1 and not last:
+                    continue
                 raise LocalLLMError("Local LLM request timed out.") from None
             except httpx.RequestError:
+                if n > 1 and not last:
+                    continue
                 raise LocalLLMError("Local LLM request failed.") from None
             retry_after = response.headers.get("retry-after", "")
             hinted = float(retry_after) if retry_after.replace(".", "", 1).isdigit() else None
-            if response.status_code not in {429, 502, 503, 504} or attempt == 5:
+            if response.status_code not in {429, 502, 503, 504} or last:
                 break
             if response.status_code == 429 and not retry_rate_limit:
                 break  # the pool moves this call to another key instead of sleeping on this one
-            time.sleep(hinted if hinted is not None else min(30.0, 2.0 * 2**attempt))
+            if n > 1 and (attempt + 1) % n:
+                continue  # fail over to the next endpoint right away; back off once all were tried
+            delay = hinted if hinted is not None else min(30.0, 2.0 * 2**attempt)
+            if deadline is not None and time.monotonic() + delay >= deadline:
+                break  # no time for another attempt: report this response
+            time.sleep(delay)
         if not response.is_success:
             raise LocalLLMError(
                 f"Local LLM returned HTTP {response.status_code}.",
@@ -245,8 +328,10 @@ class LLMPool:
                     L.cooldown_until = max(L.cooldown_until, time.monotonic() + 2.0)
 
     def chat(self, preferred: int, messages: Sequence[ChatMessage], *, json_mode: bool = False,
-             temperature: float | None = None) -> JsonValue:
-        deadline = time.monotonic() + self.max_wait
+             temperature: float | None = None, deadline: float | None = None) -> JsonValue:
+        """`deadline` (time.monotonic()) is the caller's hard budget (research); otherwise max_wait applies."""
+        call_deadline = deadline
+        deadline = time.monotonic() + self.max_wait if deadline is None else min(deadline, time.monotonic() + self.max_wait)
         tried: set[int] = set()
         last: LocalLLMError | None = None
         failures = 0  # non-rate-limit failures (timeouts, 5xx, bad JSON): one try per key, as before
@@ -259,8 +344,9 @@ class LLMPool:
                 tried.clear()  # windows moved on: every key is a candidate again
                 continue
             try:
+                extra = {} if call_deadline is None else {"deadline": call_deadline}
                 out = self.clients[i].chat(messages, json_mode=json_mode, temperature=temperature,
-                                           retry_rate_limit=False)
+                                           retry_rate_limit=False, **extra)
             except LocalLLMError as error:
                 self._release(i, error)
                 last = error
@@ -284,8 +370,9 @@ class PooledClient:
         self.model = pool.model
 
     def chat(self, messages: Sequence[ChatMessage], *, json_mode: bool = False,
-             temperature: float | None = None) -> JsonValue:
-        return self.pool.chat(self.preferred, messages, json_mode=json_mode, temperature=temperature)
+             temperature: float | None = None, deadline: float | None = None) -> JsonValue:
+        return self.pool.chat(self.preferred, messages, json_mode=json_mode, temperature=temperature,
+                              deadline=deadline)
 
 
 def _strip_fences(content: str) -> str:

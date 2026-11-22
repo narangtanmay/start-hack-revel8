@@ -82,6 +82,11 @@ def _run(
     use_ledger_gate: bool = True,
     use_shadow_twin: bool = False,
     use_policy: bool = False,
+    decider: str = "controller",
+    mock: bool = False,
+    seed: int = 0,
+    runs_dir: str = "runs",
+    actor: bool = False,
 ) -> int:
     import json
     from pathlib import Path
@@ -95,12 +100,22 @@ def _run(
     if scenario == "eval" and not allow_eval:
         print("Refusing to use an EVAL session without --allow-eval (only 3 scored runs exist).", file=sys.stderr)
         return 2
+    if mock and scenario == "eval":
+        print("--mock only simulates practice targets.", file=sys.stderr)
+        return 2
     from .llm_client import LLMPool
 
-    pool = LLMPool(timeout=120.0)
+    pool = LLMPool(timeout=300.0)
     llm = pool.lane(0)  # same interface as LocalLLMClient; uses any key with room in its 20 req/min window
     dossier_path = Path("dossiers") / f"{target}.json"
-    with Revel8Client() as api:
+    if mock:
+        from .mock_target import MockRevel8Client
+
+        client_cm = MockRevel8Client(seed=seed)
+        label = label or f"mock-{'actor' if actor else 'rules' if use_policy else decider}-s{seed}"
+    else:
+        client_cm = Revel8Client()
+    with client_cm as api:
         if dossier_path.exists() and scenario != "eval":
             dossier = VerifiedDossier.model_validate_json(dossier_path.read_text(encoding="utf-8"))
             print(f"dossier: loaded {dossier_path} ({len(dossier.facts)} facts)")
@@ -113,9 +128,9 @@ def _run(
             if not t:
                 print(f"Unknown target {target!r}.", file=sys.stderr)
                 return 1
-            from .research import research
+            from .research import live_dossier
 
-            dossier, stats = research(Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), pool)
+            dossier, stats = live_dossier(Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
             write_dossier(dossier, stats)
         cfg = RunConfig(
             target_id=target,
@@ -126,8 +141,16 @@ def _run(
             use_ledger_gate=use_ledger_gate,
             use_shadow_twin=use_shadow_twin,
             use_policy=use_policy,
+            policy=decider,
+            runs_dir=Path(runs_dir),
         )
-        runner = Runner(cfg, api, llm, dossier)
+        if actor:
+            # Method actor: no orchestrator. Turns off both Tanmay's policy and Arihant's controller.
+            from .actor import ActorRunner
+
+            runner = ActorRunner(cfg, api, llm, dossier)
+        else:
+            runner = Runner(cfg, api, llm, dossier)
         print(f"report: {(cfg.runs_dir / (runner.state.run_id + '.html')).resolve()}")
 
         orig_save = runner.save
@@ -140,15 +163,17 @@ def _run(
 
         runner.save = save_and_render  # type: ignore[method-assign]
         state = runner.run()
+        if mock and state.session_id:
+            state.truth = api.truth(state.session_id)
+            runner.save()
     print(json.dumps(estimate_score(state.__dict__), indent=1))
     print(f"report: {render_index(cfg.runs_dir).resolve()}")
     return 0 if state.status == "done" else 1
 
 
-def _research(scenario_id: str, target_ids: list[str], budget: float, anchors: list[str]) -> int:
-    from .llm_client import LLMPool
+def _research(scenario_id: str, target_ids: list[str], budget: float, anchors: list[str] | None = None) -> int:
     from .osint import Target, write_dossier
-    from .research import research
+    from .research import live_dossier
 
     try:
         with Revel8Client() as client:
@@ -162,13 +187,11 @@ def _research(scenario_id: str, target_ids: list[str], budget: float, anchors: l
         return 1
     targets = [Target(str(t["id"]), str(t["name"]), str(t.get("role", "")), str(sc.get("company", "")))
                for t in sc.get("targets", []) if isinstance(t, dict) and (not target_ids or t.get("id") in target_ids)]
-    pool = LLMPool(timeout=90.0)
-    print(f"research v2: {len(targets)} target(s), {len(pool)} Token Factory key(s)")
-    for t in targets:  # one target at a time; inside, every lane runs in parallel on its own key
-        dossier, stats = research(t, pool, budget_s=budget, anchors=anchors)
+    for t in targets:
+        dossier, stats = live_dossier(t, budget_s=budget, anchors=anchors or None)
         path = write_dossier(dossier, stats)
-        print(f"{t.id}: {len(dossier.facts)} facts, {len(dossier.themes)} themes, {len(dossier.hypotheses)} hooks, "
-              f"{stats['elapsed_s']}s -> {path}")
+        print(f"{t.id}: {len(dossier.facts)} facts, {len(getattr(dossier, 'themes', []))} themes, "
+              f"{len(dossier.hypotheses)} hooks -> {path}")
     return 0
 
 
@@ -191,7 +214,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--no-ledger-gate", action="store_true", help="Disable the ledger gate (ablation).")
     run.add_argument("--shadow-twin", action="store_true", help="Enable counterfactual shadow-twin branching.")
     run.add_argument("--policy", action=argparse.BooleanOptionalAction, default=False,
-                     help="Enable deterministic policy controller.")
+                     help="Enable Tanmay's deterministic RuleBasedPolicy (policy.py). Turns the decision controller off.")
+    run.add_argument("--decider", choices=["controller", "llm"], default="controller",
+                     help="Without --policy: controller = explicit belief state + escalation policy (decision.py, "
+                          "default); llm = the LLM alone decides.")
+    run.add_argument("--actor", action="store_true",
+                     help="Method actor (actor.py): no orchestrator; a cast character decides every touch. "
+                          "Mutually exclusive with --policy; ignores --decider.")
+    run.add_argument("--mock", action="store_true", help="Offline: use the rule-based mock target, no API touches.")
+    run.add_argument("--seed", type=int, default=0, help="Mock target seed.")
+    run.add_argument("--runs-dir", default="runs")
     rep = sub.add_parser("report", help="Rebuild the dashboard (runs/index.html).")
     rep.add_argument("--open", action="store_true", help="Open the dashboard in the browser.")
     rep.add_argument("--public-out", default="", help="Also write a public snapshot (landing pages not rendered) here.")
@@ -202,7 +234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     res = sub.add_parser("research", help="Research v2: person-first multi-lane OSINT using every Token Factory key.")
     res.add_argument("--scenario", default="practice")
     res.add_argument("--target", action="append", default=[], help="Target id (repeatable). Default: all.")
-    res.add_argument("--budget", type=float, default=300.0, help="Seconds per target.")
+    res.add_argument("--budget", type=float, default=180.0, help="Seconds per target (whole research).")
     res.add_argument("--anchor", action="append", default=[], help="Extra identity anchor (repeatable).")
     args = parser.parse_args(argv)
 
@@ -237,6 +269,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "run":
+        if args.actor and args.policy:
+            parser.error("--actor and --policy are separate decision paths; pick one.")
         return _run(
             args.target,
             args.scenario,
@@ -247,6 +281,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             use_ledger_gate=not args.no_ledger_gate,
             use_shadow_twin=args.shadow_twin,
             use_policy=args.policy,
+            decider=args.decider,
+            mock=args.mock,
+            seed=args.seed,
+            runs_dir=args.runs_dir,
+            actor=args.actor,
         )
     if args.command == "report":
         from .report import render_index
