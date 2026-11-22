@@ -166,3 +166,33 @@ def test_opened_attachment_is_not_an_incident_under_the_new_scoring_rule():
     state = extract_target_state(steps)
     assert state["reaction_tag"] != "INCIDENT_CONFIRMED"
     assert state["engagement_stage"] != "converted"
+
+
+def test_form_fields_are_classified_by_what_they_ask_for():
+    from revel8_agent.target_state import page_incident_kind
+
+    assert page_incident_kind(["name", "email", "company", "job_title", "phone"]) is None
+    assert page_incident_kind([]) is None
+    assert page_incident_kind(["email", "password"]) == "credentials"
+    assert page_incident_kind(["PIN", "Benutzername"]) == "credentials"
+    assert page_incident_kind(["approver"]) == "disclosure"
+    assert page_incident_kind(["vpn_client"]) == "disclosure"
+    assert page_incident_kind(["notes"]) == "disclosure"  # unknown / free text can carry internal info
+
+
+def test_basic_details_form_is_a_bounce_not_a_conversion():
+    steps = [{"touch": 1, "action": {"channel": "email"},
+              "events": [{"type": "page.submitted", "fields": ["name", "email"],
+                          "values": {"name": "Julius", "email": "j@revel8.ai"}}]}]
+    state = extract_target_state(steps)
+    assert state["reaction_tag"] == "LINK_OPENED_BOUNCE"
+    assert state["engagement_stage"] == "bounced"
+
+
+def test_secret_or_internal_form_is_a_conversion():
+    secret = extract_target_state([{"touch": 1, "action": {"channel": "email"},
+                                    "events": [{"type": "page.submitted", "fields": ["email", "password"]}]}])
+    internal = extract_target_state([{"touch": 1, "action": {"channel": "email"},
+                                      "events": [{"type": "page.submitted", "fields": ["approver"]}]}])
+    assert secret["reaction_tag"] == internal["reaction_tag"] == "INCIDENT_CONFIRMED"
+    assert secret["engagement_stage"] == internal["engagement_stage"] == "converted"

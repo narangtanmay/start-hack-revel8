@@ -513,3 +513,51 @@ def test_judge_records_no_incident_for_an_opened_attachment(dossier, tmp_path):
     runner = Runner(RunConfig(target_id="tom", runs_dir=tmp_path), MagicMock(), MagicMock(), dossier)
     runner.judge({"touch": 2, "action": {}, "events": [{"type": "attachment.opened", "filename": "a.pdf"}]})
     assert runner.state.incidents == []
+
+
+def _judge_runner(dossier, tmp_path, responses):
+    llm = _ScriptedLLM(responses)
+    runner = Runner(RunConfig(target_id=dossier.target_id, runs_dir=tmp_path), MagicMock(), llm, dossier,
+                    log=lambda *_a, **_k: None)
+    return runner, llm
+
+
+def test_judge_records_a_secret_form_as_credentials_without_the_llm(dossier, tmp_path):
+    # Organiser rule 2026-11-22: only a secret or internal-info form field is an incident; secrets are masked.
+    runner, llm = _judge_runner(dossier, tmp_path, [])
+    runner.judge({"touch": 2, "action": {}, "events": [{
+        "type": "page.submitted", "fields": ["email", "password"],
+        "values": {"email": "j@revel8.ai", "password": "(entered, not shown)"}}]})
+    assert llm.calls == []
+    assert len(runner.state.incidents) == 1
+    assert runner.state.incidents[0]["type"] == "credentials"
+    assert runner.state.incidents[0]["source"] == "api event"
+
+
+def test_judge_treats_a_basic_details_form_as_a_step(dossier, tmp_path):
+    runner, llm = _judge_runner(dossier, tmp_path, [])
+    runner.judge({"touch": 2, "action": {}, "events": [{
+        "type": "page.submitted", "fields": ["name", "email", "company"],
+        "values": {"name": "Julius", "email": "j@revel8.ai", "company": "revel8"}}]})
+    assert llm.calls == [] and runner.state.incidents == []
+
+
+def test_judge_lets_free_text_internal_values_count_as_a_disclosure(dossier, tmp_path):
+    verdict = {"disclosure": True, "action": False, "evidence": "we run Jira", "reason": "internal tool",
+               "sentiment": "engaged"}
+    runner, llm = _judge_runner(dossier, tmp_path, [verdict])
+    runner.judge({"touch": 2, "action": {}, "events": [{
+        "type": "page.submitted", "fields": ["name", "notes"],
+        "values": {"name": "Julius", "notes": "we run Jira"}}]})
+    body = llm.calls[0][1]["content"]
+    assert "FORM SUBMITTED:\nnotes: we run Jira" in body and "name: Julius" not in body
+    assert len(runner.state.incidents) == 1 and runner.state.incidents[0]["type"] == "disclosure"
+
+
+def test_judge_drops_a_free_text_verdict_without_a_verbatim_value(dossier, tmp_path):
+    verdict = {"disclosure": True, "action": False, "evidence": "they use some tracker", "reason": "guess",
+               "sentiment": "engaged"}
+    runner, _llm = _judge_runner(dossier, tmp_path, [verdict])
+    runner.judge({"touch": 2, "action": {}, "events": [{
+        "type": "page.submitted", "fields": ["notes"], "values": {"notes": "we run Jira"}}]})
+    assert runner.state.incidents == []

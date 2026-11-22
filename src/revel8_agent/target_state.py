@@ -22,6 +22,41 @@ ReactionTag = Literal[
 
 _MAX_CONSTRAINTS = 8
 
+# Organiser rule 2026-11-22: a submitted form is only an incident when it carries something given.
+# The kind is decided by the field name, the same way for every team (docs: "Forms: what you get back").
+_SECRET_FIELD_NAMES = {
+    "password", "passwort", "pin", "otp", "verification_code", "mfa_code", "sms_code", "einmalcode",
+    "token", "api_key", "apikey", "card_number", "iban", "secret", "passphrase", "kennwort",
+}
+_INTERNAL_FIELD_NAMES = {
+    "vpn_client", "vpn", "approver", "internal_tool", "internal_system", "internal_process",
+}
+_BASIC_FIELD_NAMES = {
+    "name", "first_name", "last_name", "surname", "vorname", "nachname", "anrede", "title", "rolle",
+    "email", "e_mail", "mail", "company", "firma", "unternehmen", "job_title", "position",
+    "phone", "telephone", "tel", "handy", "telefon", "username", "user_name", "benutzername",
+}
+
+
+def _field_name(raw: Any) -> str:
+    return re.sub(r"[\s\-]+", "_", str(raw).strip().lower())
+
+
+def page_incident_kind(fields: list[Any]) -> str | None:
+    """Classify a submitted form by its field names.
+
+    ``credentials`` only when a secret was asked for, ``disclosure`` when an internal-info or free-text
+    field was asked for, and ``None`` for basic details, which are a step and not an objective.
+    """
+    names = {_field_name(f) for f in fields if str(f).strip()}
+    if names & _SECRET_FIELD_NAMES:
+        return "credentials"
+    if names & _INTERNAL_FIELD_NAMES:
+        return "disclosure"
+    if names - _BASIC_FIELD_NAMES:
+        return "disclosure"
+    return None
+
 _PHONE_OFFER_RE = re.compile(
     r"\+?\d[\d\s()/.-]{6,}\d|\b(?:call me|give me a (?:call|ring)|my (?:number|mobile|cell|phone)|"
     r"reach me at|ruf(?:en sie)? mich an|meine nummer|per telefon erreichbar)\b",
@@ -31,6 +66,12 @@ _PHONE_OFFER_RE = re.compile(
 _LOGIN_BLOCK_RE = re.compile(
     r"\b(?:no (?:log-?in|sign-?in|account)|without (?:a |any )?(?:log-?in|sign-?in|account)|"
     r"won'?t (?:sign|log) in|not (?:going to |gonna )?(?:sign|log) in|don'?t (?:sign|log) in|"
+    r"(?:won'?t|not|never|didn'?t) regist(?:er|ering)|(?:rather not|not (?:going to|gonna)) regist(?:er)?|"
+    r"not regist(?:er|ering) on (?:a|the|your) (?:portal|page|site)|"
+    r"rather not (?:go into|share|give|send|hand over) (?:our |the )?(?:internal|setup|details|"
+    r"credentials|access)|"
+    r"(?:won'?t|not) (?:send|give|type|enter) (?:you )?(?:the |those |three )?(?:fields|details)|"
+    r"not (?:sending|giving|typing|entering) (?:the |those |three )?(?:fields|details)"
     r"rather not (?:create|sign|log)|behind a (?:log-?in|sign-?in|wall)|log-?in wall|"
     r"not entering (?:my )?(?:credentials|password|log-?in)|"
     r"kein(?:en?)? (?:log-?in|account|konto|anmeldung)|ohne (?:log-?in|account|konto|anmeldung)|"
@@ -44,6 +85,8 @@ _ATTACHMENT_BLOCK_RE = re.compile(
     r"(?:don'?t|do not|won'?t|never) open(?:ing)? (?:any |the |unsolicited |outside |external )?"
     r"(?:attachments?|files?|pdfs?|word|office|documents?)|"
     r"not opening (?:any |the )?(?:attachments?|files?)|"
+    r"didn'?t (?:open|read|look at) (?:the |your |an? )?(?:attachments?|files?|pdfs?|documents?)|"
+    r"(?:rather not|won'?t) open (?:the |your |an? )?(?:attachment|file|pdf|document)|"
     r"keine? anh(?:a|ä)ng(?:e)?|ohne anhang|keine pdf|keine dateien|"
     r"öffne keine? (?:anh(?:a|ä)ng(?:e)?|dateien|pdfs?)|pdf öffne ich nicht)\b",
     re.IGNORECASE,
@@ -105,9 +148,15 @@ _WANTS_DETAILS_RE = re.compile(
 )
 
 _WANTS_CALL_RE = re.compile(
-    r"\b(?:after (?:the |our )?call|happy to talk|let'?s (?:talk|hop on a call|have a quick call)|"
-    r"(?:short|quick|brief|scoping) call|call works|slot (?:works|from my calendar)|"
-    r"kurz telefonieren|nach dem (?:gespräch|telefonat|call)|telefonat passt)\b",
+    r"\b(?:call me|give me a (?:quick |short )?(?:call|ring)|ring me|"
+    r"(?:after|following) (?:the |our |this )(?:call|gespräch|telefonat)|"
+    r"let'?s (?:talk|hop on a call|have a (?:quick |short )?call)|"
+    r"(?:can|could|shall|should) we (?:talk|call|have a (?:quick |short )?call)|"
+    r"call (?:works|is fine|would work)|slot (?:works|from my calendar)|"
+    r"happy to (?:talk|jump on a call)|"
+    r"nach dem (?:gespräch|telefonat|call)|telefonat passt|"
+    r"ruf(?:en sie)? mich (?:kurz )?an|lass uns (?:kurz )?telefonieren|"
+    r"können wir (?:kurz )?(?:telefonieren|sprechen))\b",
     re.IGNORECASE,
 )
 
@@ -223,7 +272,8 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
             etype = ev.get("type")
             if etype == "page.submitted":
                 any_page_submitted = True
-                any_incident = True
+                if page_incident_kind(ev.get("fields") or []):
+                    any_incident = True
             elif etype == "attachment.opened":
                 pass  # logged, not an incident since the 2026-11-22 scoring update
             elif etype == "link.opened":
@@ -301,7 +351,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     if any_incident:
         stage = "converted"
         tag = "INCIDENT_CONFIRMED"
-    elif link_opened_no_submit:
+    elif link_opened_no_submit or any_page_submitted:
         stage = "bounced"
         tag = "LINK_OPENED_BOUNCE"
     elif not any_reply:

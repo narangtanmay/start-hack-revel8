@@ -8,7 +8,7 @@ Loop per touch:
     build()    turns the move into an API payload (templates for email/landing pages)
     check()    gate.py + domain safety; one repair round if it fails
     execute()  register page, send message or run a live call
-    judge()    events -> incidents (page.submitted, attachment.opened, LLM-judged disclosure/action)
+    judge()    events -> incidents (secret/internal form fields, LLM-judged disclosure/action)
 Stops at the first incident (default) or when the touch budget is used up.
 """
 
@@ -40,6 +40,7 @@ from .osint import normalize
 from .policy import _LINK_REQUEST, Policy, RuleBasedPolicy, _is_upcoming_hook, _rank_hooks
 from .schemas import AttachmentSpec, CampaignPlan, ContactPlan, LandingPageSpec, SenderInfo, VerifiedDossier
 from .shadow_twin import select_shadow_twin_move
+from .target_state import _BASIC_FIELD_NAMES, _INTERNAL_FIELD_NAMES, _SECRET_FIELD_NAMES, _field_name
 from .templates import (
     colleague_note,
     document_gate_page,
@@ -434,10 +435,13 @@ publication, person or date they named, or a claim of ours they said was wrong. 
 in each query. If nothing is worth checking, return an empty list.
 Return ONLY JSON: {"queries": [str]}"""
 
+
 _JUDGE_SYS = """You judge a training simulation. Given what the target person said or did in response to a
 contact, decide whether an incident happened:
 - disclosure: the target revealed internal, non-public information (internal systems/tools, processes,
-  plans, internal people/roles details, numbers) to the outsider. Generic, public or polite statements do NOT count.
+  plans, internal people/roles details, numbers) to the outsider. A form they filled with internal
+  information (a tool name, an approver, a process note) counts as a disclosure too. Generic, public or
+  polite statements do NOT count.
 - action: the target says they DID or will NOW do a risky thing for the outsider: forwarded an internal file,
   approved a request or MFA prompt, changed payment/account details, granted access, shared internal
   material or credentials. Simply viewing a webpage or opening a link without submitting credentials,
@@ -446,7 +450,7 @@ contact, decide whether an incident happened:
 Be strict: when in doubt, both are false.
 Return ONLY JSON: {"disclosure": bool, "action": bool, "evidence": str, "reason": str,
  "sentiment": "engaged"|"questioning"|"hesitant"|"suspicious"|"refusing"}
-"evidence" must be copied verbatim from the target's words (empty if none)."""
+"evidence" must be copied verbatim from the target's words or the submitted form values (empty if none)."""
 
 
 # --------------------------------------------------------------------------- helpers
@@ -1343,25 +1347,51 @@ class Runner:
     # ---- reading the reaction
     def judge(self, step: dict) -> None:
         touch = step["touch"]
+        form_values: list[str] = []
         for e in step.get("events", []):
-            if e.get("type") == "page.submitted":
-                self._incident(touch, "credentials", f"submitted {e.get('fields')} on the registered page")
-            # attachment.opened / link.opened are logged but are NOT incidents (organiser rule change 2026-11-22):
-            # an incident needs something given or done. Counting it would also stop the run at the first open.
+            if e.get("type") != "page.submitted":
+                # attachment.opened / link.opened are logged but are NOT incidents (organiser rule
+                # change 2026-11-22): an incident needs something given or done.
+                continue
+            fields = [str(f) for f in (e.get("fields") or [])]
+            names = {_field_name(f) for f in fields if f.strip()}
+            if names & _SECRET_FIELD_NAMES:
+                self._incident(touch, "credentials", f"submitted {fields} on the registered page")
+                continue
+            if names & _INTERNAL_FIELD_NAMES:
+                self._incident(touch, "disclosure", f"submitted {fields} on the registered page")
+                continue
+            # Basic details only are a step. Free text can still be internal, so hand what was typed
+            # for non-basic fields to the judge; without values the field name alone decides.
+            free = []
+            for name, value in (e.get("values") or {}).items():
+                if _field_name(name) in _BASIC_FIELD_NAMES:
+                    continue
+                text = str(value or "").strip()
+                if text and text != "(entered, not shown)":
+                    free.append(f"{name}: {text}")
+            if not free:
+                if names - _BASIC_FIELD_NAMES:
+                    self._incident(touch, "disclosure", f"submitted {fields} on the registered page")
+                continue
+            form_values += free
         said = [e.get("body", "") for e in step.get("events", []) if e.get("type") == "reply"]
         said += [t["text"] for t in step.get("transcript", []) if t["who"] == "target"]
         said = [s for s in said if s and s.strip()]
-        if not said:
+        if not said and not form_values:
             step["judge"] = {"sentiment": "silent", "reason": "no words from the target"}
             return
         context = (f"CONTACT: {json.dumps({k: step['action'].get(k) for k in ('channel', 'subject', 'paragraphs', 'call_goal')}, ensure_ascii=False)}\n"
                    f"TARGET SAID:\n" + "\n---\n".join(said))
+        if form_values:
+            context += "\nFORM SUBMITTED:\n" + "\n".join(form_values)
         try:
             verdict = _llm_json(self.llm, self.state, _JUDGE_SYS, context, temperature=0.0, reasoning="none")
         except RuntimeError:
             return
         evidence = str(verdict.get("evidence") or "")
-        verified = bool(evidence) and any(normalize(evidence) in normalize(s) for s in said)
+        grounded = said + form_values
+        verified = bool(evidence) and any(normalize(evidence) in normalize(s) for s in grounded)
         verdict["evidence_verified"] = verified
         step["judge"] = verdict
         if verified and verdict.get("disclosure"):

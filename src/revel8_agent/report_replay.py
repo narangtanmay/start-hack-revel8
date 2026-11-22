@@ -435,7 +435,7 @@ _JS = r"""
     return s.length > (n || 140) ? s.slice(0, (n || 140) - 1) + "…" : s;
   }
   function liveIncidents(r) { return r.incidents.filter(function (i) { return !i.superseded; }); }
-  // API-confirmed (page.submitted / attachment.opened) vs our judge's estimate: shown the same way on every page
+  // API-confirmed (secret/internal form field) vs our judge's estimate: shown the same way on every page
   function isConfirmed(i) { return i.source === "api event"; }
   function rejectedCount(s) { return s.attempts.filter(function (a) { return a.errors.length; }).length; }
   function outcome(r, s) {

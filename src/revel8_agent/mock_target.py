@@ -28,7 +28,11 @@ from itertools import count
 from pathlib import Path
 from typing import Any
 
+from .target_state import _field_name, page_incident_kind
+
 _TAGS = re.compile(r"<[^>]+>")
+_MOCK_VALUES = {"vpn_client": "GlobalProtect", "vpn": "GlobalProtect",
+                "approver": "L. Weber", "internal_tool": "Jira", "internal_system": "Confluence"}
 
 
 @dataclass
@@ -215,7 +219,10 @@ class MockRevel8Client:
                 ev("link.opened", url=url)
                 page = s.pages.get(url)
                 if page and page.get("fields") and s.trust >= 0.5 and s.suspicion < 0.3:
-                    ev("page.submitted", page_id="p_mock", fields=list(page.get("fields") or []))
+                    fields = [str(f) for f in page.get("fields") or []]
+                    values = {f: "(entered, not shown)" if page_incident_kind([f]) == "credentials"
+                              else _MOCK_VALUES.get(_field_name(f), "Max Beispiel") for f in fields}
+                    ev("page.submitted", page_id="p_mock", fields=fields, values=values)
                 break
         # words back
         if s.suspicion >= 0.7:
@@ -226,7 +233,8 @@ class MockRevel8Client:
             reply = None if rng.random() < 0.6 else "I'm not sure what this is about, to be honest."
         elif s.suspicion >= 0.45:
             reply = "Before I go further: can you tell me who you're with and how you got my details?"
-        elif any(e["type"] in ("attachment.opened", "page.submitted") for e in events):
+        elif any(e["type"] == "page.submitted" and page_incident_kind(e.get("fields") or [])
+                 for e in events):
             reply = f"Had a look, thanks. Let's continue, {sender.split()[0] if sender else 'thanks'}."
         elif s.trust < 0.4:
             s.asked_for_material = True

@@ -283,9 +283,10 @@ def render_how(out_dir: Path, page, states: list[dict], targets: list[str]) -> P
                  "carries an Idempotency-Key, so a retry never spends a second touch."),
         ("Read", "Events come back: reply, link.opened, page.submitted, attachment.opened. Silence is an answer too. "
                  "Things they mention are looked up on the web before the next touch."),
-        ("Judge", "✓ Confirmed: page.submitted (credentials) or attachment.opened (action), reported by the API. "
-                  "≈ Estimate: a disclosure or action our judge reads in their reply; the evidence must be a verbatim "
-                  "quote."),
+        ("Judge", "✓ Confirmed by the API only when something was given: a secret typed into a form (credentials) or an "
+                  "internal-info field in a form (disclosure). A basic-details form, an opened link or an opened file is "
+                  "a step. ≈ Estimate: a disclosure or action our judge reads in their reply or typed values; the "
+                  "evidence must be a verbatim quote."),
         ("Remember", "Everything she commits to goes into her notebook and is read back every turn. After the run, what "
                      "worked and what they corrected is saved for the next session with the same person."),
     ]

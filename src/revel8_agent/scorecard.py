@@ -7,7 +7,7 @@ contacts to the first incident (a run without an incident counts as not reached)
   practice runs, i.e. "if the eval behaves like practice so far".
 - last 3: the formula on the three most recent finished runs.
 
-Each comes in two flavours: all incidents, and API-confirmed only (page.submitted / attachment.opened), because
+Each comes in two flavours: all incidents, and API-confirmed only (a secret or internal-info form field), because
 LLM-judged disclosures are our own estimate. Targeting share, craft and the jury's 55 points are not observable
 in practice and are reported as such, never guessed.
 """
