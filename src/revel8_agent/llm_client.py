@@ -179,7 +179,7 @@ class LocalLLMClient:
             payload["reasoning_effort"] = effort
         if temperature is not None:
             payload["temperature"] = temperature
-        if json_mode:
+        if json_mode and os.getenv("LLM_JSON_MODE", "1") == "1":
             payload["response_format"] = {"type": "json_object"}
 
         n = len(self._clients)
