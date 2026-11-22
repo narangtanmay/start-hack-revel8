@@ -152,7 +152,7 @@ _WANTS_DETAILS_RE = re.compile(
 # is not something to "repeat" on the next touch (loop5-julius asked to repeat times never named).
 _PROPOSES_CALL_RE = re.compile(
     r"\b(?:two|three|zwei|drei) (?:slots|termine|times)|\b(?:slots|termine)\b[^.\n]{0,40}\b\d{1,2}[:.]\d{2}|"
-    r"\b(?:mon|tue|wed|thu|fri|mo|di|mi|do|fr)(?:day|s|nstag|ttwoch|nerstag|eitag)?\.?[, ]"
+    r"\b(?:mon|tues|wednes|thurs|fri|tue|wed|thu|mo|di|mi|do|fr)(?:day|s|nstag|ttwoch|nerstag|eitag)?\.?[, ]"
     r"[^.\n]{0,24}?\b\d{1,2}[:.]\d{2}|"
     r"\b(?:15|fifteen|zwanzig)[- ]min\w*[^.\n]{0,40}\b(?:slot|termin|uhr|:)|"
     r"\b(?:15|fifteen|twenty|zwanzig)[- ](?:minute|min)\b.*\b(?:or|oder)\b",
@@ -164,6 +164,7 @@ _PROPOSES_CALL_RE = re.compile(
 _PERSON_NAME = r"[A-ZÄÖÜ][\wäöüß\-]+(?:\s+[A-ZÄÖÜ][\wäöüß\-]+){1,2}"
 _NAMED_HANDOFF_RE = re.compile(
     rf"(?:"
+    rf"(?i:\b(?:pull|loop|bring) in)\s+(?:[A-Z][\w-]+\s+)*\((?P<pull_paren>{_PERSON_NAME})\)|"
     rf"(?i:\b(?:pull|loop|bring) in)\s+(?P<pull>{_PERSON_NAME})|"
     rf"(?i:\bplease put (?:this|that|it|the question)\s+to)\s+(?P<put>{_PERSON_NAME})|"
     rf"(?i:\b(?:handled|owned|covered|answered) by)\s+(?P<owner>{_PERSON_NAME})|"
@@ -431,7 +432,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
             if (names or named or mail) and credible:
                 who = next((value for value in named.groupdict().values() if value), "") if named else ""
                 if not who:
-                    who = re.split(r"\s+(?:or|oder|and|und|bzw\.?|at|bei|to|with|mit|please|via|per|mail|telefon|phone)\b",
+                    who = re.split(r"\s+(?:or|oder|and|und|bzw\.?|at|bei|to|with|mit|please|via|per|mail|telefon|phone|so|because|who)\b",
                                    names[0].strip(" .,;"), maxsplit=1)[0] if names else ""
                     who = re.sub(r"^(?:the|a|an|our|your)\s+", "", who, flags=re.IGNORECASE).strip(" .,;")
                     if who.casefold() in _HANDOFF_STOP:
