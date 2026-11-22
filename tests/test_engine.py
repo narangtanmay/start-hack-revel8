@@ -414,7 +414,7 @@ def test_writer_problem_rejects_softening_and_urls() -> None:
     assert _writer_problem(draft, ["Bitte bestätigen Sie Ihr Profil. Eine Anmeldung ist nicht erforderlich."], True)
     assert _writer_problem(draft, ["Hinweis: Dies ist eine Simulation."], True)
     assert _writer_problem(draft, ["Open https://x.test/login to confirm."], True)
-    assert "added numbers" in _writer_problem(draft, ["Confirm by Monday, 9:00."], True)
+    assert "added numbers" in _writer_problem(draft, ["Please confirm your corrected profile in the speaker portal before Monday, 9:00."], True)
     assert _writer_problem(draft, ["Could you confirm your corrected profile in the speaker portal before Monday?"], True) == ""
 
 
