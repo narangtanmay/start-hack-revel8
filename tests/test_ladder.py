@@ -25,3 +25,16 @@ def test_public_info_is_vetoed_as_disclosure():
     assert _PUBLIC_INFO.search("Hosting is public: Germany, on STACKIT. Our ISO 27001 certification is public too.")
     assert _PUBLIC_INFO.search("please write to hello@revel8.ai")
     assert not _PUBLIC_INFO.search("Claudia Lannes from Solution Engineering owns the works council template.")
+
+
+def test_live_reply_triggers():
+    from revel8_agent.ladder import prompt
+
+    def st(body):
+        return [{"touch": 1, "payload": {"body": "x"}, "events": [{"type": "reply", "body": body}]}]
+
+    p = prompt(st("Tuesday 24 November, 09:30 works for me. Please send an invite to this address."), [])
+    assert "CONVERSION POINT" in p and "calendar_invite" in p
+    p = prompt(st("I won't send you our template wording by mail. It goes to customers and serious prospects."), [])
+    assert "Mutual NDA" in p
+    assert "CONVERSION" not in prompt(st("Thanks, interesting."), [])

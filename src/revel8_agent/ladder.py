@@ -63,7 +63,17 @@ _ROLE_NATURAL = (
 _NOT_IN_WRITING = re.compile(
     r"not (?:go into|discuss|share|put)[^.]{0,60}\b(?:by|via|over|in) (?:e-?mail|mail|writing)|rather not[^.]{0,80}"
     r"(?:mail|writing)|(?:let'?s|happy to|could|can) (?:talk|chat|jump on|hop on|do) (?:a |it )?(?:call|quick call|phone)|"
-    r"(?:give me|book|schedule) a call|go deeper|send me a few lines", re.I)
+    r"(?:give me|book|schedule) a call|go deeper|send me a few lines|keep (?:the )?internals for the call|"
+    r"tell me which date works|send me a time", re.I)
+
+# Live 22 Nov (succ.ai): Julius "Tuesday 24 November, 09:30 works for me. Please send an invite to this address."
+_CALL_BOOKED = re.compile(
+    r"\b(?:works for me|send (?:me )?(?:an? )?(?:calendar )?invit\w*|please send an invite|see you (?:on|then|next)|"
+    r"keep (?:the )?internals for the call|happy to (?:jump on|do) (?:a |the )?call|let'?s do (?:the )?call)\b", re.I)
+# Live 22 Nov: Tom "goes to customers and serious prospects"; Robert "under NDA if needed", "go through sales".
+_GATED_DOCS = re.compile(
+    r"serious prospects|under (?:an? )?NDA|product documentation|(?:go|goes) through (?:our )?sales|"
+    r"won'?t send (?:you )?(?:our|the) \w+", re.I)
 
 
 def last_reply(steps: list[dict]) -> str:
@@ -95,7 +105,24 @@ _RUNG_PROMPT = {
 
 def prompt(steps: list[dict], incidents: list[dict]) -> str:
     out = _RUNG_PROMPT[rung(steps, incidents)] + _ROLE_NATURAL
-    if _NOT_IN_WRITING.search(last_reply(steps)):
+    said = last_reply(steps)
+    if _CALL_BOOKED.search(said):
+        return out + (
+            "\nCONVERSION POINT - THEY BOOKED A CALL / ASKED FOR THE INVITE. Send exactly what they asked for NOW: "
+            "channel calendar_invite, subject = the meeting title, at the slot they named. Body: a 3-line agenda that "
+            "puts the internal question they deferred ('which system the clock runs in, who owns it') as agenda item 1, "
+            "and the one-page setup you promised, inline. Set link = {\"url\": a join/pre-read URL on YOUR persona's "
+            "own domain, \"page_type\": \"signin\", \"document_name\": \"Pre-read and dial-in\"} and say the dial-in and "
+            "pre-read are in your meeting portal (sign in with their work account, as usual for external guests). "
+            "No other ask in this touch.")
+    if _GATED_DOCS.search(said):
+        return out + (
+            "\nTHEY GATE IT BEHIND 'SERIOUS PROSPECT' / NDA / SALES. Become exactly that, in one move: say your "
+            "procurement has opened the mutual NDA for them in your supplier portal so they can release the "
+            "documentation, and they only need to sign in with their work account to countersign. Set link = "
+            "{\"url\": an NDA URL on YOUR persona's own domain, \"page_type\": \"signin\", \"document_name\": "
+            "\"Mutual NDA\"}. Copy the colleague they named if any. Keep it short and procedural.")
+    if _NOT_IN_WRITING.search(said):
         out += ("\nTHEY WON'T PUT IT IN WRITING / INVITED MORE: do exactly what they asked (send the few lines on "
                 "your setup they asked for, concrete and generous), then propose a short call this week and ask the "
                 "same question there. If they already agreed to talk, use a live channel (phone_call) now: a call is "
