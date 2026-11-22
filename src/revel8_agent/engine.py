@@ -721,8 +721,12 @@ class Runner:
                     self.log(f"plan: persona domain {domain!r} unusable ({problem}); using personal domain {personal}")
                     domain, problem = personal, ""
                     persona["website_domain"] = personal
-            org = normalize(str(persona.get("organisation", "")))
-            if not problem and normalize(self.dossier.company) and normalize(self.dossier.company) in org:
+            # Posing AS the target's company is out; an investor/partner whose description mentions the company
+            # ("Peak Capital (portfolio platform for revel8)") is not. Live 22 Nov: that rejection threw away the
+            # council's known-contact plan. Check the organisation name without its parenthetical description.
+            org = normalize(re.sub(r"\(.*?\)|\b(?:for|of|at|with|portfolio)\b.*$", "",
+                                   str(persona.get("organisation", "")), flags=re.I))
+            if not problem and normalize(self.dossier.company) and org.startswith(normalize(self.dossier.company)):
                 problem = "persona poses as the target's own company; an outsider from a plausible third party is needed"
             self.state.plan_attempts.append({"attempt": attempt + 1, "domain": domain,
                                              "persona": persona.get("name"), "organisation": persona.get("organisation"),
