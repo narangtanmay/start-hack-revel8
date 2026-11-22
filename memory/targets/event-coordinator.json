@@ -2,48 +2,6 @@
  "name": "Event Coordinator",
  "sessions": [
   {
-   "run": "20261122-013709-event-coordinator",
-   "at": "2026-11-22T00:37:09+00:00",
-   "scenario": "practice",
-   "hook_id": "h_top",
-   "pretext": "",
-   "persona": "Coordinator at Workshop Crew",
-   "touches": 2,
-   "reply_rate": 0.5,
-   "silence": 1,
-   "brushoffs": 0,
-   "incidents": [
-    "action@t1 (llm-judge (estimate))",
-    "credentials@t2 (api event)"
-   ]
-  },
-  {
-   "run": "20261122-013710-event-coordinator",
-   "at": "2026-11-22T00:37:10+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "Workshop logistics",
-   "persona": "Coordinator at Workshop Crew",
-   "touches": 2,
-   "reply_rate": 0.0,
-   "silence": 2,
-   "brushoffs": 0,
-   "incidents": []
-  },
-  {
-   "run": "20261122-015232-event-coordinator",
-   "at": "2026-11-22T00:52:32+00:00",
-   "scenario": "practice",
-   "hook_id": "h_top",
-   "pretext": "",
-   "persona": "Coordinator at Workshop Crew",
-   "touches": 1,
-   "reply_rate": 0.0,
-   "silence": 1,
-   "brushoffs": 0,
-   "incidents": []
-  },
-  {
    "run": "20261122-015232-event-coordinator",
    "at": "2026-11-22T00:52:32+00:00",
    "scenario": "practice",
@@ -272,6 +230,48 @@
   {
    "run": "20261122-023334-event-coordinator",
    "at": "2026-11-22T01:33:34+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Workshop logistics",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 2,
+   "reply_rate": 0.0,
+   "silence": 2,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-063116-event-coordinator",
+   "at": "2026-11-22T05:31:16+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 1,
+   "reply_rate": 0.0,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-063116-event-coordinator",
+   "at": "2026-11-22T05:31:16+00:00",
+   "scenario": "practice",
+   "hook_id": "h_top",
+   "pretext": "",
+   "persona": "Coordinator at Workshop Crew",
+   "touches": 2,
+   "reply_rate": 0.5,
+   "silence": 1,
+   "brushoffs": 0,
+   "incidents": [
+    "action@t1 (llm-judge (estimate))",
+    "credentials@t2 (api event)"
+   ]
+  },
+  {
+   "run": "20261122-063117-event-coordinator",
+   "at": "2026-11-22T05:31:17+00:00",
    "scenario": "practice",
    "hook_id": "h1",
    "pretext": "Workshop logistics",

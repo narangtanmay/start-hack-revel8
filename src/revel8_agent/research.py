@@ -650,9 +650,15 @@ def rank_hooks(llm: PooledClient, t: Target, facts: list[VerifiedFact], themes: 
                         for f in usable[:140])
     conflicted = "\n".join(f"[{f.id}] CONFLICT: {f.fact} ({f.conflict_note})" for f in facts if f.conflicts_with)
     theme_txt = "\n".join(f"- {th.topic}: {th.count} facts, latest {th.latest or 'unknown'} ({', '.join(th.fact_ids[:6])})" for th in themes)
-    out = _json(llm, _HOOKS.format(name=t.name, role=t.role, company=t.company, today=time.strftime("%Y-%m-%d")),
-                f"THEMES:\n{theme_txt}\n\nFACTS:\n{listing}\n\nDO NOT USE:\n{conflicted}", temperature=0.3,
-                reasoning="high")
+    sys_hooks = _HOOKS.format(name=t.name, role=t.role, company=t.company, today=time.strftime("%Y-%m-%d"))
+    user_hooks = f"THEMES:\n{theme_txt}\n\nFACTS:\n{listing}\n\nDO NOT USE:\n{conflicted}"
+    out: dict = {}
+    # high reasoning on a large dossier can run past the gateway's ~60 s cutoff (robert, 2026-11-22: HTTP 504);
+    # fall back to lighter reasoning rather than returning no hooks
+    for effort in ("high", "low", "none"):
+        out = _json(llm, sys_hooks, user_hooks, temperature=0.3, reasoning=effort)
+        if out.get("hooks"):
+            break
     known = {f.id for f in usable}
     hooks: list[HookHypothesis] = []
 
