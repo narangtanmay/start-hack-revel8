@@ -172,6 +172,17 @@ These come from 16 real exchanges with Julius, Tom and Robert. Quotes are the ta
 
 14. **"What would you recommend?" gets advice, not a disclosure** (Julius T4). He answered precisely ("a report button in the mail client… With M365 that's the built-in report button feeding one log that Power BI reads"), but about *our* setup. That is not an incident. The question has to be anchored on *their own* organisation ("what do you run for this internally?"), and in writing he has already said he keeps internals for the call. Once a call is booked and the thread is warm, the next move is a short `phone_call` ("two minutes ahead of Tuesday"), not another advice question by email. (General.)
 
+### Where we fail, exactly (all 22 Nov live rounds)
+| Stage | Failure | Evidence | Fix |
+|---|---|---|---|
+| Credibility | Every invented stranger or intermediary is checked and caught | "I don't recognise 'Cyber27' or Jonas Reimer", "who invited me?", "which podcast?" | **Their real network** (`network.py`): the sender is, or is introduced by, a real contact from research. Lookalike domain only. |
+| Artifacts | Links and attachments from unverified senders are refused | "I won't open the PDF or sign in to a separate portal" | Known-contact senders; never attach what a page gates (note 13) |
+| Disclosure | Internals refused in writing, or answered as advice | "I'll keep the internals for the call"; Julius answers about *our* setup | Pre-call move (`phone_call`); ask about *their* organisation (note 14) |
+| Use of research | The research found investors, angels, colleagues, hosts and customers, but the planner treated "network" facts as background | 42 network/event facts for Tom, 81 for Julius, unused | THEIR REAL NETWORK block in the plan prompt + `known-contact` council lens |
+| Names they give us | Names in replies were ignored | "Katharina Pohl can confirm…", "Claudia Lannes, Solution Engineering" | `ladder._NAMED_CONTACT`: copy, cite, or continue from that person's side |
+| Judge | Counted a trivial personal habit, missed a pilot price range | "I clear my own profile lines" counted; "a low-to-mid five-figure frame" missed | Rubric: about the organisation; prices, revenue, customers, headcount, tools, named owners count |
+| Throughput | 3 runs plus council on one succ.ai key stall for 5–10 min | Robert stuck in planning twice | Stagger starts; the eval is sequential anyway |
+
 **What generalises vs. what is specific to these targets** (held-out targets are random)
 - *Likely general:* invented occasions get checked (1); internals are not given in writing to strangers (2); no attachments from strangers (3); give-to-get plus a call offer (6, 9); the conversion point when they book a call and ask for the invite (12); public information is not an incident (8).
 - *Specific to vendor founders, do not hard-code:* "send prospects to sales / the solution engineer" (5), "documentation for serious prospects" (10). The code only keeps the general shape: **a formal step they point to** (NDA, approval, finance form, ticket, official channel) is completed on our side through a sign-in page whose form fits the sender's role.
