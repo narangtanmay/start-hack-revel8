@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import socket
 import time
@@ -531,6 +532,10 @@ def _strip_salutations(paragraphs: list[str], sender_name: str) -> list[str]:
         out[0] = _GREETING.sub("", out[0], count=1).strip()
         # greeting glued to the first sentence: "Hi Julius, I'm Sarah from ..."
         out[0] = re.sub(r"^(hi|hello|hey|dear|hallo|moin)\s+[^\s,]{1,30},\s*", "", out[0], count=1, flags=re.I).strip()
+        # multi-word salutations: "Dear Tom Müller," / "Sehr geehrter Herr Müller," / "Liebe Frau Dr. Vogt,"
+        # (v4flash-S6 Tom T1 went out as "Hi Tom, Dear Tom Müller, ...", 2026-11-22)
+        out[0] = re.sub(r"^(?:dear|hi|hello|hallo|liebe[rs]?|sehr geehrte[rs]?|guten tag)\s+(?:[^\s,]{1,30}\s+){0,3}[^\s,]{1,30},\s*",
+                        "", out[0], count=1, flags=re.I).strip()
     while out and (not out[-1].strip() or _SIGNOFF.match(out[-1]) or
                    (sender_name and out[-1].strip().split("\n")[0].strip() in (sender_name.strip(), sender_name.split()[0]))):
         out.pop()
@@ -812,6 +817,11 @@ class Runner:
                                             or len(m.group(0).split()) > 4)  # a sentence in brackets is a note
                            else m.group(0), v)
                 persona[k] = v.strip(" ,;-–")
+            phone = str(persona.get("phone") or "")
+            if re.search(r"1\s?2\s?3\s?4|1\s?2\s?3\s?4?\s?5\s?6|0{4}|5{4}|9\s?8\s?7\s?6|(\d)\1{4}", phone):
+                # "+49 89 123 456 78" reads as made up (v4flash-S6); keep the area code, draw plausible digits
+                prefix = (re.match(r"\+?\d{2}\s?\d{2,4}", phone) or re.match(r"", "")).group(0) or "+49 89"
+                persona["phone"] = f"{prefix} {random.randint(2000000, 9899999)}"
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
             if not problem and any(_PRETEXT_LEAK.search(str(persona.get(k) or "")) for k in ("name", "organisation", "role")):

@@ -496,3 +496,11 @@ def test_persona_domain_needs_a_real_tld(dossier, tmp_path, monkeypatch) -> None
                     _hooked(dossier), log=lambda *_a, **_k: None)
     assert "top-level domain" in runner._domain_problem("haller-weiss-praezision.deadt")
     assert runner._domain_problem("haller-weiss-praezision.de") == ""
+
+
+def test_multiword_salutation_is_stripped() -> None:
+    from revel8_agent.engine import _strip_salutations
+
+    assert _strip_salutations(["Dear Tom Müller, I'm Lena from the programme office."], "Lena Hoffmann") == \
+        ["I'm Lena from the programme office."]
+    assert _strip_salutations(["Sehr geehrter Herr Müller, vielen Dank."], "Lena Hoffmann") == ["vielen Dank."]
