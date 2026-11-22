@@ -496,6 +496,38 @@ class RuleBasedPolicy:
                         _alt("PIVOT_HOOK", default_channel, last_hook_id, "Rejected: hook is not what holds the conversation back."),
                     ],
                 )
+
+            handoff = str(target_state["call_handoff"] or "")
+            if target_state["call_completed"] and handoff:
+                return build_move(
+                    "STAY",
+                    last_hook_id,
+                    "email",
+                    f"Write to {handoff} instead of the target, cc the target, name the two times and ask for "
+                    "the fifteen minutes; quote that it was agreed on the call.",
+                    ["Quote the agreed time on the call", "Keep persona and prior details consistent"],
+                    "The call took place but scheduling was handed to a named person; the next step is that "
+                    "person with the slots, not another mail to the target.",
+                    [
+                        _alt("ESCALATE_CALL", call_chan, last_hook_id, "Rejected: the call already happened; a second dial adds nothing before the handoff is worked."),
+                        _alt("PIVOT_HOOK", default_channel, last_hook_id, "Rejected: hook is not the blocker."),
+                    ],
+                )
+            if target_state["call_completed"]:
+                return build_move(
+                    "STAY",
+                    last_hook_id,
+                    "email",
+                    "Send what was promised on the call, ask for one written line back and say when you "
+                    "will check in; no second dial and no hook change.",
+                    ["Deliver the promised material", "Keep persona and prior details consistent"],
+                    "The call just happened; the channel change is not a pivot and a second dial adds nothing.",
+                    [
+                        _alt("ESCALATE_CALL", call_chan, last_hook_id, "Rejected: the call already happened."),
+                        _alt("PIVOT_HOOK", default_channel, last_hook_id, "Rejected: hook is not the blocker right after a call."),
+                    ],
+                )
+
             if not target_state["call_completed"] and (
                     "wants_call" in open_doors
                     or (target_state["engaged_replies"] >= 2 and not target_state["call_proposed"])):

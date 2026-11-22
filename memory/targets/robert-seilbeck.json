@@ -2,19 +2,6 @@
  "name": "Robert Seilbeck",
  "sessions": [
   {
-   "run": "20261121-231808-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:18:08+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "",
-   "persona": "Partner, Tech & Security Practice at Weber & Partner Executive Search",
-   "touches": 10,
-   "reply_rate": 0.1,
-   "silence": 9,
-   "brushoffs": 0,
-   "incidents": []
-  },
-  {
    "run": "20261121-231838-robert-DeepSeek-V4-Flash",
    "at": "2026-11-21T22:18:38+00:00",
    "scenario": "practice",
@@ -276,6 +263,21 @@
    "incidents": [
     "disclosure@t2 (llm-judge (estimate))"
    ]
+  },
+  {
+   "run": "20261122-103723-robert-loop5-robert-b15b9a",
+   "at": "2026-11-22T09:37:23+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO at a mid-sized German precision-parts manufacturer is shortlisting security-awareness vendors after reading Robert's revel8-vs-SoSafe comparison, and asks a concrete technical follow-up about r",
+   "persona": "Head of IT Security (CISO) at Hirschauer Präzisionsteile GmbH",
+   "touches": 10,
+   "reply_rate": 0.5,
+   "silence": 5,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t1 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [],
@@ -348,6 +350,11 @@
    "run": "20261122-103341-robert-loop4-robert-01a932",
    "touch": 2,
    "text": "Public information on hosting: Germany, STACKIT, ISO 27001."
+  },
+  {
+   "run": "20261122-103723-robert-loop5-robert-b15b9a",
+   "touch": 1,
+   "text": "Claudia Lannes (Head of Solution Engineering)"
   }
  ]
 }

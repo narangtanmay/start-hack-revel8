@@ -426,6 +426,15 @@ _NOT_AN_ACTION = re.compile(r"\b(?:send|forward|share) (?:me |us )?(?:the |an? )
                             r"(?:wednesday|monday|tuesday|thursday|friday|morning|afternoon) (?:works|is fine)|"
                             r"happy to (?:chat|talk|meet)|book (?:a|the) (?:call|slot)|schedule|accept (?:the |your )?(?:invite|invitation|meeting)|"
                             r"(?:join|take) (?:the|a|your) (?:call|meeting)|send you a line|get back to you)", re.I)
+# Organiser's 09:35 rule (docs/revel8-api-docs.md): public information is not a disclosure. The judge
+# credited "Public information on hosting: Germany, STACKIT, ISO 27001" as one (loop4/loop5-robert).
+_PUBLIC_FACT = re.compile(r"\b(?:public(?:ly)? (?:available|information|knowledge|sources?|on)|our website|the website|"
+                          r"homepage|press release|pressemitteilung|job ad|iso ?27001|zertifiziert|certified|"
+                          r"available online|read (?:it )?on (?:our|the) )", re.I)
+_INTERNAL_DETAIL = re.compile(r"\b(?:intern(?:al|ally)?|we (?:use|run|track|measure|publish)|our (?:tool|system|"
+                              r"process|portal|wiki|intranet|ticket|jira|confluence|slack|teams)|median|percent|"
+                              r"\d{2,}\s*(?:people|staff|users|days|hours)|approver|freigabe|not published|"
+                              r"non-public|works council|betriebsrat)", re.I)
 _REAL_ACTION = re.compile(r"\b(?:i(?:'ve| have)? (?:opened|approved|forwarded|changed|signed|filled|clicked|"
                           r"downloaded|shared the (?:doc|file|deck)|granted|added you)|done,? (?:i|it)|access granted)", re.I)
 
@@ -1398,6 +1407,9 @@ class Runner:
         verified = bool(evidence) and any(normalize(evidence) in normalize(s) for s in grounded)
         verdict["evidence_verified"] = verified
         step["judge"] = verdict
+        if verified and verdict.get("disclosure") and _PUBLIC_FACT.search(evidence) and not _INTERNAL_DETAIL.search(evidence):
+            verdict["disclosure"] = False
+            verdict["veto"] = "public information is not a disclosure"
         if verified and verdict.get("disclosure"):
             self._incident(touch, "disclosure", evidence, judged=True)
         if verified and verdict.get("action") and _NOT_AN_ACTION.search(evidence) and not _REAL_ACTION.search(evidence):

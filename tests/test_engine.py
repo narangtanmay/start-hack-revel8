@@ -287,6 +287,18 @@ def test_judge_veto_scheduling_is_not_an_action():
     assert _REAL_ACTION.search(real)
 
 
+def test_judge_veto_public_fact_is_not_a_disclosure():
+    # Organiser 09:35: an incident needs internal, non-public information. Robert's only "incident"
+    # was website material; Julius's was internal practice and must survive the veto.
+    from revel8_agent.engine import _INTERNAL_DETAIL, _PUBLIC_FACT
+
+    public = "Public information on hosting: Germany, STACKIT, ISO 27001."
+    assert _PUBLIC_FACT.search(public) and not _INTERNAL_DETAIL.search(public)
+    internal = ("I look at the median time to first report across the whole group, not at individuals, "
+                "and I never publish names.")
+    assert _INTERNAL_DETAIL.search(internal) or not _PUBLIC_FACT.search(internal)
+
+
 def test_strip_salutations_inline_greeting_and_first_name_signoff():
     from revel8_agent.engine import _strip_salutations
 

@@ -248,7 +248,7 @@ def test_after_a_completed_call_mail_takes_over_again() -> None:
         _sample_brief(), steps, touch=4, max_touches=10, plan=_sample_plan(hook_id="h_curr")
     )
     assert move["move_type"] == "STAY"
-    assert "call" not in move["ask"].casefold()
+    assert "second dial" in move["ask"].casefold()
 
 
 def test_one_engaged_reply_is_too_early_to_ask_for_a_call() -> None:

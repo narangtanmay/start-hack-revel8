@@ -147,17 +147,26 @@ _WANTS_DETAILS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Our side proposing a slot: "fifteen minutes", "two slots", "kurzes Telefonat".
-# Only a concrete time offer counts, so a bare "a call would help" stays a mention.
+# Our side proposing a slot. Only a concrete time offer counts: a bare "a short call would help"
+# is not something to "repeat" on the next touch (loop5-julius asked to repeat times never named).
 _PROPOSES_CALL_RE = re.compile(
-    r"\b(?:15|fifteen|twenty|zwanzig)[- ]?min|\b(?:two|three|zwei|drei) (?:slots|termine)|"
-    r"\bslot(?:s)? (?:follow|that work|work on my side)|"
+    r"\b(?:two|three|zwei|drei) (?:slots|termine|times)|\b(?:slots|termine)\b[^.\n]{0,40}\b\d{1,2}[:.]\d{2}|"
     r"\b(?:mon|tue|wed|thu|fri|mo|di|mi|do|fr)(?:day|s|nstag|ttwoch|nerstag|eitag)?\.?[, ]"
     r"[^.\n]{0,24}?\b\d{1,2}[:.]\d{2}|"
-    r"\b(?:short|brief|quick) (?:call|phone call|telefonat|gespräch)|"
-    r"\bkurze[sr]? (?:telefonat|call|gespräch)\b",
+    r"\b(?:15|fifteen|zwanzig)[- ]min\w*[^.\n]{0,40}\b(?:slot|termin|uhr|:)|"
+    r"\b(?:15|fifteen|twenty|zwanzig)[- ](?:minute|min)\b.*\b(?:or|oder)\b",
     re.IGNORECASE,
 )
+
+# A completed call that hands scheduling to a named person: "write to Claudia with a few slots".
+# robert's whole block is "not my job, sales schedules" — the close is to mail that person, not him.
+_HANDOFF_RE = re.compile(
+    r"\b(?:write|mail|send|reach out|schreib\w*|sende\w*|wende\w* dich)"
+    r"[^.\n]{0,50}?\b(?:to|an|bei)\s+"
+    r"([A-ZÄÖÜ][\wäöüß\-]+(?:\s+[A-ZÄÖÜ][\wäöüß\-]+)?)",
+    re.IGNORECASE,
+)
+_EMAIL_RE = re.compile(r"[\w.\-]+@[\w.\-]+\.\w+")
 
 # The target accepting a named slot: without this a call is only offered, not agreed.
 _ACCEPTS_SLOT_RE = re.compile(
@@ -203,6 +212,7 @@ class TargetBeliefState(BaseModel):
     call_completed: bool = False
     call_proposed: bool = False
     call_accepted: bool = False
+    call_handoff: str = ""
     engaged_replies: int = 0
     last_replied_channel: str | None = None
     phone_offered: bool = False
@@ -266,6 +276,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     call_completed = False
     call_proposed = False
     call_accepted = False
+    call_handoff = ""
     engaged_replies = 0
     last_replied_channel: str | None = None
     phone_offered = False
@@ -337,6 +348,11 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
             combined = " ".join(reply_texts)
             if _ACCEPTS_SLOT_RE.search(combined):
                 call_accepted = True
+            names = _HANDOFF_RE.findall(combined)
+            mail = _EMAIL_RE.search(combined)
+            if names or mail:
+                who = re.sub(r"\s+(?:or|oder|and|und|bzw\.?)$", "", names[0].strip(" .,;")) if names else ""
+                call_handoff = f"{who} <{mail.group(0)}>" if who and mail else (who or (mail.group(0) if mail else ""))
             last_reply_routed = bool(_ROUTED_RE.search(combined))
             last_reply_blocked = False
             last_reply_open_door = False
@@ -415,6 +431,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
         call_completed=call_completed,
         call_proposed=call_proposed,
         call_accepted=call_accepted,
+        call_handoff=call_handoff,
         engaged_replies=engaged_replies,
         last_replied_channel=last_replied_channel,
         phone_offered=phone_offered,

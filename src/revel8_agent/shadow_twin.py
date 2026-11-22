@@ -280,6 +280,12 @@ def select_shadow_twin_move(
     propose_slots = (call_invited or engaged_replies >= 2) and not slots_accepted and not target_state.get("call_completed")
     await_acceptance = (bool(target_state.get("call_proposed")) and not slots_accepted
                         and not target_state.get("call_completed"))
+    # He answered the phone and handed us to sales: the next mail goes to that person, not to him.
+    handoff = str(target_state.get("call_handoff") or "")
+    after_handoff = bool(target_state.get("call_completed")) and bool(handoff)
+    # Call happened and nobody was named: the follow-through is material + one written line, not a
+    # hook pivot and not a second dial (loop5-julius churned PIVOT_CHANNEL/PIVOT_HOOK for six touches).
+    after_call = bool(target_state.get("call_completed")) and not handoff
     bold_channel = call_channel if (
         call_invited or slots_accepted or c["silent_message_touches"] >= 3 or not unused) else unused[0]
 
@@ -288,6 +294,12 @@ def select_shadow_twin_move(
                  "Stay in-thread with one low-friction clarifying question.",
                  f"stay on {safe_channel} with the active hook"),
         "balanced": (balanced_channel, balanced_hook, plan_objective,
+                     f"Write to {handoff} instead of the target, cc the target, name the two times and ask "
+                     f"for the fifteen minutes; quote that this was agreed on the call."
+                     if after_handoff else
+                     "Send what was promised on the call, ask for one written line back and say when you "
+                     "will check in; no second dial and no hook change."
+                     if after_call else
                      "Repeat the two times already offered, ask which one they will hold and say you will "
                      "call then; no new slots until they answer."
                      if await_acceptance else
@@ -319,12 +331,19 @@ def select_shadow_twin_move(
         winner = next(c for c in candidates if c["risk_tier"] == "bold")
         for cand in candidates:
             cand["selected"] = cand is winner
+    elif after_call or after_handoff:
+        # Straight after a call the channel change is not a pivot; hold the thread on mail.
+        winner = next(c for c in candidates if c["risk_tier"] == "balanced")
+        for cand in candidates:
+            cand["selected"] = cand is winner
     winner["selected"] = True
 
     tier: Tier = winner["risk_tier"]
     channel, hook, objective, ask, _ = specs[tier]
     hook_id = str(hook["id"]) if hook else str(plan.get("hook_id") or "")
-    if channel in _LIVE_CHANNELS:
+    if after_call or after_handoff:
+        move_type = "STAY"
+    elif channel in _LIVE_CHANNELS:
         move_type = "ESCALATE_CALL"
     elif c["history"] and channel != c["last_channel"]:
         move_type = "PIVOT_CHANNEL"

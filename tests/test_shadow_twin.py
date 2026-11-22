@@ -286,3 +286,32 @@ def test_once_slots_are_on_the_table_the_call_wins_the_tier_ranking() -> None:
     assert move["channel"] == "phone_call"
     assert move["move_type"] == "ESCALATE_CALL"
     assert meta["selected_tier"] == "bold"
+
+
+def _completed_call(steps, *, reply: str = "Good talk, send it over.", transcript: str = "") -> list[dict]:
+    call = _step(len(steps) + 1, "phone_call", reply=reply, sentiment="engaged")
+    call["transcript"] = [{"who": "target", "text": transcript or reply}]
+    return [*steps, call]
+
+
+def test_after_a_call_the_thread_is_not_pivoted_or_dialled_again() -> None:
+    steps = _completed_call([
+        _step(1, "email", reply="Send the two-pager over.", sentiment="engaged"),
+        _step(2, "email", reply="Tuesday works.", sentiment="engaged"),
+    ])
+    move, meta = _select(steps, WEEKDAY)
+    assert move["move_type"] == "STAY"
+    assert move["channel"] == "email"
+    assert "promised" in move["ask"].casefold()
+
+
+def test_a_handoff_on_the_call_is_mailed_instead_of_the_target() -> None:
+    steps = _completed_call([
+        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        _step(2, "email", reply="Tuesday works.", sentiment="engaged"),
+    ], reply="Write to Claudia or info@revel8.ai with a few time slots.",
+       transcript="Write to Claudia or info@revel8.ai with a few time slots.")
+    move, meta = _select(steps, WEEKDAY)
+    assert move["move_type"] == "STAY"
+    assert "claudia" in move["ask"].casefold()
+    assert "info@revel8.ai" in move["ask"].casefold()
