@@ -705,3 +705,13 @@ def test_soft_login_refusal_is_detected() -> None:
     assert _LOGIN_DECLINE.search("Happy to give you my take directly here rather than through the link - "
                                  "no need for me to sign in anywhere")
     assert not _LOGIN_DECLINE.search("Sure, I'll sign in tonight and confirm.")
+
+
+def test_deferral_adds_a_near_deadline_to_the_ask() -> None:
+    plan = _sample_plan(hook_id="theme")
+    plan["objective"] = "credentials"
+    t1 = _step(1, "email", "event", "engaged")
+    t1["events"] = [{"type": "reply", "body": "Thanks. I'll go through the entry before the print week and let you know."}]
+    move = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [t1], touch=2, max_touches=10, plan=plan)
+    assert move["require_link"] is True
+    assert "near deadline" in move["ask"]

@@ -54,6 +54,15 @@ _LOGIN_DECLINE = re.compile(
 )
 
 
+# The target accepts but parks it ("I'll go through the entry before the print week", fast-S3 Tom T3, 2026-11-22).
+_DEFERRAL = re.compile(
+    r"during the week|next week|later this week|before the print|in (?:a|the) few days|when i (?:get|find) (?:a chance|time)|"
+    r"i'?ll (?:look|check|go through|get back|come back|take a look)|let you know|"
+    r"im laufe der woche|nächste woche|später|in den nächsten tagen|ich (?:schaue|sehe) (?:es )?mir .{0,20}an|melde mich",
+    re.IGNORECASE,
+)
+
+
 def _is_upcoming_hook(hook: dict[str, Any]) -> bool:
     return str(hook.get("timing", "")).strip().lower().startswith("upcoming")
 
@@ -310,6 +319,11 @@ class RuleBasedPolicy:
             if require_link:
                 ask = (f"{ask} Include your registered link (page_type \"{page_type}\") as the natural next step of "
                        "your own story: the place where they confirm or join what you are talking about.")
+                if _DEFERRAL.search(last_reply):
+                    ask += (" They are putting it off. Give your own hard, near deadline with a concrete reason only you "
+                            "can know (e.g. the printer needs the final files tomorrow at 9:00), thank them for what they "
+                            "already confirmed, and ask them to confirm in the portal today. Short, friendly, no pressure "
+                            "words.")
             return {
                 "move_type": move_type,
                 "hook_id": hook_id,
