@@ -61,3 +61,13 @@ def _ladder_off_for_scripted_llm(monkeypatch):
 def _council_off_for_scripted_llm(monkeypatch):
     # the strategy council fans out several planner calls; scripted engine tests count calls exactly
     monkeypatch.setenv("REVEL8_COUNCIL", "0")
+
+
+@pytest.fixture(autouse=True)
+def _offline_dns(monkeypatch):
+    # tests never hit public DNS: no real-domain discovery, and nothing counts as registered unless a test says so
+    monkeypatch.setenv("REVEL8_DNS", "0")
+    import revel8_agent.domains as dom
+
+    monkeypatch.setattr(dom, "_doh", lambda name, rtype: 3)
+    dom.registered.cache_clear()

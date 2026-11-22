@@ -484,13 +484,11 @@ def _registrable(host: str) -> str:
 
 
 def domain_is_registered(domain: str) -> bool:
-    """A resolving domain may belong to a real organisation: we do not use those."""
-    try:
-        socket.setdefaulttimeout(3)
-        socket.gethostbyname(domain)
-        return True
-    except OSError:
-        return False
+    """A domain that exists in public DNS (any NS/SOA, not just an A record) may belong to a real organisation:
+    we do not use those. 22 Nov: the A-record-only check let parked and mail-only domains look free."""
+    from .domains import registered
+
+    return registered(domain)
 
 
 def _host(url: str) -> str:
@@ -656,9 +654,23 @@ class Runner:
 
         self.lang_profile = infer_language(dossier)
         self.playbook_txt = playbook_prompt(target_role=dossier.role)
-        from .network import network_prompt
+        from .network import network_prompt, organisations
 
         self.network_txt = network_prompt(dossier)
+        # Real domains of the organisations in their world, from public DNS: blocked as senders, shown to the planner
+        # so a sender claiming one writes from a matching lookalike. REVEL8_DNS=0 skips the lookups (offline/tests).
+        self.real_domains: dict[str, str] = {}
+        if os.environ.get("REVEL8_DNS", "1") != "0":
+            from .domains import domains_prompt, real_domains, registrable
+
+            try:
+                self.real_domains = real_domains(dossier, [dossier.company, *organisations(dossier)[:12]])
+            except Exception as error:  # noqa: BLE001 - DNS must never break a run
+                self.log(f"domains: lookup failed ({type(error).__name__}); continuing without")
+            self.blocked = set(self.blocked) | {registrable(d) for d in self.real_domains.values() if d}
+            _dp = domains_prompt(self.real_domains)
+            if _dp:
+                self.network_txt = "\n".join(x for x in (self.network_txt, _dp) if x)
         import random
 
         from . import bandit
@@ -719,6 +731,19 @@ class Runner:
             persona = plan.get("persona") or {}
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
+            if problem and persona.get("organisation"):
+                # The sender's domain must match the organisation it claims (live 22 Nov: "this is not a Kessler
+                # address, so I can't treat it as one" - the fallback had been a personal domain). Try lookalikes
+                # of that organisation that public DNS says do not exist, before any personal domain.
+                from .domains import lookalikes
+
+                org_name = str(persona["organisation"])
+                for cand in lookalikes(org_name, self.real_domains.get(org_name, ""), k=6):
+                    if not self._domain_problem(cand):
+                        self.log(f"plan: persona domain {domain!r} unusable ({problem}); using org lookalike {cand}")
+                        domain, problem = cand, ""
+                        persona["website_domain"] = cand
+                        break
             if problem and persona.get("name"):
                 # Individuals (applicants, students) often come back without a website. Give them a personal domain
                 # of their own name that no one has registered, instead of failing the run (v4, 2026-11-21).

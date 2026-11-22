@@ -60,6 +60,27 @@ def relationships(dossier: Any, limit: int = 18, per_rel: int = 4) -> list[dict]
     return kept[:limit]
 
 
+_ORG = re.compile(
+    r"\b((?:[A-Z][\w&.-]*\s){0,3}(?:Capital|Ventures|Partners|Fund|GmbH|AG|SE|Group|Holding|Bank|Labs|Technologies|"
+    r"Security|Systems|Software|University|Institute|Foundation|Conference|Summit|House|Truck|Insurance|Consulting|"
+    r"Solutions|Momentum|Inc|Ltd|LLC))\b")
+
+
+def organisations(dossier: Any, limit: int = 20) -> list[str]:
+    """Organisation names in their world (investors, partners, customers, hosts), most mentioned first."""
+    from collections import Counter
+
+    seen: Counter = Counter()
+    for f in getattr(dossier, "facts", []) or []:
+        if _fact(f, "category") not in _CATS:
+            continue
+        for m in _ORG.findall(str(_fact(f, "fact") or "")):
+            name = m.strip(" .,")
+            if 3 <= len(name) <= 60 and not name.lower().startswith(("the ", "a ")):
+                seen[name] += 1
+    return [n for n, _ in seen.most_common(limit)]
+
+
 def network_prompt(dossier: Any) -> str:
     rels = relationships(dossier)
     if not rels:
