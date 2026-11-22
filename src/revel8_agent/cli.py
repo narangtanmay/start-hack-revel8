@@ -165,8 +165,11 @@ def _run(
 
         def save_and_render():
             path = orig_save()
-            render_run(path)
-            render_index(cfg.runs_dir)
+            try:
+                render_run(path)
+                render_index(cfg.runs_dir)
+            except Exception:
+                pass  # rendering failure must not mask the saved run outcome
             return path
 
         runner.save = save_and_render  # type: ignore[method-assign]

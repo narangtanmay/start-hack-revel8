@@ -152,6 +152,38 @@ def _forecast(tier: Tier, c: dict[str, Any], channel: str, hook: dict[str, Any] 
     )
 
 
+_STALL_REPLIES = 2
+
+
+def _unproductive_replies_on_hook(history: list[dict[str, Any]]) -> int:
+    """Replies on the current hook that moved nothing: no first reply, no new open door, no link/incident.
+
+    Wording-independent backstop for deflections _ROUTED_RE does not know (Robert v3: six polite
+    "send it to info@" replies, zero pivots).
+    """
+    hook = _step_hook(history[-1]) if history else ""
+    count, prev = 0, extract_target_state([])
+    for k, s in enumerate(history, start=1):
+        cur = extract_target_state(history[:k])  # ponytail: O(n^2) over <=10 touches
+        if hook and _step_hook(s) == hook and _replies(s):
+            # Target pulling on an ask we have not delivered (Tom task-1805) is our delay, not a dead hook.
+            # ponytail: wants_pdf never clears once seen, so a PDF-asker never stalls; track delivery if that bites.
+            pending_ask = ("wants_call" in cur["open_doors"] and not cur["call_completed"]) or "wants_pdf" in cur["open_doors"]
+            progressed = (prev["engagement_stage"] == "cold" or pending_ask
+                          or set(cur["open_doors"]) - set(prev["open_doors"])
+                          or cur["reaction_tag"] in ("INCIDENT_CONFIRMED", "LINK_OPENED_BOUNCE"))
+            count = 0 if prev["engagement_stage"] == "cold" else count + (not progressed)
+        elif hook and _step_hook(s) == hook and prev["engagement_stage"] != "cold":
+            # Silence after they engaged counts too (Robert final: deflected at T2, then 4 silent touches on h4).
+            # Cold-open silence stays with the channel ladder.
+            pending_ask = ("wants_call" in cur["open_doors"] and not cur["call_completed"]) or "wants_pdf" in cur["open_doors"]
+            count += not pending_ask
+        elif _step_hook(s) != hook:
+            count = 0
+        prev = cur
+    return count
+
+
 def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str, Any], today: datetime | None) -> dict[str, Any]:
     history = _executed_steps(steps)
     channels = [_step_channel(s) for s in history if _step_channel(s)]
@@ -203,7 +235,10 @@ def select_shadow_twin_move(
     last_hook_id = c["used_hooks"][-1] if c["used_hooks"] else None
     current_hook = next((h for h in ranked if str(h["id"]) == last_hook_id), top)
     unused_hook = next((h for h in non_past if str(h["id"]) not in c["used_hooks"]), top)
-    routed = c["target_state"]["reaction_tag"] == "ROUTED"
+    # Only the touch that got the routing reply pivots; the tag stays ROUTED through silence (Robert smoke T5/T6).
+    routed = c["target_state"]["reaction_tag"] == "ROUTED" and bool(c["history"]) and bool(_replies(c["history"][-1]))
+    if _unproductive_replies_on_hook(c["history"]) >= _STALL_REPLIES:
+        current_hook = unused_hook  # stalled hook is dead for every tier, not just balanced
     balanced_hook = unused_hook if (routed or not c["last_replied_channel"]) else current_hook
     message_channels, live_channels = _channel_ladder(plan)
     primary = "email" if "email" in message_channels or not message_channels else message_channels[0]

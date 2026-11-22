@@ -382,7 +382,7 @@ For email you choose a format: "plain" (personal note from a person, best for in
 If you include a link, it gets a landing page: page_type "signin" (email+password), "document" (sign in to
 view a document), "mfa" (one-time code) or "meeting" (sign in to join a call they asked for; put the meeting's
 name in document_name). The link host MUST be on the persona's website_domain or a
-subdomain of it. For messages on other channels, body is plain text (short for chat/SMS).
+subdomain of it. Every link opens a sign-in page. Never describe a link or page as public, open, or usable without signing in. For messages on other channels, body is plain text (short for chat/SMS).
 
 Return ONLY JSON:
 {"assessment": str, "decision": "STAY"|"PIVOT_CHANNEL"|"PIVOT_HOOK"|"ESCALATE_CALL"|"STOP",
@@ -689,7 +689,7 @@ class Runner:
                  log=print, policy: Policy | None = None) -> None:
         self.cfg, self.api, self.llm, self.dossier, self._print = cfg, api, llm, dossier, log
         self.policy: Policy | None = policy if policy is not None else (RuleBasedPolicy() if cfg.use_policy else None)
-        run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{cfg.target_id}" + (f"-{cfg.label}" if cfg.label else "")
+        run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{cfg.target_id}" + (f"-{cfg.label}" if cfg.label else "") + f"-{uuid.uuid4().hex[:6]}"
         self.state = RunState(
             run_id=run_id,
             config={k: str(v) for k, v in cfg.__dict__.items()},

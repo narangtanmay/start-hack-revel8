@@ -174,3 +174,79 @@ def test_runner_populates_shadow_twin_and_binds_winner(dossier, tmp_path: Path, 
     assert step["action"]["hook_id"] == step["policy"]["hook_id"] == "h_top"
     assert api.send_message.call_args.args[1]["channel"] == chosen["channel"]
     assert "POLICY MOVE" in llm.calls[1][1]["content"]
+
+
+# Robert v3 (runs/20261122-060729-robert-adaptive-ds-robert-v3.json): every reply deflected to
+# info@revel8.ai / sales in wording _ROUTED_RE never matched, and the twin stayed on h4 for 6 touches.
+ROBERT_REPLIES = [
+    "Hi Herr Ostermeier, thanks for the feedback. The works-council side of deployments is handled by our "
+    "solution engineering and customer team, not by me.",
+    "Hi Herr Ostermeier, please use info@revel8.ai or the demo form on the website. Solution engineering "
+    "picks it up from there and assigns the right person.",
+    "Hi Herr Ostermeier, send the one-pager and your question to info@revel8.ai. Solution engineering will "
+    "answer the anonymization question binding and in writing.",
+    "Hi Herr Ostermeier, I can't answer how solution engineering runs works-council rounds. Please put that "
+    "question in your message to info@revel8.ai.",
+]
+TWO_HOOKS = {**BRIEF, "hooks": BRIEF["hooks"] + [
+    {"id": "h2", "timing": "upcoming", "confidence": 0.8, "supporting_fact_ids": ["f1"]}]}
+
+
+def test_stalled_hook_pivots_regardless_of_reply_wording() -> None:
+    steps = [_step(i + 1, "email", reply=r) for i, r in enumerate(ROBERT_REPLIES)]
+    move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
+    assert move["hook_id"] == "h2"
+    assert move["move_type"] == "PIVOT_HOOK"
+
+
+def test_one_unproductive_reply_does_not_pivot() -> None:
+    steps = [_step(i + 1, "email", reply=r) for i, r in enumerate(ROBERT_REPLIES[:2])]
+    move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
+    assert move["hook_id"] == "h1"
+
+
+# Tom task-1805 (runs/20261122-051859-tom-adaptive-kimi-tom.json): engaged, kept asking for the call
+# and the PDF-after-call. Repeating an undelivered ask is not a stall; 1e4f43e keeps his hook.
+TOM_REPLIES = [
+    "Hi Sebastian, Thanks for reaching out. Voice-based payment-change scenarios are in scope. Before a call, "
+    "a few numbers would help me scope this.",
+    "Hi Sebastian, Thanks, this is what I needed. 100 participants across Leipzig (60) and Chemnitz (40), a "
+    "works-council review on 10 December and pilot calls 11-22 January fit our planning.",
+    "Hi Sebastian, Yes, send the one-page PDF after the call and I'll forward it to the colleague drafting the "
+    "note. Our draft will reach you early next week. Then send me your slot suggestions.",
+    "Hi Sebastian, Thanks. I'm keeping to what we agreed: I'll look at the PDF after our call, so I won't "
+    "forward it before then. Please send me your slot suggestions for early next week.",
+    "Hi Sebastian, Tuesday 8 December, 14:00-14:20 CET works for me. Please send the invite to tom@revel8.ai. "
+    "The PDF follows after the call, as agreed.",
+]
+
+
+def test_engaged_target_with_undelivered_ask_keeps_hook() -> None:
+    steps = [_step(i + 1, "email", reply=r) for i, r in enumerate(TOM_REPLIES)]
+    move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
+    assert move["hook_id"] == "h1"
+
+
+THREE_HOOKS = {**BRIEF, "hooks": TWO_HOOKS["hooks"] + [
+    {"id": "h3", "timing": "upcoming", "confidence": 0.7, "supporting_fact_ids": ["f1"]}]}
+
+
+def test_routed_pivots_once_not_on_every_silent_touch() -> None:
+    # Robert smoke T5/T6: ROUTED stuck after he went silent and the twin rotated h4 -> h2 -> h3.
+    routed = _step(1, "email", reply="Please send it to info@revel8.ai, not the right person for this.")
+    pivot, _ = _select([routed], WEEKDAY, brief=THREE_HOOKS)
+    assert pivot["hook_id"] == "h2"
+    silent = {"touch": 2, "action": {"channel": "email", "hook_id": "h2"}, "events": []}
+    move, _ = _select([routed, silent], WEEKDAY, brief=THREE_HOOKS)
+    assert move["hook_id"] == "h2"
+
+
+def test_silence_after_a_deflection_counts_toward_the_stall() -> None:
+    # Robert final (5ade40d): deflected at T2, then 4 silent touches all on h4 with the same portal link.
+    steps = [
+        _step(1, "email", reply="Hi Andreas, thanks for writing. Both topics are relevant to us."),
+        _step(2, "email", reply="Please send the one-pager and the portal request to Claudia Lannes and the sales desk."),
+        {"touch": 3, "action": {"channel": "email", "hook_id": "h1"}, "events": []},
+    ]
+    move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
+    assert move["hook_id"] == "h2"

@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .gate import _NO_ATTACHMENT_CLAIMS, _NO_LOGIN_CLAIMS
+from .gate import _NO_ATTACHMENT_CLAIMS, _NO_LOGIN_CLAIM_RE
 
 EngagementStage = Literal["cold", "replied", "engaged", "bounced", "converted"]
 ReactionTag = Literal[
@@ -205,11 +205,10 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
 
         sent = _sent_blob(step)
         if sent:
-            for claim in _NO_LOGIN_CLAIMS:
-                if claim in sent:
-                    blocked.add("login_wall")
-                    _add_constraint(turn, "login_wall", claim)
-                    break
+            m_claim = _NO_LOGIN_CLAIM_RE.search(sent)
+            if m_claim:
+                blocked.add("login_wall")
+                _add_constraint(turn, "login_wall", m_claim.group(0))
             for claim in _NO_ATTACHMENT_CLAIMS:
                 if claim in sent:
                     blocked.add("attachments")
