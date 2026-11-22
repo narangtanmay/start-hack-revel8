@@ -19,6 +19,7 @@ import os
 import re
 import socket
 import time
+import unicodedata
 import uuid
 
 import httpx
@@ -26,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from pydantic import ValidationError
 
@@ -160,12 +161,39 @@ def timing(recency: str, today: datetime | None = None) -> str:
     return "past" if when.date() < today.date() else "upcoming"
 
 
+# Path segments under which a site lists one person per page (speaker, team, author pages).
+_PERSON_DIRS = {"sprecher", "sprecher-innen", "sprecherinnen", "speaker", "speakers", "referent", "referenten",
+                "referentinnen", "team", "people", "person", "personen", "profile", "profil", "author", "authors",
+                "autor", "autoren", "mitarbeiter", "about-us", "members"}
+
+
+def about_someone_else(source_url: str, target_name: str) -> bool:
+    """True when the source is another person's page, e.g. Robert's dossier citing .../sprecher-innen/tom-mueller
+    (2026-11-22): extraction resolved that page's "He ..." sentences to the wrong founder."""
+    parts = [x for x in unquote(urlsplit(source_url or "").path).lower().split("/") if x]
+    surname = normalize(target_name.split()[-1]).lower().replace(" ", "")
+    # URLs spell "Müller" as mueller or muller
+    spellings = {surname,
+                 surname.translate(str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})),
+                 unicodedata.normalize("NFKD", surname).encode("ascii", "ignore").decode()}
+    for prev, seg in zip(parts, parts[1:]):
+        if prev in _PERSON_DIRS and re.fullmatch(r"[a-z\u00e0-\u00ff%0-9]+(?:-[a-z\u00e0-\u00ff%0-9]+)+", seg):
+            flat = seg.replace("-", "")
+            if not any(sp and sp in flat for sp in spellings):
+                return True
+    return False
+
+
 def make_brief(dossier: VerifiedDossier, max_facts: int = 16, today: datetime | None = None) -> dict:
     """Keep the planner focused: hook-supporting facts first, then personal, then recent ones."""
-    # facts that contradict another source never reach the planner (wrong facts cost points)
-    by_id = {f.id: f for f in dossier.facts if not getattr(f, "conflicts_with", None)}
+    # facts that contradict another source never reach the planner (wrong facts cost points), and neither do facts
+    # taken from another person's page
+    by_id = {f.id: f for f in dossier.facts if not getattr(f, "conflicts_with", None)
+             and not about_someone_else(f.source_url, dossier.target_name)}
+    hypotheses = [h for h in dossier.hypotheses
+                  if not h.supporting_fact_ids or any(fid in by_id for fid in h.supporting_fact_ids)]
     chosen: list[str] = []
-    for h in dossier.hypotheses:
+    for h in hypotheses:
         for fid in h.supporting_fact_ids:
             if fid in by_id and fid not in chosen:
                 chosen.append(fid)
@@ -189,7 +217,7 @@ def make_brief(dossier: VerifiedDossier, max_facts: int = 16, today: datetime | 
         "target": {"name": dossier.target_name, "role": dossier.role, "company": dossier.company},
         "facts": [{"id": i, "fact": by_id[i].fact, "recency": by_id[i].recency, "category": by_id[i].category,
                    "timing": timing(by_id[i].recency, today)} for i in chosen],
-        "hooks": [_hook_with_timing(h.model_dump(), by_id, today=today) for h in dossier.hypotheses],
+        "hooks": [_hook_with_timing(h.model_dump(), by_id, today=today) for h in hypotheses],
         "themes": [{"topic": th.topic, "count": th.count, "latest": th.latest}
                    for th in getattr(dossier, "themes", [])[:6]],
     }

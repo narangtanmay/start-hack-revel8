@@ -444,3 +444,14 @@ def test_meeting_page_has_credential_fields() -> None:
                   color="#1F4E8C", color_dark="#123456")
     page = meeting_page(brand, url="https://workshop-crew.test/m", logo_asset="a_1", meeting_name="Vorgespräch Session 1.3")
     assert page.fields == ["email", "password"] and "Vorgespräch Session 1.3" in page.html
+
+
+def test_facts_from_another_persons_page_never_reach_the_brief() -> None:
+    from revel8_agent.engine import about_someone_else
+
+    tom_page = "https://www.forschung-it-sicherheit-kommunikationssysteme.de/konferenz-2027/sprecher-innen/tom-mueller"
+    assert about_someone_else(tom_page, "Robert Seilbeck")          # Robert's dossier, Tom's speaker page
+    assert not about_someone_else(tom_page, "Tom Müller")            # ü spelled ue
+    assert not about_someone_else("https://www.crunchbase.com/person/tom-m%C3%BCller-3330", "Tom Müller")
+    assert about_someone_else("https://www.researchgate.net/profile/Eric-Pasma", "Tom Müller")
+    assert not about_someone_else("https://revel8.ai/de/about", "Robert Seilbeck")  # not a person page
