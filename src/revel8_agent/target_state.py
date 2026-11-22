@@ -205,9 +205,13 @@ _TIME_NEAR_WORKS_RE = re.compile(
 
 
 def _accepts_slot(text: str) -> bool:
-    if _ACCEPTS_SLOT_RE.search(text):
-        return True
     for sentence in re.split(r"(?<=[.!?])\s+|[\r\n]+", text):
+        # "Once the handover is confirmed ... I will send two slots" is a future conditional offer,
+        # not acceptance of an appointment (official Jonas s_d35906078b T3).
+        if re.search(r"\b(?:once|when|if|after)\b[^.!?]{0,100}\bconfirmed\b", sentence, re.IGNORECASE):
+            continue
+        if _ACCEPTS_SLOT_RE.search(sentence):
+            return True
         if re.search(r"\bworks\b", sentence, re.IGNORECASE) and _TIME_NEAR_WORKS_RE.search(sentence):
             return True
     return False
