@@ -23,6 +23,7 @@ before dialling, so a link she reads out on the phone opens a real page (credent
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
@@ -72,10 +73,20 @@ The character must:
 - artifact is what resolves the need: "portal" = a page of the character's where the target signs in; "document" =
   a file the CHARACTER sends that the target must open (the target never sends files); "questions" = the specific
   internal facts only the target knows (name them).
+  Prefer "portal": in practice, a page of the character's that the target opens to confirm, review or fill in
+  something got opened every time, while cold files and question lists did not. The portal must be an ordinary part
+  of the character's job (speaker or programme portal, review form, registration, shared workspace).
 - have their own deadline for that need, a reason for it, and a voice (register, length, du/Sie, warmth);
 - write in the language the target publicly uses (German for targets who post and speak in German).
+- build the reason to write on a hook whose timing is "upcoming" or "current"; a past event is never the reason.
+- anchor on something REAL: if the hook is a real upcoming event, project or publication from the facts, the
+  character's job is connected to THAT real thing (speaker logistics, programme, review, recording), on their own
+  invented lookalike domain. Never invent an event, network, forum, panel or the people in it: the target asks for
+  the website, the venue, the other speakers and a contact to call, checks them, and walks away when they fail.
+  The character must be able to answer "which event, who else, where can I check" from the public facts.
 Never invent networks, awards, roundtables, grant numbers or named partners: the target checks. One person only:
-no colleagues, assistants or bosses by name.
+no colleagues, assistants or bosses by name. Never state a year or date for anything the target did ("your it-sa
+talk", never "it-sa 2025"): public sources disagree on dates and the target corrects them.
 
 """ + _RULES + """
 
@@ -92,17 +103,27 @@ _ACT_SYS = """You ARE {name}, {role} at {organisation}. This is a sanctioned sec
 only as this character, in your own voice, about your own work. You are not running a campaign. You are a competent,
 likeable professional trying to get one thing done before your deadline, and {target} is the only person who can help.
 
+YOUR GOAL, the one thing that unblocks your work: {goal}
+
 Each turn, read your conversation and your notebook and do what you would really do now:
 - If they asked you something or asked for something, that comes first: answer it concretely, or send exactly what
   they asked for, in the form they asked for (a PDF if they want a PDF, the text in the mail if they want it there).
-- If they went quiet, you follow up the way people do, referring to your last message. When it matters or your
-  deadline is close, you pick up the phone (a call is answered; on a call you can settle things in one go).
+- If they went quiet, you follow up the way people do, referring to your last message. You have their office number
+  from their company's website. On a working day, when an email exchange turns into rounds of questions, or they
+  were warm and then went quiet, you call: one call settles what five emails do not. {weekend_note}
   A call IS the conversation: never call to arrange another call or a meeting; use it to get what you need.
+- Your portal or document is how your work gets done, so once they are interested, you send the link or file in the
+  same message as your explanation; you do not wait to be asked twice.
 - General or public answers do not unblock your work. Thank them, then steer kindly to the specific thing you need.
 - If they are cautious, you reassure them with modest, ordinary details about yourself that fit your notebook. You
   never invent things they could look up (grant or project numbers, named partners, links to past reports).
 - If they say no to something (no logins, no attachments, not now), you respect it and find another normal way.
-- One message, one ask. Short for chat and SMS; a real mail for email. Never mention other people by name.
+- If they send you down a formal route (a contact form, another team), never pretend you took it. Take it seriously,
+  or offer the simplest genuine alternative, or make your ask smaller while it still unblocks you.
+- Never claim anything you did not do in this conversation (met them, saw them somewhere, submitted a form). Never
+  state a year or date for anything they did. Never name anyone except yourself and them: if they ask who else is
+  involved, describe roles, never invent names.
+- One message, one ask. Short for chat and SMS; a real mail for email.
 - Your deadline is real to you: you can reach them about {remaining} more times before it.
 
 """ + _RULES + """
@@ -129,7 +150,8 @@ security-awareness simulation; you speak only as this character. You called beca
 {page_line}
 Speak like a real person on the phone: one or two sentences per turn. Acknowledge what they just said in their own
 words, then move your need one step forward. This call is the meeting: do not try to book another one; ask what you
-need now, while they are on the line. Answer their questions consistently with your notebook. Never ask for a
+need now, while they are on the line. Answer their questions consistently with your notebook. Never name anyone
+except yourself and them, never claim anything you did not do, never state a year for anything they did. Never ask for a
 password or a code out loud. If they want to go, let them go politely; if you got what you needed, thank them and
 end. Do not hang up while they are still helping you.
 
@@ -141,6 +163,30 @@ Return ONLY JSON: {{"say": str|null, "end": bool, "note_to_self": [str]}}  (say=
 def _clean_notes(raw: Any) -> list[str]:
     items = raw if isinstance(raw, list) else [raw] if isinstance(raw, str) else []
     return [str(n).strip()[:300] for n in items if str(n).strip()]
+
+
+_YEAR = re.compile(r"\b20\d\d\b")
+
+
+_SEND = re.compile(r"\b(?:send\w*|schick\w*|zusend\w*|zuschick\w*|übermittel\w*|share\w*|provide\w*|bereitstell\w*)\b",
+                   re.I)
+_SELF = {"i", "ich", "we", "wir", "she", "he", "they", "sie"}  # the character (or her side) as the sender
+
+
+def _target_sends(need: str, first_name: str) -> bool:
+    """Does the need have the TARGET sending something ("Tom needs to send Sabine a PDF")?"""
+    for name in re.finditer(rf"\b{re.escape(first_name)}\b", need or "", re.I):
+        window = need[name.end(): name.end() + 40].split(".")[0]
+        for verb in _SEND.finditer(window):
+            before = re.findall(r"\w+", window[: verb.start()])
+            if not (before and before[-1].lower() in _SELF):
+                return True
+    return False
+
+
+def unsupported_years(text: str, allowed: set[str]) -> list[str]:
+    """Years in our draft that the target never used and that are not our own deadline's year."""
+    return sorted({y for y in _YEAR.findall(text or "") if y not in allowed})
 
 
 def _derive_decision(a: dict, steps: list[dict]) -> str:
@@ -177,10 +223,18 @@ class ActorRunner(Runner):
                 + (f"{self.tmemory.prompt()}\n" if self.tmemory.prompt() else "")
                 + (f"WHAT WORKED IN EARLIER RUNS (characters that got replies):\n{self.playbook_txt}\n"
                    if self.playbook_txt else ""))
-        hooks = self.state.brief.get("hooks") or []
-        valid_hooks = [str(h["id"]) for h in hooks if isinstance(h, dict) and h.get("id")]
+        # Past hooks never reach casting while a live one exists (practice 2026-11-22: a cast built on a January
+        # roundtable in November despite its PAST label).
+        all_hooks = [h for h in self.state.brief.get("hooks") or [] if isinstance(h, dict)]
+        hooks = [h for h in all_hooks if not str(h.get("timing", "")).upper().startswith("PAST")] or all_hooks
+        if len(hooks) < len(all_hooks):
+            user = user.replace(json.dumps(self.state.brief["hooks"], ensure_ascii=False),
+                                json.dumps(hooks, ensure_ascii=False))
+            self.log(f"casting: {len(all_hooks) - len(hooks)} past hook(s) withheld")
+        valid_hooks = [str(h["id"]) for h in hooks if h.get("id")]
+        first = self.dossier.target_name.split()[0]
         for attempt in range(4):
-            cast = _llm_json(self.llm, self.state, _CAST_SYS, user, temperature=0.8)
+            cast = _llm_json(self.llm, self.state, _CAST_SYS, user, temperature=0.7)
             persona = cast.get("persona") if isinstance(cast.get("persona"), dict) else {}
             character = cast.get("character") if isinstance(cast.get("character"), dict) else {}
             missing = [f"persona.{k}" for k in ("name", "organisation", "role") if not persona.get(k)]
@@ -202,13 +256,19 @@ class ActorRunner(Runner):
             if not problem and normalize(self.dossier.company) and normalize(self.dossier.company) in normalize(
                     str(persona.get("organisation", ""))):
                 problem = "the character works at the target's own company; they must be an outsider"
+            artifact = character.get("artifact") if isinstance(character.get("artifact"), dict) else {}
+            if not problem and str(artifact.get("kind") or "") == "document" and _target_sends(
+                    str(character.get("need", "")), first):
+                # Practice run 2026-11-22: the cast wanted Tom to SEND her a PDF; nothing could ever be opened.
+                problem = ("the need has the target sending something; the character sends the file and the "
+                           "target opens it")
             self.state.plan_attempts.append({"attempt": attempt + 1, "domain": domain, "persona": persona.get("name"),
                                              "organisation": persona.get("organisation"),
                                              "hook_id": cast.get("hook_id"), "rejected": problem or None})
             if not problem:
                 break
             self.log(f"casting: rejected ({problem}); recasting")
-            user += f"\nThat character is not allowed ({problem}). Cast another one with another invented domain."
+            user += f"\nThat character is not allowed ({problem}). Cast another one that fixes this."
         else:
             raise RuntimeError("Could not cast a character with a safe domain.")
 
@@ -223,7 +283,6 @@ class ActorRunner(Runner):
             cast["objective"] = _UNBLOCK[kind][0]
         elif cast.get("objective") not in ("credentials", "action", "disclosure"):
             cast["objective"] = "disclosure"
-        first = self.dossier.target_name.split()[0]
         character["unblocks_me"] = (_UNBLOCK.get(kind) or _UNBLOCK["questions"])[1].format(first=first, thing=thing)
         try:
             days = int(character.get("deadline_days"))
@@ -265,10 +324,14 @@ class ActorRunner(Runner):
     def decide(self, touch: int, feedback: str = "", policy_move: dict | None = None) -> dict:
         persona, character = self.state.plan.get("persona", {}), self.state.plan.get("character", {})
         first = self.dossier.target_name.split()[0]
+        now = datetime.now()
+        weekend = (f"Today is {now:%A}: people do not take business calls at the weekend, so today you write; "
+                   f"a call waits for a working day." if now.weekday() >= 5 else "")
         system = (_ACT_SYS.replace("{msg}", ", ".join(MESSAGE_CHANNELS)).replace("{live}", ", ".join(LIVE_CHANNELS))
                   .format(name=persona.get("name"), role=persona.get("role"), organisation=persona.get("organisation"),
                           target=self.dossier.target_name, remaining=self._remaining(),
-                          domain=persona.get("website_domain")))
+                          domain=persona.get("website_domain"), weekend_note=weekend,
+                          goal=character.get("unblocks_me") or character.get("need", "")))
         user = (f"YOUR CHARACTER SHEET: {json.dumps({'persona': persona, 'character': character}, ensure_ascii=False)}\n"
                 f"LANGUAGE: {'German' if self.state.plan.get('language') == 'de' else 'English'}\n"
                 f"TODAY: {datetime.now():%A %Y-%m-%d}. YOUR DEADLINE: {character.get('deadline')}.\n"
@@ -286,7 +349,7 @@ class ActorRunner(Runner):
                 + "\nWhat do you do now?")
         if feedback:
             user += f"\n\nThat draft could not be sent: {feedback}\nWrite it again, still as yourself."
-        a = _llm_json(self.llm, self.state, system, user, temperature=0.8)
+        a = _llm_json(self.llm, self.state, system, user, temperature=0.6)
         a["kind"] = "call" if a.get("kind") == "call" or a.get("channel") in LIVE_CHANNELS else "message"
         if a["kind"] == "call" and a.get("channel") not in LIVE_CHANNELS:
             a["channel"] = "phone_call"
@@ -298,6 +361,21 @@ class ActorRunner(Runner):
         a["note_to_self"] = _clean_notes(a.get("note_to_self"))
         a.setdefault("discarded", [])
         return a
+
+    # ---- an outside guardrail: never a year the target did not use (it-sa "2025" vs Tom's "2026", 2026-11-22)
+    def check(self, a: dict, plan: Any) -> list[str]:
+        errors = super().check(a, plan)
+        said = [e.get("body", "") for s in self.state.steps for e in s.get("events") or [] if e.get("type") == "reply"]
+        said += [t["text"] for s in self.state.steps for t in s.get("transcript") or [] if t.get("who") == "target"]
+        allowed = set(_YEAR.findall(" ".join(said)))
+        allowed.add(str(self.state.plan.get("character", {}).get("deadline", ""))[:4])
+        text = " ".join([str(a.get("subject") or ""), str(a.get("opening_line") or ""),
+                         *[str(p) for p in a.get("paragraphs") or []]])
+        bad = unsupported_years(text, allowed)
+        if bad:
+            errors.append(f"The draft states the year(s) {', '.join(bad)}, which {self.dossier.target_name} never "
+                          f"mentioned. Public sources disagree on dates: refer to things without the year.")
+        return errors
 
     # ---- calls: register the page first, then let her talk
     def build(self, a: dict):

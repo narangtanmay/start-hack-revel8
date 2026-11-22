@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from revel8_agent import cli, engine
-from revel8_agent.actor import ARCHITECTURE, ActorRunner, _derive_decision
+from revel8_agent.actor import ARCHITECTURE, ActorRunner, _derive_decision, _target_sends, unsupported_years
 from revel8_agent.engine import RunConfig
 from revel8_agent.schemas import HookHypothesis, VerifiedDossier, VerifiedFact
 
@@ -177,6 +177,63 @@ def test_full_run_writes_notebook_and_stops_on_api_incident(hooked, tmp_path, mo
     assert "I told them the programme prints on my deadline." in notes and "I sent the portal link on touch 2." in notes
     assert state.steps[1]["actor"]["inner_monologue"].startswith("He went quiet")
     assert state.plan["notebook"]
+
+
+def test_target_sends_detects_an_inverted_need() -> None:
+    assert _target_sends("Tom needs to send Sabine a short PDF on personalisation", "Tom")
+    assert _target_sends("Tom soll mir die Unterlagen zuschicken", "Tom")
+    assert not _target_sends("Tom opens the programme draft I send and confirms it", "Tom")
+
+
+def test_casting_recasts_when_the_target_would_send_the_document(hooked, tmp_path, monkeypatch) -> None:
+    first = hooked.target_name.split()[0]
+    inverted = _cast(character={**_CHARACTER, "artifact": {"kind": "document", "name": "Overview.pdf"},
+                                "need": f"{first} needs to send me an overview PDF"})
+    runner, llm = _runner(hooked, tmp_path, monkeypatch, [inverted, _cast()])
+    runner.plan()
+    assert len(llm.calls) == 2 and "target sending" in runner.state.plan_attempts[0]["rejected"]
+    assert runner.state.plan["objective"] == "credentials"
+
+
+def test_unsupported_years() -> None:
+    assert unsupported_years("after your demo at it-sa 2025 and the 2026 programme", {"2026"}) == ["2025"]
+    assert unsupported_years("no years here", set()) == []
+
+
+def test_check_rejects_a_year_the_target_never_used(hooked, tmp_path, monkeypatch) -> None:
+    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast()])
+    monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
+    runner.plan()
+    a = _act(paragraphs=["ich habe Ihre Demo auf der it-sa 2019 gesehen."])
+    a["sender"] = {"name": "Mara Lenzen", "address": ""}
+    plan, _payload, _page = runner.build(a)
+    assert any("2019" in e for e in runner.check(a, plan))
+    runner.state.steps.append({"touch": 1, "events": [{"type": "reply", "body": "Das war 2019, nicht 2018."}]})
+    assert not any("2019" in e for e in runner.check(a, plan))
+
+
+def test_act_prompt_carries_goal_and_weekend_norm(hooked, tmp_path, monkeypatch) -> None:
+    from revel8_agent import actor
+
+    class _Sunday(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 22, 10, 0)
+
+    runner, llm = _runner(hooked, tmp_path, monkeypatch, [_cast(), _act()])
+    runner.plan()
+    monkeypatch.setattr(actor, "datetime", _Sunday)
+    runner.decide(1)
+    system = llm.calls[1][0]["content"]
+    assert "YOUR GOAL, the one thing that unblocks your work:" in system and "signs in" in system
+    assert "Today is Sunday" in system
+
+
+def test_cli_dossier_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+    monkeypatch.setattr(cli, "_run", lambda *a, **k: captured.update(k) or 0)
+    assert cli.main(["run", "--target", "tom", "--actor", "--dossier", "old/tom.json"]) == 0
+    assert captured["dossier_file"] == "old/tom.json"
 
 
 def test_cli_actor_flag(monkeypatch: pytest.MonkeyPatch) -> None:
