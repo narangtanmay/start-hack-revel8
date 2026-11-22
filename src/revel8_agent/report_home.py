@@ -937,23 +937,27 @@ _FX_CX, _FX_CW, _FX_CH = 150, 700, 196
 _FX_NODE_H, _FX_GAP_V = 104, 60
 _FX_STAGE_Y0 = 150
 _FX_SPINE_X = 500
+# edges each stage lights up when hovered (lineage)
+_FX_LINEAGE = {"gate": ["reject"], "decide": ["reject", "reply"], "exec": ["reply", "mem"], "osint": ["mem"]}
 
 
-def _fx_node(k: str, x: float, y: float, w: float, title: str, files: str) -> str:
+def _fx_node(k: str, stage: str, x: float, y: float, w: float, title: str, files: str) -> str:
     cx = x + w / 2
-    return (f"<g class='fx-node' data-k='{k}' tabindex='0' role='button' aria-label='{_e(title)}'>"
+    return (f"<g class='fx-node' data-k='{k}' data-stage='{stage}' tabindex='0' role='button' aria-label='{_e(title)}'>"
             f"<rect class='fx-box' x='{x:.0f}' y='{y:.0f}' width='{w:.0f}' height='{_FX_NODE_H}' rx='16'/>"
             f"<text class='fx-t' x='{cx:.0f}' y='{y + 44:.0f}'>{_e(title)}</text>"
             f"<text class='fx-f' x='{cx:.0f}' y='{y + 68:.0f}'>{_e(files)}</text></g>")
 
 
-def _factory_svg() -> tuple[str, dict]:
+def _factory_svg() -> tuple[str, dict, dict]:
     details: dict = {}
+    anchors: dict = {}
     parts: list[str] = []
     stage_mid: dict = {}
     # input pill
     details["target"] = {"stage": _FX_IO["target"][0], "title": _FX_IO["target"][1], "desc": _FX_IO["target"][2], "files": "", "accent": "ink"}
-    parts.append("<g class='fx-node fx-io' data-k='target' tabindex='0' role='button' aria-label='Target'>"
+    anchors["target"] = [_FX_SPINE_X, 75]
+    parts.append("<g class='fx-node fx-io' data-k='target' data-stage='target' tabindex='0' role='button' aria-label='Target'>"
                  f"<rect class='fx-box' x='{_FX_SPINE_X - 150:.0f}' y='40' width='300' height='70' rx='18'/>"
                  f"<text class='fx-t' x='{_FX_SPINE_X}' y='72'>Target &amp; public footprint</text>"
                  f"<text class='fx-f' x='{_FX_SPINE_X}' y='94'>the only input</text></g>")
@@ -961,8 +965,11 @@ def _factory_svg() -> tuple[str, dict]:
     for si, (skey, num, slabel, accent, nodes) in enumerate(_FACTORY):
         sy = _FX_STAGE_Y0 + si * (_FX_CH + _FX_GAP_V)
         stage_mid[skey] = sy + _FX_CH / 2
-        parts.append(f"<g class='fx-stage fx-{accent}'>"
+        anchors[skey] = [_FX_SPINE_X, round(sy + _FX_CH / 2)]
+        parts.append(f"<g class='fx-stage fx-{accent}' data-stage='{skey}' style='--si:{si}'>"
+                     f"<rect class='fx-plat' x='{_FX_CX + 7}' y='{sy + 9}' width='{_FX_CW}' height='{_FX_CH}' rx='26'/>"
                      f"<rect class='fx-band' x='{_FX_CX}' y='{sy}' width='{_FX_CW}' height='{_FX_CH}' rx='26'/>"
+                     f"<rect class='fx-scan' x='{_FX_CX}' y='{sy}' width='{_FX_CW}' height='6' rx='3'/>"
                      f"<text class='fx-sn' x='{_FX_CX + 26}' y='{sy + 40}'>{num}</text>"
                      f"<text class='fx-sl' x='{_FX_CX + 64}' y='{sy + 40}'>{_e(slabel)}</text></g>")
         npad, n = 26, len(nodes)
@@ -972,95 +979,160 @@ def _factory_svg() -> tuple[str, dict]:
         ny = sy + 64
         for ni, (nk, nt, nf, nd) in enumerate(nodes):
             nx = _FX_CX + npad + ni * (nw + gap)
-            parts.append(_fx_node(nk, nx, ny, nw, nt, nf))
+            parts.append(_fx_node(nk, skey, nx, ny, nw, nt, nf))
             details[nk] = {"stage": f"{num} · {slabel}", "title": nt, "desc": nd, "files": nf, "accent": accent}
     # output pill
     out_y = _FX_STAGE_Y0 + len(_FACTORY) * (_FX_CH + _FX_GAP_V)
+    anchors["incident"] = [_FX_SPINE_X, round(out_y + 34)]
     details["incident"] = {"stage": _FX_IO["incident"][0], "title": _FX_IO["incident"][1], "desc": _FX_IO["incident"][2], "files": "", "accent": "amber"}
-    parts.append("<g class='fx-node fx-io fx-out' data-k='incident' tabindex='0' role='button' aria-label='Incident'>"
+    parts.append("<g class='fx-node fx-io fx-out' data-k='incident' data-stage='incident' tabindex='0' role='button' aria-label='Incident'>"
                  f"<rect class='fx-box' x='{_FX_SPINE_X - 130:.0f}' y='{out_y:.0f}' width='260' height='68' rx='18'/>"
                  f"<text class='fx-t' x='{_FX_SPINE_X}' y='{out_y + 31:.0f}'>Incident</text>"
                  f"<text class='fx-f' x='{_FX_SPINE_X}' y='{out_y + 52:.0f}'>confirmed by the API, or next touch</text></g>")
 
     view_h = out_y + 100
-    # spine (behind), as a path so flow dots can ride it
-    spine = f"M {_FX_SPINE_X} 110 L {_FX_SPINE_X} {out_y:.0f}"
-    spine_svg = (f"<path id='fx-spine' class='fx-spine' d='{spine}'/>"
-                 + "".join(
-                     f"<polygon class='fx-head' points='{_FX_SPINE_X - 7},{y - 6} {_FX_SPINE_X + 7},{y - 6} {_FX_SPINE_X},{y + 4}'/>"
-                     for y in [_FX_STAGE_Y0 + i * (_FX_CH + _FX_GAP_V) - 14 for i in range(len(_FACTORY) + 1)]))
-    # feedback edges
+    # conveyor spine (behind) as a path, plus a moving belt overlay and tick marks
+    spine_d = f"M {_FX_SPINE_X} 110 L {_FX_SPINE_X} {out_y:.0f}"
+    ticks = "".join(f"<line class='fx-tick' x1='{_FX_SPINE_X - 11}' x2='{_FX_SPINE_X + 11}' y1='{y}' y2='{y}'/>"
+                    for y in range(140, int(out_y), 46))
+    heads = "".join(
+        f"<polygon class='fx-head' points='{_FX_SPINE_X - 7},{y - 6} {_FX_SPINE_X + 7},{y - 6} {_FX_SPINE_X},{y + 4}'/>"
+        for y in [_FX_STAGE_Y0 + i * (_FX_CH + _FX_GAP_V) - 16 for i in range(len(_FACTORY) + 1)])
+    spine_svg = (f"<path class='fx-spine' d='{spine_d}'/>{ticks}"
+                 f"<path id='fx-spine' class='fx-belt' d='{spine_d}'/>{heads}")
+    # feedback edges (residual loops)
     g_mid, d_mid, o_mid, e_mid = stage_mid["gate"], stage_mid["decide"], stage_mid["osint"], stage_mid["exec"]
     edges = (
-        f"<path class='fx-edge fx-reject' marker-end='url(#fx-arrow)' d='M {_FX_CX} {g_mid:.0f} C 70 {g_mid:.0f} 70 {d_mid:.0f} {_FX_CX} {d_mid:.0f}'/>"
+        f"<path id='fx-reject-path' class='fx-edge fx-reject' marker-end='url(#fx-arrow)' d='M {_FX_CX} {g_mid:.0f} C 70 {g_mid:.0f} 70 {d_mid:.0f} {_FX_CX} {d_mid:.0f}'/>"
         f"<text class='fx-elabel' x='34' y='{(g_mid + d_mid) / 2:.0f}' transform='rotate(-90 34 {(g_mid + d_mid) / 2:.0f})'>reject · retry with feedback</text>"
         f"<path class='fx-edge fx-reply' marker-end='url(#fx-arrow)' d='M {_FX_CX + _FX_CW} {e_mid:.0f} C 930 {e_mid:.0f} 930 {d_mid:.0f} {_FX_CX + _FX_CW} {d_mid:.0f}'/>"
         f"<text class='fx-elabel' x='966' y='{(e_mid + d_mid) / 2:.0f}' transform='rotate(90 966 {(e_mid + d_mid) / 2:.0f})'>reply · next touch, in-thread</text>"
         f"<path class='fx-edge fx-mem dash' marker-end='url(#fx-arrow)' d='M {_FX_CX} {e_mid + 50:.0f} C 30 {e_mid:.0f} 30 {o_mid:.0f} {_FX_CX} {o_mid:.0f}'/>"
     )
+    # transformer flair: a dashed shell bracketing the decision core, tagged like Add & Norm
+    dsy = _FX_STAGE_Y0 + 1 * (_FX_CH + _FX_GAP_V)
+    shell = (f"<rect class='fx-shell' x='{_FX_CX - 16}' y='{dsy - 16}' width='{_FX_CW + 32}' height='{_FX_CH + 32}' rx='32'/>"
+             f"<text class='fx-shell-t' x='{_FX_CX + _FX_CW + 20}' y='{dsy - 22}'>the actor proposes</text>")
+    # gate stamp (hidden until a run reaches the gate)
+    stamp = (f"<g id='fx-stamp' class='fx-stamp' transform='translate({_FX_SPINE_X},{g_mid:.0f})' opacity='0'>"
+             "<g class='fx-stamp-in'>"
+             "<rect class='fx-stamp-box' x='-108' y='-30' width='216' height='60' rx='14'/>"
+             "<text class='fx-stamp-t' x='0' y='9'>REJECTED</text></g></g>")
+    token = "<g id='fx-token-layer'></g>"
+
     svg = (f"<svg class='fx-svg' viewBox='0 0 1000 {view_h:.0f}' xmlns='http://www.w3.org/2000/svg' "
            "role='img' aria-label='The revel8 pipeline as a machine: target in, four stages, incident out, with reject, reply and memory feedback loops'>"
            "<defs><marker id='fx-arrow' viewBox='0 0 10 10' refX='8' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>"
-           "<path d='M0 0L10 5L0 10z' class='fx-arrowfill'/></marker></defs>"
-           f"<g class='fx-spines'>{spine_svg}</g>"
+           "<path d='M0 0L10 5L0 10z' class='fx-arrowfill'/></marker>"
+           "<filter id='fx-glow' x='-60%' y='-60%' width='220%' height='220%'><feGaussianBlur stdDeviation='5' result='b'/>"
+           "<feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge></filter></defs>"
+           f"<g class='fx-spines'>{spine_svg}</g>{shell}"
            f"<g class='fx-edges'>{edges}</g>"
-           f"{''.join(parts)}</svg>")
-    return svg, details
+           f"{''.join(parts)}{stamp}{token}</svg>")
+    return svg, details, anchors
 
 
 def _render_factory_section() -> tuple[str, str]:
-    svg, details = _factory_svg()
+    svg, details, anchors = _factory_svg()
+    run_steps = [
+        {"to": "target", "cap": "A consenting target goes in — public footprint only, nothing invented."},
+        {"to": "osint", "light": "osint", "cap": "Grounded OSINT verifies every fact and stamps old events PAST."},
+        {"to": "decide", "light": "decide", "cap": "The Decision Core drafts the next move — v1 leans on an attachment."},
+        {"to": "gate", "light": "gate", "scan": True, "cap": "The deterministic gate scans the draft…"},
+        {"reject": True, "to": "decide", "light": "decide", "cap": "REJECTED — it promised ‘kein Anhang’ earlier. Sent back with feedback."},
+        {"light": "decide", "cap": "The core adapts: drop the attachment, keep the deadline. Draft v2."},
+        {"to": "gate", "light": "gate", "scan": True, "cap": "Scanning v2…"},
+        {"pass": True, "cap": "PASSED — grounded, consistent, in character. Clear to send."},
+        {"to": "exec", "light": "exec", "cap": "Execution sends over email; the revel8 API watches for real events."},
+        {"to": "incident", "light": "incident", "cap": "page.submitted — incident reached. No human in the loop."},
+    ]
     panel = ("<aside class='fx-detail glass' id='fx-detail'>"
              "<span class='fx-d-stage' id='fx-d-stage'>The whole machine</span>"
-             "<h3 class='fx-d-title' id='fx-d-title'>Hover any station.</h3>"
-             "<p class='fx-d-desc' id='fx-d-desc'>Move over a block to see what it does and which file owns it. "
-             "The grey spine is the main flow; the curved arrows are the feedback loops that make it adapt.</p>"
+             "<h3 class='fx-d-title' id='fx-d-title'>Press play, or hover a station.</h3>"
+             "<p class='fx-d-desc' id='fx-d-desc'>Run a message through the machine and watch the gate catch a bad "
+             "draft and send it back. Or hover any block to light its path and read what it does.</p>"
              "<code class='fx-d-files' id='fx-d-files'></code></aside>")
+    controls = ("<div class='fx-controls reveal'>"
+                "<button type='button' class='btn pz-btn' id='fx-play'>"
+                "<svg class='svgi' viewBox='0 0 24 24' aria-hidden='true'><path id='fx-play-ic' d='M7 4.5v15l12-7.5z' fill='currentColor'/></svg>"
+                "<span id='fx-play-l'>Run a message through</span></button>"
+                "<span class='fx-cap' id='fx-cap'>A factory for one conversation. Press play.</span></div>")
     section = ("<section class='pz-sec' id='machine'><div class='pz-sec-head reveal'>"
                "<span class='pz-kicker'>The whole machine</span>"
-               "<h2 class='pz-h2'>Every station, and the loops between them.</h2>"
-               "<p class='pz-sub'>The target goes in at the top and an incident comes out at the bottom. Hover any "
-               "block to light it up and read what it does — the curved arrows are where the machine feeds back on "
-               "itself: the gate sends rejects back to the decision core, a reply reopens the thread, and memory "
-               "carries into the next run.</p></div>"
-               f"<div class='fx reveal'><div class='fx-stage-wrap'>{svg}</div>{panel}</div></section>")
-    data_js = f"<script type='application/json' id='fx-data'>{_json_for_script(details)}</script>"
+               "<h2 class='pz-h2'>Watch one message run the line.</h2>"
+               "<p class='pz-sub'>The target enters at the top and an incident comes out at the bottom. Press play to "
+               "send a draft down the line — the gate rejects it, the core rewrites it, and the fixed version ships. "
+               "Hover any station to light its path and read what it does.</p></div>"
+               f"{controls}"
+               f"<div class='fx reveal'><div class='fx-board-wrap'><div class='fx-board'>{svg}</div></div>{panel}</div></section>")
+    payload = {"details": details, "anchors": anchors, "steps": run_steps}
+    data_js = f"<script type='application/json' id='fx-data'>{_json_for_script(payload)}</script>"
     return section, data_js
 
 
 FX_CSS = """
 .fx{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:30px;align-items:start}
-.fx-stage-wrap{min-width:0}
+.fx-controls{display:flex;align-items:center;gap:18px;margin:0 0 26px;flex-wrap:wrap}
+.fx-cap{font-size:14.5px;color:var(--text-2);line-height:1.4;min-height:20px;transition:color .3s}
+.fx-cap.run{color:var(--text);font-weight:550}
+.fx-cap.reject{color:var(--crit-text);font-weight:600}.fx-cap.pass{color:#0a7d3f;font-weight:600}
+.fx-board-wrap{min-width:0;perspective:2000px}
+.fx-board{transform:rotateX(15deg);transform-origin:50% 42%;transition:transform .6s var(--ease)}
 .fx-svg{width:100%;height:auto;display:block;overflow:visible;font-family:var(--sans)}
-.fx-band{fill:rgba(255,255,255,.42);stroke:rgba(0,0,0,.07);stroke-width:1.2}
+.fx-plat{fill:rgba(20,24,46,.1)}
+.fx-band{fill:rgba(255,255,255,.5);stroke:rgba(0,0,0,.07);stroke-width:1.2;transition:fill .35s,stroke .35s}
 .fx-blue .fx-band{fill:rgba(0,113,227,.05)}.fx-indigo .fx-band{fill:rgba(94,92,230,.06)}
 .fx-amber .fx-band{fill:rgba(255,159,10,.07);stroke:rgba(255,159,10,.3)}.fx-green .fx-band{fill:rgba(10,125,63,.055)}
-.fx-sn{font:800 20px var(--display);letter-spacing:-.03em}
-.fx-blue .fx-sn{fill:#0066cc}.fx-indigo .fx-sn{fill:#4b47d6}.fx-amber .fx-sn{fill:#9a5200}.fx-green .fx-sn{fill:#0a7d3f}
-.fx-sl{font:700 16px var(--display);letter-spacing:-.02em;fill:var(--text)}
-.fx-node{cursor:pointer;transform-box:fill-box;transform-origin:center;
-transition:transform .35s var(--ease),filter .35s var(--ease),opacity .3s}
-.fx-box{fill:rgba(255,255,255,.94);stroke:rgba(0,0,0,.09);stroke-width:1.2;transition:stroke .3s,stroke-width .3s,fill .3s}
+.fx-scan{opacity:0;fill:rgba(0,113,227,.5)}
+.fx-stage.scanning .fx-scan{opacity:1;animation:fxscan 1s var(--ease)}
+@keyframes fxscan{0%{transform:translateY(0)}100%{transform:translateY(190px)}}
+.fx-stage{opacity:0;transform:translateY(30px);transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:calc(var(--si,0)*110ms)}
+.fx-board.fxin .fx-stage,.fx-board.fxin~*{}
+.fxin .fx-stage{opacity:1;transform:none}
+.fx-node{opacity:0;transform:translateY(24px);transition:opacity .6s var(--ease),transform .35s var(--ease),filter .35s var(--ease)}
+.fxin .fx-node{opacity:1;transform:none}
+.fx-stage.active .fx-band{fill:rgba(0,113,227,.1);stroke:currentColor;stroke-width:2;filter:drop-shadow(0 0 16px rgba(0,113,227,.25))}
+.fx-amber.active .fx-band{fill:rgba(255,159,10,.14)}.fx-green.active .fx-band{fill:rgba(10,154,78,.1)}
+.fx-box{fill:rgba(255,255,255,.94);stroke:rgba(0,0,0,.09);stroke-width:1.2;transition:stroke .3s,stroke-width .3s,fill .3s,transform .35s var(--ease)}
+.fx-stage.active .fx-box{fill:#fff}
 .fx-t{font:650 15px var(--sans);fill:var(--text);text-anchor:middle;pointer-events:none}
 .fx-f{font:600 11px var(--mono);fill:var(--muted);text-anchor:middle;pointer-events:none}
 .fx-io .fx-box{fill:var(--text)}.fx-io .fx-t{fill:#fff}.fx-io .fx-f{fill:rgba(255,255,255,.6)}
+.fx-io.active .fx-box{filter:drop-shadow(0 0 16px rgba(0,113,227,.4))}
 .fx-out .fx-box{fill:#fff6e9;stroke:rgba(255,159,10,.5)}.fx-out .fx-t{fill:#9a5200}.fx-out .fx-f{fill:#b07a2e}
-.fx-svg:hover .fx-node:not(:hover){opacity:.4}
+.fx-out.active .fx-box{fill:#ffe8c2;filter:drop-shadow(0 0 18px rgba(255,159,10,.55))}
+.fx-svg:hover .fx-node:not(:hover){opacity:.42}
 .fx-node:hover,.fx-node:focus-visible{transform:translateY(-9px) scale(1.035);
 filter:drop-shadow(0 16px 20px rgba(0,0,0,.18));outline:none}
+.fx-node{cursor:pointer;transform-box:fill-box;transform-origin:center}
 .fx-node:hover .fx-box,.fx-node:focus-visible .fx-box,.fx-node.lit .fx-box{stroke:#1d1d1f;stroke-width:2.2}
-.fx-blue .fx-node:hover .fx-box,.fx-blue .fx-node:focus-visible .fx-box,.fx-blue .fx-node.lit .fx-box{stroke:#0071e3}
-.fx-indigo .fx-node:hover .fx-box,.fx-indigo .fx-node:focus-visible .fx-box,.fx-indigo .fx-node.lit .fx-box{stroke:#5e5ce6}
-.fx-amber .fx-node:hover .fx-box,.fx-amber .fx-node:focus-visible .fx-box,.fx-amber .fx-node.lit .fx-box{stroke:#ff9f0a}
-.fx-green .fx-node:hover .fx-box,.fx-green .fx-node:focus-visible .fx-box,.fx-green .fx-node.lit .fx-box{stroke:#0a9a4e}
-.fx-spine{fill:none;stroke:var(--hair);stroke-width:2.5}
+.fx-blue .fx-node:hover .fx-box,.fx-blue .fx-node:focus-visible .fx-box{stroke:#0071e3}
+.fx-indigo .fx-node:hover .fx-box,.fx-indigo .fx-node:focus-visible .fx-box{stroke:#5e5ce6}
+.fx-amber .fx-node:hover .fx-box,.fx-amber .fx-node:focus-visible .fx-box{stroke:#ff9f0a}
+.fx-green .fx-node:hover .fx-box,.fx-green .fx-node:focus-visible .fx-box{stroke:#0a9a4e}
+.fx-spine{fill:none;stroke:#e2e2e8;stroke-width:9;stroke-linecap:round}
+.fx-belt{fill:none;stroke:#c3c3cc;stroke-width:3;stroke-dasharray:13 11;stroke-linecap:round;animation:fxbelt 1.1s linear infinite}
+@keyframes fxbelt{to{stroke-dashoffset:-24}}
+.fx-tick{stroke:#d3d3da;stroke-width:2}
 .fx-head{fill:#c7c7cc}
-.fx-edge{fill:none;stroke:#b8b8c0;stroke-width:2.2}
-.fx-reject{stroke:#ff9f0a}.fx-reply{stroke:#0071e3}.fx-mem{stroke:#9aa0a6}
+.fx-edge{fill:none;stroke:#c0c0c8;stroke-width:2.4;transition:stroke .3s,stroke-width .3s,filter .3s}
+.fx-reject{stroke:#ffb44d}.fx-reply{stroke:#5ba7f5}.fx-mem{stroke:#aab0b6}
 .fx-edge.dash{stroke-dasharray:7 7}
-.fx-arrowfill{fill:#b8b8c0}
+.fx-edge.rel{stroke-width:3.6;filter:drop-shadow(0 0 7px currentColor)}
+.fx-reject.rel{stroke:#ff9f0a}.fx-reply.rel{stroke:#0071e3}.fx-mem.rel{stroke:#8a9096}
+.fx-edge.fire{stroke:#ff9f0a;stroke-width:4;filter:drop-shadow(0 0 9px #ff9f0a)}
+.fx-arrowfill{fill:#c0c0c8}
 .fx-elabel{font:600 11px var(--sans);fill:var(--muted);text-anchor:middle}
-.fx-dot{fill:#0071e3}
+.fx-shell{fill:none;stroke:rgba(94,92,230,.45);stroke-width:1.6;stroke-dasharray:3 7;stroke-linecap:round}
+.fx-shell-t{font:700 11px var(--mono);letter-spacing:.06em;fill:#5e5ce6;text-anchor:start}
+.fx-token{fill:#0071e3;filter:url(#fx-glow)}
+.fx-token.bad{fill:#ff9f0a}.fx-token.good{fill:#0a9a4e}
+.fx-stamp{transition:opacity .2s}.fx-stamp-in{transform-box:fill-box;transform-origin:center}
+.fx-stamp.pop .fx-stamp-in{animation:fxpop .42s cubic-bezier(.2,1.4,.4,1)}
+@keyframes fxpop{from{transform:scale(.5)}to{transform:scale(1)}}
+.fx-stamp-box{fill:#fff;stroke:#d70015;stroke-width:2.5;filter:drop-shadow(0 8px 18px rgba(0,0,0,.2))}
+.fx-stamp-t{font:800 22px var(--display);letter-spacing:.02em;fill:#d70015;text-anchor:middle}
+.fx-stamp.pass .fx-stamp-box{stroke:#0a7d3f}.fx-stamp.pass .fx-stamp-t{fill:#0a7d3f}
 .fx-detail{position:sticky;top:84px;padding:28px;min-height:230px}
 .fx-d-stage{display:inline-block;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;
 color:var(--muted);margin-bottom:14px}
@@ -1072,51 +1144,117 @@ color:var(--muted);margin-bottom:14px}
 font:600 12.5px var(--mono);color:var(--text-2)}
 .fx-d-files.show{display:inline-block}
 @media(max-width:900px){.fx{grid-template-columns:minmax(0,1fr)}
-.fx-detail{position:static;order:-1;min-height:0}}
-@media(prefers-reduced-motion:reduce){.fx-node{transition:none}}
+.fx-detail{position:static;order:-1;min-height:0}.fx-board{transform:none}.fx-board-wrap{perspective:none}}
+@media(prefers-reduced-motion:reduce){.fx-board{transform:none}.fx-belt{animation:none}
+.fx-stage,.fx-node{opacity:1;transform:none;transition:none}.fx-node{transition:none}}
 """
 
 FX_JS = r"""
 (function(){
-  var data; try{ data = JSON.parse((document.getElementById("fx-data")||{}).textContent || "{}"); }catch(e){ return; }
+  var P; try{ P = JSON.parse((document.getElementById("fx-data")||{}).textContent || "{}"); }catch(e){ return; }
+  var data=P.details||{}, anchors=P.anchors||{}, steps=P.steps||[];
   var svg = document.querySelector(".fx-svg"); if(!svg) return;
+  var board=document.querySelector(".fx-board");
+  var NS="http://www.w3.org/2000/svg";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var dStage=document.getElementById("fx-d-stage"), dTitle=document.getElementById("fx-d-title"),
       dDesc=document.getElementById("fx-d-desc"), dFiles=document.getElementById("fx-d-files"),
       panel=document.getElementById("fx-detail");
-  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var ACC=["a-blue","a-indigo","a-amber","a-green"];
   var base={stage:dStage.textContent,title:dTitle.textContent,desc:dDesc.textContent};
-  function paint(k){
-    var d=data[k]; if(!d) return;
-    dStage.textContent=d.stage; dTitle.textContent=d.title; dDesc.textContent=d.desc;
-    if(d.files){ dFiles.textContent=d.files; dFiles.classList.add("show"); } else { dFiles.classList.remove("show"); }
-    panel.classList.remove.apply(panel.classList, ACC);
-    if(d.accent && d.accent!=="ink") panel.classList.add("a-"+d.accent);
+
+  // ---- hover: detail panel + lineage highlight ----
+  function stageEl(key){ return svg.querySelector('.fx-stage[data-stage="'+key+'"]'); }
+  function edge(cls){ return svg.querySelector('.fx-'+cls); }
+  var LIN={gate:["reject"],decide:["reject","reply"],exec:["reply","mem"],osint:["mem"]};
+  function paint(k, stage){
+    var d=data[k]; if(d){
+      dStage.textContent=d.stage; dTitle.textContent=d.title; dDesc.textContent=d.desc;
+      if(d.files){ dFiles.textContent=d.files; dFiles.classList.add("show"); } else { dFiles.classList.remove("show"); }
+      panel.classList.remove.apply(panel.classList, ACC);
+      if(d.accent && d.accent!=="ink") panel.classList.add("a-"+d.accent);
+    }
+    (LIN[stage]||[]).forEach(function(c){ var e=edge(c); if(e) e.classList.add("rel"); });
   }
+  function clearLin(){ svg.querySelectorAll(".fx-edge.rel").forEach(function(e){ e.classList.remove("rel"); }); }
   function reset(){
     dStage.textContent=base.stage; dTitle.textContent=base.title; dDesc.textContent=base.desc;
-    dFiles.classList.remove("show"); panel.classList.remove.apply(panel.classList, ACC);
+    dFiles.classList.remove("show"); panel.classList.remove.apply(panel.classList, ACC); clearLin();
   }
   Array.prototype.forEach.call(svg.querySelectorAll(".fx-node"), function(g){
-    var k=g.getAttribute("data-k");
-    g.addEventListener("mouseenter", function(){ paint(k); });
-    g.addEventListener("focus", function(){ paint(k); g.classList.add("lit"); });
-    g.addEventListener("blur", function(){ g.classList.remove("lit"); });
+    var k=g.getAttribute("data-k"), st=g.getAttribute("data-stage");
+    g.addEventListener("mouseenter", function(){ if(running) return; paint(k, st); });
+    g.addEventListener("focus", function(){ if(running) return; paint(k, st); });
   });
-  svg.addEventListener("mouseleave", reset);
-  // factory flow: dots travelling the spine (skipped when motion is reduced)
-  if(!reduce){
-    var spine=document.getElementById("fx-spine");
-    if(spine && spine.getTotalLength){
-      var len=spine.getTotalLength(), N=4, NS="http://www.w3.org/2000/svg";
-      for(var i=0;i<N;i++){
-        var c=document.createElementNS(NS,"circle"); c.setAttribute("r","4.5"); c.setAttribute("class","fx-dot");
-        var m=document.createElementNS(NS,"animateMotion");
-        m.setAttribute("dur","3.4s"); m.setAttribute("repeatCount","indefinite");
-        m.setAttribute("begin",(i*(3.4/N))+"s"); m.setAttribute("path", spine.getAttribute("d"));
-        c.appendChild(m); spine.parentNode.appendChild(c);
+  svg.addEventListener("mouseleave", function(){ if(!running) reset(); });
+
+  // ---- scroll assembly ----
+  if("IntersectionObserver" in window && !reduce && board){
+    var io=new IntersectionObserver(function(es){ es.forEach(function(e){
+      if(e.isIntersecting){ board.classList.add("fxin"); io.disconnect(); } }); },{threshold:0.2});
+    io.observe(board);
+  } else if(board){ board.classList.add("fxin"); }
+
+  // ---- run animation: a message through the machine ----
+  var running=false, btn=document.getElementById("fx-play"), lbl=document.getElementById("fx-play-l"),
+      cap=document.getElementById("fx-cap"), layer=document.getElementById("fx-token-layer"),
+      stamp=document.getElementById("fx-stamp"), stampT=stamp?stamp.querySelector(".fx-stamp-t"):null;
+  var token=null, cur="target";
+  function ease(t){ return t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+  function makeToken(){ if(token) token.remove(); token=document.createElementNS(NS,"circle");
+    token.setAttribute("r","9"); token.setAttribute("class","fx-token");
+    var a=anchors.target; token.setAttribute("cx",a[0]); token.setAttribute("cy",a[1]); layer.appendChild(token); }
+  function litStage(key){ svg.querySelectorAll(".fx-stage.active,.fx-io.active").forEach(function(s){ s.classList.remove("active"); });
+    var raw=key, el = (key==="target"||key==="incident") ? svg.querySelector('.fx-node[data-stage="'+key+'"]') : stageEl(key);
+    if(el) el.classList.add("active"); }
+  function moveStraight(toKey, dur){ return new Promise(function(res){
+    var a=anchors[cur], b=anchors[toKey], t0=null;
+    function f(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur), e=ease(p);
+      token.setAttribute("cx",a[0]+(b[0]-a[0])*e); token.setAttribute("cy",a[1]+(b[1]-a[1])*e);
+      if(p<1) requestAnimationFrame(f); else { cur=toKey; res(); } }
+    requestAnimationFrame(f); }); }
+  function moveReject(dur){ return new Promise(function(res){
+    var path=document.getElementById("fx-reject-path"); if(!path){ return res(); }
+    var len=path.getTotalLength(), t0=null;
+    function f(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur), e=ease(p);
+      var pt=path.getPointAtLength(len*e); token.setAttribute("cx",pt.x); token.setAttribute("cy",pt.y);
+      if(p<1) requestAnimationFrame(f); else { cur="decide"; res(); } }
+    requestAnimationFrame(f); }); }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+  function showStamp(kind){ return new Promise(function(res){
+    stamp.classList.toggle("pass", kind==="pass"); stampT.textContent = kind==="pass"?"PASSED":"REJECTED";
+    stamp.setAttribute("opacity","1"); stamp.classList.remove("pop"); void stamp.getBoundingClientRect(); stamp.classList.add("pop");
+    setTimeout(function(){ stamp.setAttribute("opacity","0"); res(); }, 1150); }); }
+  function setCap(txt, cls){ cap.textContent=txt; cap.className="fx-cap "+(cls||"run"); }
+
+  function stop(done){ running=false; token && token.remove(); token=null;
+    svg.querySelectorAll(".fx-stage.active,.fx-io.active").forEach(function(s){ s.classList.remove("active"); });
+    svg.querySelectorAll(".fx-edge.fire").forEach(function(e){ e.classList.remove("fire"); });
+    btn.removeAttribute("disabled"); lbl.textContent = done ? "Run it again" : "Run a message through";
+    if(!done) setCap("A factory for one conversation. Press play.", ""); }
+
+  async function run(){
+    if(running) return; running=true; btn.setAttribute("disabled","");
+    lbl.textContent="Running…"; reset(); makeToken();
+    for(var i=0;i<steps.length;i++){
+      var s=steps[i];
+      if(s.reject){
+        edge("reject") && edge("reject").classList.add("fire");
+        await showStamp("reject"); setCap(s.cap,"reject");
+        if(s.light) litStage(s.light);
+        await moveReject(reduce?300:900);
+        edge("reject") && edge("reject").classList.remove("fire");
+        await wait(reduce?200:650); continue;
       }
+      if(s.pass){ await showStamp("pass"); setCap(s.cap,"pass"); await wait(reduce?200:700); continue; }
+      if(s.to && s.to!==cur){ await moveStraight(s.to, reduce?260:720); }
+      if(s.light) litStage(s.light);
+      setCap(s.cap, "run");
+      if(s.scan){ var se=stageEl(s.light); if(se){ se.classList.add("scanning"); setTimeout(function(e){return function(){e.classList.remove("scanning");};}(se),1000);} }
+      await wait(reduce?300:(s.to==="incident"?1400:950));
     }
+    stop(true);
   }
+  if(btn) btn.addEventListener("click", function(){ if(running){ return; } run(); });
 })();
 """
