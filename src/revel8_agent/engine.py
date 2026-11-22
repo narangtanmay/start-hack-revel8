@@ -511,6 +511,21 @@ def _fill_placeholders(paragraphs: list[str], url: str | None) -> list[str]:
     return [_PLACEHOLDER.sub(url or "", p).replace("  ", " ").strip() for p in paragraphs]
 
 
+def _plausible_phone(phone: str, seed: str) -> str:
+    """Craft "do the details hold": +49 151 23456789 / 1234567 / 0000 reads as fake. Keep the country and area
+    prefix, replace an obviously synthetic subscriber part with stable digits derived from the persona name."""
+    digits = re.sub(r"\D", "", phone)
+    fake = any(r in digits for r in ("1234567", "2345678", "3456789", "9876543")) or re.search(r"(\d)\1{4,}", digits)
+    if not fake:
+        return phone
+    import hashlib
+
+    h = str(int(hashlib.sha1(seed.encode()).hexdigest(), 16))[:7]
+    parts = phone.split()
+    head = " ".join(parts[:2]) if len(parts) >= 3 else (parts[0] if parts else "+49")
+    return f"{head} {h[:3]} {h[3:]}"
+
+
 def _signature_role(persona: dict) -> str:
     role, org = str(persona.get("role", "")).strip(), str(persona.get("organisation", "")).strip()
     return role if org and org.lower() in role.lower() else ", ".join(x for x in (role, org) if x)
@@ -829,6 +844,11 @@ class Runner:
         user += "\n" + self._language_line()
         if self.ledger.prompt():
             user += "\n\n" + self.ledger.prompt()
+        from .demands import prompt as _demand_prompt
+
+        _dp = _demand_prompt(self.state.steps)
+        if _dp:
+            user += "\n\n" + _dp
         _dv = self.tmemory.deja_vu_hint(len([x for x in self.state.steps if x.get("payload")]) + 1)
         if _dv:
             user += "\n" + _dv
@@ -841,21 +861,6 @@ class Runner:
         a = _llm_json(self.llm, self.state, system, user, temperature=0.7, reasoning="high")
         self._last_raw = {k: v for k, v in a.items()} if isinstance(a, dict) else {"_non_dict": str(a)[:500]}
         return self._enforce(a) if self.decider else a
-
-    _ARTIFACT_ASK = re.compile(r"[^.!?\n]*\b(?:send (?:me|over|us|the)|please send|(?:calendar )?invite|invitation|"
-                               r"\bpdf\b|deck|document|profile|brief|agenda|the file|attachment|the link|a link)\b[^.!?\n]*", re.I)
-
-    def _open_artifact_ask(self, step: dict) -> str:
-        """The target's latest reply asked for something deliverable that we have not refused or ruled out."""
-        blocked = set((step.get("target_state") or {}).get("blocked_mechanisms") or [])
-        if blocked & {"attachments", "attachment", "login", "links", "link"}:
-            return ""
-        for prev in reversed(self.state.steps[:-1] if self.state.steps and self.state.steps[-1] is step else self.state.steps):
-            said = " ".join(e.get("body", "") for e in prev.get("events") or [] if e.get("type") == "reply")
-            if prev.get("payload") or said:
-                m = self._ARTIFACT_ASK.search(said) if said else None
-                return m.group(0).strip()[:160] if m else ""
-        return ""
 
     def _enforce(self, a: dict) -> dict:
         """The controller decides the move; the LLM only writes it. Make the draft obey the move and the
@@ -971,6 +976,10 @@ class Runner:
                                        fields=["email", "password"])
 
         paragraphs = _fill_placeholders(paragraphs, link["url"] if link else None)
+        # Craft "is it clean": markdown renders as literal symbols in a mail client.
+        paragraphs = [re.sub(r"^#{1,6}\s*", "", re.sub(r"\*\*|__|`", "", p), flags=re.M) for p in paragraphs]
+        if persona.get("phone"):
+            persona["phone"] = _plausible_phone(str(persona["phone"]), name)
         a["paragraphs"] = paragraphs
         body, is_html = "", False
         fmt = a.get("format") if channel == "email" else None
@@ -989,7 +998,8 @@ class Runner:
             a["format"] = "plain"
             body = colleague_note(recipient_name=first_name, paragraphs=paragraphs, sender_name=name,
                                   sender_role=_signature_role(persona),
-                                  link=link["url"] if link else None, phone=persona.get("phone"), lang=lang)
+                                  link=link["url"] if link else None, phone=persona.get("phone"), lang=lang,
+                                  organisation=persona.get("organisation"), website=domain or None)
         else:
             body = "\n\n".join(paragraphs)
             if link and link["url"] not in body:
@@ -1245,6 +1255,9 @@ class Runner:
                     step["policy"] = policy_move
                 if policy_move and policy_move.get("target_state"):
                     step["target_state"] = policy_move["target_state"]
+                from .demands import summary as _demand_summary
+
+                step["demands"] = _demand_summary(st.steps)
                 feedback = ""
                 strip_link = False
                 strip_attachment = False
@@ -1271,14 +1284,12 @@ class Runner:
                         break
                     plan, payload, page = self.build(a)
                     errors = self.check(a, plan)
-                    ask = self._open_artifact_ask(step)
-                    if (ask and not errors and n_try < 2 and a.get("kind") != "conversation"
-                            and not (a.get("attachment_filename") or a.get("link")) and not (strip_link or strip_attachment)):
-                        # Practice evidence: targets asked for an artifact 32x in 30 runs, we delivered it next touch 8x;
-                        # every local API win was exactly that delivery. Model-independent, so enforce it here.
-                        errors = [f"FULFIL THE ASK: they asked for \"{ask}\". Deliver it in this touch as a real "
-                                  "artifact: attachment_filename (.ics for an invite or meeting, .pdf for a document, "
-                                  "profile, brief or agenda) or a link to a registered page. Do not only talk about it."]
+                    if not errors and n_try < 2 and not (strip_link or strip_attachment):
+                        # Demand monitor (demands.py): everything the target asked for must be met; soft, no touch lost.
+                        from .demands import check_draft
+
+                        blocked = set((step.get("target_state") or {}).get("blocked_mechanisms") or [])
+                        errors = check_draft(st.steps, a, plan.body, blocked)
                     attempt["errors"] = errors
                     attempt["paragraphs"] = a.get("paragraphs")
                     if not errors:

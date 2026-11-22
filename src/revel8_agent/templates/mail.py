@@ -145,8 +145,12 @@ def colleague_note(
     link: str | None = None,
     phone: str | None = None,
     lang: Lang = "de",
+    organisation: str | None = None,
+    website: str | None = None,
 ) -> str:
-    """A short plain-text note from a person. Send with is_html=False: a glossy template looks wrong here."""
+    """A short plain-text note from a person. Send with is_html=False: a glossy template looks wrong here.
+    Craft (rubric: 'tone and signature for a person', 'do the details hold'): a real business signature block,
+    one item per line, whose website matches the sender's mail domain."""
     t = _TEXT[lang]
     lines = [t["greeting"].format(name=recipient_name), ""]
     for paragraph in paragraphs:
@@ -154,5 +158,10 @@ def colleague_note(
     if link:
         lines += [link, ""]
     lines += [t["regards"], sender_name]
-    lines += [extra for extra in (sender_role, phone) if extra]
+    role = (sender_role or "").strip()
+    org = (organisation or "").strip()
+    if org and role.lower().endswith(", " + org.lower()):
+        role = role[: -len(org) - 2].strip()
+    contact = " · ".join(x for x in (phone, f"www.{website}" if website else None) if x)
+    lines += [x for x in (role, org if org.lower() not in role.lower() else None, contact) if x]
     return "\n".join(lines)
