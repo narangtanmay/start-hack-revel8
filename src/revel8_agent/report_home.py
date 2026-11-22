@@ -1127,6 +1127,12 @@ filter:drop-shadow(0 16px 20px rgba(0,0,0,.18));outline:none}
 .fx-shell-t{font:700 11px var(--mono);letter-spacing:.06em;fill:#5e5ce6;text-anchor:start}
 .fx-token{fill:#0071e3;filter:url(#fx-glow)}
 .fx-token.bad{fill:#ff9f0a}.fx-token.good{fill:#0a9a4e}
+.fx-trail{fill:#0071e3;opacity:.5;pointer-events:none;transition:opacity .6s ease,r .6s ease}
+.fx-trail.bad{fill:#ff9f0a}
+.fx-spark{pointer-events:none;transition:transform .62s cubic-bezier(.2,.8,.3,1),opacity .62s ease}
+.fx-spark.good{fill:#0a9a4e}.fx-spark.bad{fill:#ff5a3c}.fx-spark.hit{fill:#ff9f0a}
+.fx-idle{fill:#aeb4bd;opacity:.85;transition:opacity .4s}
+.fx-running .fx-idle{opacity:0}
 .fx-stamp{transition:opacity .2s}.fx-stamp-in{transform-box:fill-box;transform-origin:center}
 .fx-stamp.pop .fx-stamp-in{animation:fxpop .42s cubic-bezier(.2,1.4,.4,1)}
 @keyframes fxpop{from{transform:scale(.5)}to{transform:scale(1)}}
@@ -1189,9 +1195,17 @@ FX_JS = r"""
   svg.addEventListener("mouseleave", function(){ if(!running) reset(); });
 
   // ---- scroll assembly ----
+  // idle parts always riding the belt, so the factory looks switched on
+  if(!reduce){ var sp=document.getElementById("fx-spine");
+    if(sp && sp.getAttribute){ var d=sp.getAttribute("d");
+      for(var ii=0;ii<2;ii++){ var ic=document.createElementNS(NS,"circle"); ic.setAttribute("r","4.5");
+        ic.setAttribute("class","fx-idle"); var im=document.createElementNS(NS,"animateMotion");
+        im.setAttribute("dur","4.4s"); im.setAttribute("repeatCount","indefinite"); im.setAttribute("begin",(ii*2.2)+"s");
+        im.setAttribute("path", d); ic.appendChild(im); sp.parentNode.appendChild(ic); } } }
   if("IntersectionObserver" in window && !reduce && board){
     var io=new IntersectionObserver(function(es){ es.forEach(function(e){
-      if(e.isIntersecting){ board.classList.add("fxin"); io.disconnect(); } }); },{threshold:0.2});
+      if(e.isIntersecting){ board.classList.add("fxin"); io.disconnect();
+        setTimeout(function(){ if(!running) run(); }, 1500); } }); },{threshold:0.08});
     io.observe(board);
   } else if(board){ board.classList.add("fxin"); }
 
@@ -1204,37 +1218,52 @@ FX_JS = r"""
   function makeToken(){ if(token) token.remove(); token=document.createElementNS(NS,"circle");
     token.setAttribute("r","9"); token.setAttribute("class","fx-token");
     var a=anchors.target; token.setAttribute("cx",a[0]); token.setAttribute("cy",a[1]); layer.appendChild(token); }
+  function dropTrail(x,y,cls){ var c=document.createElementNS(NS,"circle"); c.setAttribute("r","7");
+    c.setAttribute("cx",x); c.setAttribute("cy",y); c.setAttribute("class","fx-trail"+(cls?(" "+cls):""));
+    layer.appendChild(c); requestAnimationFrame(function(){ c.style.opacity="0"; c.setAttribute("r","2"); });
+    setTimeout(function(){ c.remove(); }, 640); }
+  function burst(x,y,cls){ for(var i=0;i<11;i++){ (function(){ var a=(Math.PI*2*i)/11, d=18+Math.random()*20;
+    var c=document.createElementNS(NS,"circle"); c.setAttribute("r",(2+Math.random()*2.4).toFixed(1));
+    c.setAttribute("cx",x); c.setAttribute("cy",y); c.setAttribute("class","fx-spark "+cls); layer.appendChild(c);
+    var tx=Math.cos(a)*d, ty=Math.sin(a)*d;
+    requestAnimationFrame(function(){ c.style.transform="translate("+tx+"px,"+ty+"px)"; c.style.opacity="0"; });
+    setTimeout(function(){ c.remove(); }, 640); })(); } }
   function litStage(key){ svg.querySelectorAll(".fx-stage.active,.fx-io.active").forEach(function(s){ s.classList.remove("active"); });
     var raw=key, el = (key==="target"||key==="incident") ? svg.querySelector('.fx-node[data-stage="'+key+'"]') : stageEl(key);
     if(el) el.classList.add("active"); }
   function moveStraight(toKey, dur){ return new Promise(function(res){
-    var a=anchors[cur], b=anchors[toKey], t0=null;
+    var a=anchors[cur], b=anchors[toKey], t0=null, lt=0, bad=token.classList.contains("bad");
     function f(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur), e=ease(p);
-      token.setAttribute("cx",a[0]+(b[0]-a[0])*e); token.setAttribute("cy",a[1]+(b[1]-a[1])*e);
+      var x=a[0]+(b[0]-a[0])*e, y=a[1]+(b[1]-a[1])*e;
+      token.setAttribute("cx",x); token.setAttribute("cy",y);
+      if(ts-lt>32){ dropTrail(x,y,bad?"bad":""); lt=ts; }
       if(p<1) requestAnimationFrame(f); else { cur=toKey; res(); } }
     requestAnimationFrame(f); }); }
   function moveReject(dur){ return new Promise(function(res){
     var path=document.getElementById("fx-reject-path"); if(!path){ return res(); }
-    var len=path.getTotalLength(), t0=null;
+    var len=path.getTotalLength(), t0=null, lt=0;
     function f(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur), e=ease(p);
       var pt=path.getPointAtLength(len*e); token.setAttribute("cx",pt.x); token.setAttribute("cy",pt.y);
+      if(ts-lt>32){ dropTrail(pt.x,pt.y,"bad"); lt=ts; }
       if(p<1) requestAnimationFrame(f); else { cur="decide"; res(); } }
     requestAnimationFrame(f); }); }
   function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
   function showStamp(kind){ return new Promise(function(res){
     stamp.classList.toggle("pass", kind==="pass"); stampT.textContent = kind==="pass"?"PASSED":"REJECTED";
     stamp.setAttribute("opacity","1"); stamp.classList.remove("pop"); void stamp.getBoundingClientRect(); stamp.classList.add("pop");
+    var g=anchors.gate; if(g) burst(g[0], g[1], kind==="pass"?"good":"bad");
+    if(token){ token.classList.remove("bad","good"); token.classList.add(kind==="pass"?"good":"bad"); }
     setTimeout(function(){ stamp.setAttribute("opacity","0"); res(); }, 1150); }); }
   function setCap(txt, cls){ cap.textContent=txt; cap.className="fx-cap "+(cls||"run"); }
 
-  function stop(done){ running=false; token && token.remove(); token=null;
+  function stop(done){ running=false; svg.classList.remove("fx-running"); token && token.remove(); token=null;
     svg.querySelectorAll(".fx-stage.active,.fx-io.active").forEach(function(s){ s.classList.remove("active"); });
     svg.querySelectorAll(".fx-edge.fire").forEach(function(e){ e.classList.remove("fire"); });
     btn.removeAttribute("disabled"); lbl.textContent = done ? "Run it again" : "Run a message through";
     if(!done) setCap("A factory for one conversation. Press play.", ""); }
 
   async function run(){
-    if(running) return; running=true; btn.setAttribute("disabled","");
+    if(running) return; running=true; svg.classList.add("fx-running"); btn.setAttribute("disabled","");
     lbl.textContent="Running…"; reset(); makeToken();
     for(var i=0;i<steps.length;i++){
       var s=steps[i];
@@ -1249,6 +1278,7 @@ FX_JS = r"""
       if(s.pass){ await showStamp("pass"); setCap(s.cap,"pass"); await wait(reduce?200:700); continue; }
       if(s.to && s.to!==cur){ await moveStraight(s.to, reduce?260:720); }
       if(s.light) litStage(s.light);
+      if(s.light==="incident"){ var ia=anchors.incident; if(ia) burst(ia[0],ia[1],"hit"); }
       setCap(s.cap, "run");
       if(s.scan){ var se=stageEl(s.light); if(se){ se.classList.add("scanning"); setTimeout(function(e){return function(){e.classList.remove("scanning");};}(se),1000);} }
       await wait(reduce?300:(s.to==="incident"?1400:950));
