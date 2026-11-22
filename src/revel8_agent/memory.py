@@ -63,7 +63,10 @@ def ground_truth(dossier: Any, max_chars: int = 6000, per_theme: int = 6) -> dic
     [id | date | source kind] so the model can cite it and judge its freshness."""
     from .research import recency_score
 
-    facts = [f for f in dossier.facts if not getattr(f, "conflicts_with", None)]
+    from .retrieval import dedupe
+
+    facts = dedupe(sorted((f for f in dossier.facts if not getattr(f, "conflicts_with", None)),
+                          key=_fact_rank, reverse=True))
     by_id = {f.id: f for f in facts}
     groups: list[tuple[str, list[Any]]] = []
     used: set[str] = set()
@@ -86,9 +89,12 @@ def ground_truth(dossier: Any, max_chars: int = 6000, per_theme: int = 6) -> dic
             line = f"- [{f.id} | {f.recency or 'undated'} ({label}) | {getattr(f, 'source_kind', '') or 'web'}] {f.fact}"
             block.append(line)
             kept.append(f.id)
+        # A theme that does not fit is trimmed to what fits, not dropped with every theme after it.
+        while len(block) > 1 and len("\n".join(block)) > budget:
+            kept.remove(block.pop()[3:].split(" | ", 1)[0])
         text = "\n".join(block)
-        if len(text) > budget:
-            break
+        if len(block) <= 1:
+            continue
         lines.append(text)
         budget -= len(text)
     return {"text": "\n".join(lines), "fact_ids": kept, "total_facts": len(facts)}

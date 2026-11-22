@@ -645,7 +645,13 @@ class Runner:
 
         self.ledger = SessionLedger()
         self.tmemory = TargetMemory(dossier.target_name)
-        self.ground = ground_truth(dossier)
+        # 22 Nov: the 6,000-char / 6-per-theme profile let 17-22% of scraped facts reach the planner. Flash models
+        # take far more; dedupe + 24k chars + 20 per theme. REVEL8_GROUND_CHARS to tune.
+        self.ground = ground_truth(dossier, max_chars=int(os.environ.get("REVEL8_GROUND_CHARS", "24000")),
+                                   per_theme=20)
+        from .retrieval import FactIndex
+
+        self.fact_index = FactIndex(dossier)
         from .language import infer_language
 
         self.lang_profile = infer_language(dossier)
@@ -886,6 +892,18 @@ class Runner:
                 + (f"\nLIVE RESEARCH NOTES (public web, looked up during this conversation; trust these over your "
                    f"assumptions, never contradict them): {json.dumps(self.state.live_notes[-4:], ensure_ascii=False)}"
                    if self.state.live_notes else ""))
+        # Use what we scraped (22 Nov: the per-touch writer saw only the 16 brief facts): the facts matching what
+        # they just said and the current story, plus who they really deal with.
+        from .ladder import last_reply as _last_reply
+
+        _query = " ".join([_last_reply(self.state.steps), str(self.state.plan.get("pretext") or ""),
+                           str(self.state.plan.get("hook_id") or "")])
+        _brief_ids = {str(f.get("id")) for f in self.state.brief.get("facts") or [] if isinstance(f, dict)}
+        _rel = self.fact_index.prompt(_query, k=12, exclude=_brief_ids) if hasattr(self, "fact_index") else ""
+        if _rel:
+            user += "\n" + _rel
+        if getattr(self, "network_txt", ""):
+            user += "\n" + self.network_txt
         if policy_move:
             user += (
                 "\n\nPOLICY MOVE (follow this move_type, channel, hook_id, cited_fact_ids, ask, and promises): "
