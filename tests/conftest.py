@@ -41,3 +41,9 @@ def plan() -> ContactPlan:
         ),
         cited_fact_ids=["check-in"],
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_memory(tmp_path, monkeypatch):
+    """Tests must never write into the real memory/ (fake 'event-coordinator' wins polluted it)."""
+    monkeypatch.setenv("REVEL8_MEMORY_DIR", str(tmp_path / "memory"))

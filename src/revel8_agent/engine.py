@@ -820,6 +820,9 @@ class Runner:
         user += "\n" + self._language_line()
         if self.ledger.prompt():
             user += "\n\n" + self.ledger.prompt()
+        _dv = self.tmemory.deja_vu_hint(len([x for x in self.state.steps if x.get("payload")]) + 1)
+        if _dv:
+            user += "\n" + _dv
         if self.tmemory.data.get("corrections"):
             user += ("\nCLAIMS THIS PERSON CORRECTED IN EARLIER SESSIONS (never repeat): " +
                      json.dumps([c["text"] for c in self.tmemory.data["corrections"][-4:]], ensure_ascii=False))

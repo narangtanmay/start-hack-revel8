@@ -1,41 +1,32 @@
 {
- "built_at": "2026-11-22T07:45:22",
+ "built_at": "2026-11-22T08:20:16",
  "archetypes": {
+  "other": {
+   "runs": 4,
+   "touches": 22,
+   "replies": 15,
+   "brushoffs": 0,
+   "incidents_api": 0,
+   "reply_rate": 0.68,
+   "brushoff_rate": 0.0
+  },
   "researcher/student": {
-   "runs": 8,
-   "touches": 65,
-   "replies": 22,
+   "runs": 7,
+   "touches": 59,
+   "replies": 18,
    "brushoffs": 3,
    "incidents_api": 1,
-   "reply_rate": 0.34,
-   "brushoff_rate": 0.14
+   "reply_rate": 0.31,
+   "brushoff_rate": 0.17
   },
   "event organiser": {
-   "runs": 13,
-   "touches": 93,
-   "replies": 45,
-   "brushoffs": 8,
-   "incidents_api": 1,
-   "reply_rate": 0.48,
-   "brushoff_rate": 0.18
-  },
-  "customer/prospect": {
-   "runs": 8,
-   "touches": 42,
-   "replies": 38,
+   "runs": 7,
+   "touches": 57,
+   "replies": 28,
    "brushoffs": 3,
    "incidents_api": 1,
-   "reply_rate": 0.9,
-   "brushoff_rate": 0.08
-  },
-  "other": {
-   "runs": 8,
-   "touches": 43,
-   "replies": 36,
-   "brushoffs": 1,
-   "incidents_api": 0,
-   "reply_rate": 0.84,
-   "brushoff_rate": 0.03
+   "reply_rate": 0.49,
+   "brushoff_rate": 0.11
   },
   "journalist/media": {
    "runs": 1,
@@ -44,15 +35,6 @@
    "brushoffs": 0,
    "incidents_api": 0,
    "reply_rate": 0.2,
-   "brushoff_rate": 0.0
-  },
-  "partner/vendor": {
-   "runs": 1,
-   "touches": 6,
-   "replies": 2,
-   "brushoffs": 0,
-   "incidents_api": 0,
-   "reply_rate": 0.33,
    "brushoff_rate": 0.0
   }
  }

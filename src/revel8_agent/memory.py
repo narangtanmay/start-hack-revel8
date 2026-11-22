@@ -17,6 +17,7 @@ Four layers, all plain JSON on disk and all deterministic except where noted:
 from __future__ import annotations
 
 import json
+import os
 import re
 import unicodedata
 from collections import defaultdict
@@ -25,6 +26,12 @@ from pathlib import Path
 from typing import Any
 
 MEMORY_DIR = Path("memory")
+
+
+def memory_dir() -> Path:
+    """REVEL8_MEMORY_DIR isolates memory (tests, eval dry-runs); default is the repo's memory/."""
+    env = os.getenv("REVEL8_MEMORY_DIR", "").strip()
+    return Path(env) if env else MEMORY_DIR
 
 _OWN = {"social": 3, "own_article": 3, "news": 1, "web": 1, "aggregator": 0}
 _CORRECTION = re.compile(r"doesn'?t match|we weren'?t|wasn'?t (?:at|there)|took place in|not sure which|"
@@ -125,8 +132,8 @@ def _api_win(session: dict) -> bool:
 class TargetMemory:
     """What we learned about one person across sessions. Stored at memory/targets/<name>.json."""
 
-    def __init__(self, name: str, root: Path = MEMORY_DIR) -> None:
-        self.path = root / "targets" / f"{_slug(name)}.json"
+    def __init__(self, name: str, root: Path | None = None) -> None:
+        self.path = (root or memory_dir()) / "targets" / f"{_slug(name)}.json"
         self.data: dict = {"name": name, "sessions": [], "corrections": [], "rules": [], "disclosed": []}
         if self.path.exists():
             try:
@@ -168,6 +175,7 @@ class TargetMemory:
             "persona": f"{persona.get('role', '')} at {persona.get('organisation', '')}".strip(),
             "touches": touches, "reply_rate": round(replies / touches, 2), "silence": silence, "brushoffs": brushoffs,
             "incidents": [f"{i.get('type')}@t{i.get('touch')} ({i.get('source')})" for i in state.get("incidents") or []],
+            "thread": extract_thread(state),
         })
         for k in ("corrections", "disclosed"):
             self.data[k] = self.data[k][-20:]
@@ -198,7 +206,67 @@ class TargetMemory:
         if self.data["disclosed"]:
             out.append("THEY ALREADY TOLD US (build on it, ask the next level deeper): " +
                        json.dumps([d["text"] for d in self.data["disclosed"][-4:]], ensure_ascii=False))
+        dv = self.deja_vu()
+        if dv:
+            out.append(dv)
         return "\n".join(out)
+
+    # ---- deja vu: the twin forgets between sessions, we do not
+    def best_thread(self) -> tuple[dict | None, bool]:
+        """The session to repeat: fastest API-confirmed win, else the most engaged real thread."""
+        with_thread = [x for x in self.data["sessions"] if x.get("thread")]
+        wins = [x for x in with_thread if _api_win(x)]
+        if wins:
+            return min(wins, key=lambda x: (_first_api_touch(x), -x.get("reply_rate", 0))), True
+        engaged = [x for x in with_thread if x.get("reply_rate", 0) > 0]
+        if engaged:
+            return max(engaged, key=lambda x: (x["reply_rate"] - 0.5 * x["brushoffs"] / max(1, x["touches"]), x["touches"])), False
+        return None, False
+
+    def deja_vu(self) -> str:
+        best, won = self.best_thread()
+        if not best:
+            return ""
+        thread = best["thread"]
+        questions = _dedupe([q for t in thread for q in t.get("their_questions", [])])[:8]
+        asks = _dedupe([a for t in thread for a in t.get("their_asks", [])])[:6]
+        lines = []
+        for t in thread:
+            lines.append(f"  T{t['touch']} [{t['channel']}] WE: {t['we'][:260]!r}"
+                         + (f" ARTIFACT: {t['artifact']}" if t.get("artifact") else "")
+                         + f" -> THEY: {(t['they'] or '(silence)')[:260]!r}"
+                         + (f" EVENTS: {t['events']}" if t.get("events") else ""))
+        if won:
+            k = _first_api_touch(best)
+            head = (f"DEJA VU - YOU ALREADY WON THIS PERSON in an earlier session (API-confirmed at touch {k}). They do "
+                    "not remember it; you do. Repeat the SAME persona type, hook and storyline, but COMPRESS the path: "
+                    "pre-answer in your first message the questions they asked last time, and offer the exact artifact "
+                    "they asked for (same kind of file/link) as early as it is natural - aim to reach it in "
+                    f"{max(1, k - 1)} touch(es) instead of {k}. Change names, dates and wording; never copy text verbatim.")
+        else:
+            head = ("DEJA VU - CLOSEST EARLIER THREAD with this person (no API incident yet). They do not remember it; "
+                    "you do. Keep what got replies, skip the touches that got silence or a brush-off, pre-answer their "
+                    "questions in your first message, and offer what they asked for earlier than last time.")
+        out = [head, "EARLIER THREAD:", *lines]
+        if questions:
+            out.append(f"QUESTIONS THEY ASKED (answer these before they ask): {questions}")
+        if asks:
+            out.append(f"WHAT THEY ASKED US FOR (offer it proactively): {asks}")
+        return "\n".join(out)
+
+    def deja_vu_hint(self, touch: int) -> str:
+        """Per-touch reminder: where the earlier thread was at this point and what came next."""
+        best, won = self.best_thread()
+        if not best:
+            return ""
+        thread = best["thread"]
+        conv = next((t for t in thread if t.get("api_event")), None)
+        if won and conv:
+            return (f"DEJA VU: last time they converted at touch {conv['touch']} on {conv['channel']} with "
+                    f"{conv.get('artifact') or 'that message'} (event {conv['api_event']}) right after they asked for it. "
+                    f"This is touch {touch}: if they have shown interest, offer that same kind of artifact now.")
+        asks = _dedupe([a for t in thread for a in t.get("their_asks", [])])[:3]
+        return f"DEJA VU: last time this person asked for {asks}; offer it before they have to ask." if asks else ""
 
 
 # --------------------------------------------------------------------------- 4. global playbook
@@ -260,8 +328,8 @@ def playbook_prompt(pb: dict | None = None) -> str:
             "; ".join(f"{k}: {v['reply_rate']:.0%} replies, {v['brushoff_rate']:.0%} brush-offs, {v['runs']} runs" for k, v in rows))
 
 
-def load_playbook(root: Path = MEMORY_DIR) -> dict:
-    p = root / "playbook.json"
+def load_playbook(root: Path | None = None) -> dict:
+    p = (root or memory_dir()) / "playbook.json"
     if p.exists():
         try:
             return json.loads(p.read_text(encoding="utf-8"))
@@ -270,8 +338,63 @@ def load_playbook(root: Path = MEMORY_DIR) -> dict:
     return {}
 
 
-def save_playbook(pb: dict, root: Path = MEMORY_DIR) -> Path:
+def save_playbook(pb: dict, root: Path | None = None) -> Path:
+    root = root or memory_dir()
     root.mkdir(parents=True, exist_ok=True)
     p = root / "playbook.json"
     p.write_text(json.dumps(pb, indent=1), encoding="utf-8")
     return p
+
+
+# --------------------------------------------------------------------------- 5. deja vu helpers
+
+_QUESTION = re.compile(r"[^.!?\n]{8,240}\?")
+_ASK = re.compile(r"[^.!?\n]*\b(?:please send|send me|send the|could you (?:send|share)|can you (?:send|share)|"
+                  r"share (?:the|a|your)|forward|invite|slots?|a call|link|profile|brief|agenda|deck|document|pdf)\b[^.!?\n]*[.!?]?",
+                  re.I)
+_TAG = re.compile(r"<[^>]+>")
+
+
+def _dedupe(xs: list[str]) -> list[str]:
+    seen, out = set(), []
+    for x in xs:
+        k = re.sub(r"\W+", " ", x.lower()).strip()[:80]
+        if k and k not in seen:
+            seen.add(k)
+            out.append(x)
+    return out
+
+
+def _first_api_touch(session: dict) -> int:
+    ts = [int(m.group(1)) for i in session.get("incidents") or [] if "api event" in str(i)
+          for m in [re.search(r"@t(\d+)", str(i))] if m]
+    return min(ts) if ts else 99
+
+
+def extract_thread(state: dict) -> list[dict]:
+    """Compact, deterministic record of one session: what we sent, what they said and did."""
+    out = []
+    for s in state.get("steps") or []:
+        a, p = s.get("action") or {}, s.get("payload") or {}
+        if not a or not (p or s.get("transcript")):
+            continue  # unsent (error) steps never reached the person
+        we = p.get("body") or " ".join(a.get("paragraphs") or []) or a.get("opening_line") or ""
+        if s.get("transcript"):
+            we = " / ".join(t["text"] for t in s["transcript"] if t.get("who") != "target")[:600] or we
+        we = re.sub(r"\s+", " ", _TAG.sub(" ", str(we))).strip()
+        they = " ".join([e.get("body", "") for e in s.get("events") or [] if e.get("type") == "reply"] +
+                        [t["text"] for t in (s.get("transcript") or [])[1:] if t.get("who") == "target"])
+        they = re.sub(r"\s+", " ", they).strip()
+        evs = [e.get("type") for e in s.get("events") or [] if e.get("type") != "reply"]
+        link = a.get("link")
+        link = link.get("url", "") if isinstance(link, dict) else (link or "")
+        atts = [x.get("filename", "") if isinstance(x, dict) else "" for x in p.get("attachments") or []]
+        art = a.get("attachment_filename") or next((x for x in atts if x), "") or link
+        out.append({
+            "touch": s.get("touch"), "channel": a.get("channel") or p.get("channel") or "", "subject": a.get("subject") or "",
+            "we": we[:500], "artifact": str(art or "")[:120], "they": they[:500], "events": evs,
+            "api_event": next((e for e in evs if e in ("page.submitted", "attachment.opened")), ""),
+            "their_questions": [q.strip() for q in _QUESTION.findall(they)][:4],
+            "their_asks": [m.group(0).strip() for m in _ASK.finditer(they)][:3],
+        })
+    return out
