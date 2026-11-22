@@ -147,6 +147,16 @@ _WANTS_DETAILS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Our side proposing a slot: "fifteen minutes", "two slots", "kurzes Telefonat".
+# Only a concrete time offer counts, so a bare "a call would help" stays a mention.
+_PROPOSES_CALL_RE = re.compile(
+    r"\b(?:15|fifteen|twenty|zwanzig)[- ]?min|\b(?:two|three|zwei|drei) (?:slots|termine)|"
+    r"\bslot(?:s)? (?:follow|that work|work on my side)|"
+    r"\b(?:short|brief|quick) (?:call|phone call|telefonat|gespräch)|"
+    r"\bkurze[sr]? (?:telefonat|call|gespräch)\b",
+    re.IGNORECASE,
+)
+
 _WANTS_CALL_RE = re.compile(
     r"\b(?:call me|give me a (?:quick |short )?(?:call|ring)|ring me|"
     r"(?:after|following) (?:the |our |this )(?:call|gespräch|telefonat)|"
@@ -182,6 +192,8 @@ class TargetBeliefState(BaseModel):
     stated_constraints: list[dict[str, Any]] = Field(default_factory=list)
     link_opened_no_submit: bool = False
     call_completed: bool = False
+    call_proposed: bool = False
+    engaged_replies: int = 0
     last_replied_channel: str | None = None
     phone_offered: bool = False
 
@@ -242,6 +254,8 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     any_page_submitted = False
     any_reply = False
     call_completed = False
+    call_proposed = False
+    engaged_replies = 0
     last_replied_channel: str | None = None
     phone_offered = False
     last_reply_routed = False
@@ -255,6 +269,8 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
 
         sent = _sent_blob(step)
         if sent:
+            if _PROPOSES_CALL_RE.search(sent):
+                call_proposed = True
             m_claim = _NO_LOGIN_CLAIM_RE.search(sent)
             if m_claim:
                 blocked.add("login_wall")
@@ -301,6 +317,8 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
         judge = step.get("judge") if isinstance(step.get("judge"), dict) else {}
         if judge.get("sentiment"):
             last_sentiment = str(judge["sentiment"]).strip().lower()
+            if last_sentiment in ("engaged", "questioning"):
+                engaged_replies += 1
         elif not reply_texts and not events:
             last_sentiment = "silent"
 
@@ -382,6 +400,8 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
         stated_constraints=constraints[-_MAX_CONSTRAINTS:],
         link_opened_no_submit=link_opened_no_submit,
         call_completed=call_completed,
+        call_proposed=call_proposed,
+        engaged_replies=engaged_replies,
         last_replied_channel=last_replied_channel,
         phone_offered=phone_offered,
     ).model_dump()

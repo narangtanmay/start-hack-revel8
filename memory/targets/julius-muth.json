@@ -249,6 +249,23 @@
    "silence": 0,
    "brushoffs": 1,
    "incidents": []
+  },
+  {
+   "run": "20261122-102351-julius-loop2-julius-7eacb2",
+   "at": "2026-11-22T09:23:51+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "A security awareness lead at a mid-sized European manufacturer writes because Julius's recent episode on narrative ops and reporting speed matched the exact problem his team is wrestling with after a ",
+   "persona": "Security Awareness & Human Risk Lead at Hellwig Präzisionsteile GmbH",
+   "touches": 10,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t2 (llm-judge (estimate))",
+    "disclosure@t9 (llm-judge (estimate))",
+    "disclosure@t10 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [
@@ -272,7 +289,24 @@
   "no_login",
   "call_ok",
   "no_office_files",
-  "offers_input"
+  "offers_input",
+  "refused: phone_switch"
  ],
- "disclosed": []
+ "disclosed": [
+  {
+   "run": "20261122-102351-julius-loop2-julius-7eacb2",
+   "touch": 2,
+   "text": "measure from the moment the attack reaches the person (the delivery or call time) to the first report, whichever channel they use. Mail, ticket or hotline are just entry points. The owner should be your triage team, not the reporter, so the clock can't be gamed."
+  },
+  {
+   "run": "20261122-102351-julius-loop2-julius-7eacb2",
+   "touch": 9,
+   "text": "as few people as possible. Nobody outside triage should be able to edit the timestamp. Others can read it, and any exception should be logged and approved."
+  },
+  {
+   "run": "20261122-102351-julius-loop2-julius-7eacb2",
+   "touch": 10,
+   "text": "the triage/security team owns the clock, everyone else gets read access, and exceptions are approved by the security lead and logged"
+  }
+ ]
 }

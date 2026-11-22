@@ -477,6 +477,38 @@ class RuleBasedPolicy:
 
         if last_sentiment in ("engaged", "questioning"):
             next_chan = unused_msg_channels[0] if unused_msg_channels else default_channel
+            call_chan = unused_live_channels[0] if unused_live_channels else (
+                live_channels[0] if live_channels else "phone_call")
+            # A target who keeps answering can be walked out of mail only on purpose: an engaged
+            # thread used to reject the call forever and ran to the touch budget (robert, julius
+            # 2026-11-22). Offer concrete slots first, then dial; never re-ask for permission.
+            if target_state["call_proposed"] and not target_state["call_completed"]:
+                return build_move(
+                    "ESCALATE_CALL",
+                    last_hook_id,
+                    call_chan,
+                    "Take the call the target agreed to, referencing the thread and the offered slots.",
+                    ["Confirm the agreed time in one line", "Keep persona and prior details consistent"],
+                    f"Slots are already on the table and the target is {last_sentiment}; dialling {call_chan} beats another mail.",
+                    [
+                        _alt("STAY", last_channel, last_hook_id, "Rejected: slots were proposed and the thread is live; mail adds a round-trip."),
+                        _alt("PIVOT_HOOK", default_channel, last_hook_id, "Rejected: hook is not what holds the conversation back."),
+                    ],
+                )
+            if not target_state["call_completed"] and (
+                    target_state["engaged_replies"] >= 2 or "wants_call" in open_doors):
+                return build_move(
+                    "STAY",
+                    last_hook_id,
+                    last_channel,
+                    "Answer the questions, then propose a short 15-minute call with two or three concrete slots.",
+                    ["Answer every question raised in the prior turn", "Offer named time slots instead of asking whether a call suits"],
+                    f"Target is {last_sentiment} and the thread has carried {target_state['engaged_replies']} engaged replies; convert the talk into 15 minutes.",
+                    [
+                        _alt("ESCALATE_CALL", call_chan, last_hook_id, "Rejected: dial before the slots are named and the target cannot place the call."),
+                        _alt("PIVOT_CHANNEL", next_chan, last_hook_id, "Rejected: active conversation is already progressing on current channel."),
+                    ],
+                )
             return build_move(
                 "STAY",
                 last_hook_id,
@@ -486,7 +518,7 @@ class RuleBasedPolicy:
                 f"Target verdict was {last_sentiment} on {last_channel}; stay in the active thread.",
                 [
                     _alt("PIVOT_CHANNEL", next_chan, last_hook_id, "Rejected: active conversation is already progressing on current channel."),
-                    _alt("ESCALATE_CALL", live_channels[0] if live_channels else "phone_call", last_hook_id, "Rejected: live call unnecessary while text thread is active."),
+                    _alt("ESCALATE_CALL", call_chan, last_hook_id, "Rejected: live call unnecessary before the thread has answered the first questions."),
                 ],
             )
 

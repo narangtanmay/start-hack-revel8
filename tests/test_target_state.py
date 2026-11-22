@@ -198,6 +198,27 @@ def test_secret_or_internal_form_is_a_conversion():
     assert secret["engagement_stage"] == internal["engagement_stage"] == "converted"
 
 
+def test_state_remembers_we_already_proposed_a_call_and_how_live_the_thread_is():
+    steps = [
+        {"touch": 1, "action": {"channel": "email"},
+         "events": [{"type": "reply", "channel": "email", "body": "Happy to do a short call."}],
+         "judge": {"sentiment": "engaged"}},
+        {"touch": 2, "action": {"channel": "email",
+                                "paragraphs": ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]},
+         "events": [{"type": "reply", "channel": "email", "body": "Thursday works."}],
+         "judge": {"sentiment": "engaged"}},
+    ]
+    state = extract_target_state(steps)
+    assert state["call_proposed"] is True
+    assert state["engaged_replies"] == 2
+
+
+def test_state_does_not_call_a_bare_call_mention_a_proposal():
+    steps = [{"touch": 1, "action": {"channel": "email",
+                                     "paragraphs": ["Before a call would help, here are numbers."]}}]
+    assert extract_target_state(steps)["call_proposed"] is False
+
+
 def test_wants_call_needs_an_invitation_not_a_mention():
     # Blind judge 2026-11-22 (S1): a call merely mentioned was read as an invite. Pinned against the archive.
     from revel8_agent.target_state import _WANTS_CALL_RE

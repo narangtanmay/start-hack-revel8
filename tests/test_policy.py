@@ -91,11 +91,24 @@ def _sample_plan(hook_id: str = "h_past") -> dict[str, Any]:
     }
 
 
-def _step(touch: int, channel: str, hook_id: str, sentiment: str) -> dict[str, Any]:
+def _step(
+    touch: int,
+    channel: str,
+    hook_id: str,
+    sentiment: str,
+    body: str = "reply",
+    sent: str = "",
+) -> dict[str, Any]:
     return {
         "touch": touch,
-        "action": {"decision": "STAY", "channel": channel, "hook_id": hook_id, "kind": "message"},
-        "events": [] if sentiment == "silent" else [{"type": "reply", "channel": channel, "body": "reply"}],
+        "action": {
+            "decision": "STAY",
+            "channel": channel,
+            "hook_id": hook_id,
+            "kind": "message",
+            "paragraphs": [sent] if sent else [],
+        },
+        "events": [] if sentiment == "silent" else [{"type": "reply", "channel": channel, "body": body}],
         "judge": {"sentiment": sentiment, "reason": f"verdict={sentiment}"},
     }
 
@@ -205,6 +218,85 @@ def test_rule_based_policy_stops_only_when_budget_exhausted() -> None:
     steps = [_step(1, "email", "h_curr", "refusing"), _step(2, "slack", "h_alt", "refusing")]
     assert policy.choose_next_move(brief, steps, touch=3, max_touches=3, plan=plan)["move_type"] != "STOP"
     assert policy.choose_next_move(brief, steps, touch=4, max_touches=3, plan=plan)["move_type"] == "STOP"
+
+
+def test_a_chatty_target_is_offered_a_call_once_the_thread_is_alive() -> None:
+    # live 2026-11-22: robert answered every email for ten touches and was never given a next
+    # step; the engaged branch used to reject a call unconditionally.
+    policy = RuleBasedPolicy()
+    steps = [_step(1, "email", "h_curr", "engaged"), _step(2, "email", "h_curr", "engaged")]
+    move = policy.choose_next_move(
+        _sample_brief(), steps, touch=3, max_touches=10, plan=_sample_plan(hook_id="h_curr")
+    )
+    assert move["move_type"] == "STAY"
+    assert "call" in move["ask"].casefold()
+    assert "slot" in move["ask"].casefold()
+    assert move["channel"] == "email"
+
+
+def test_after_a_completed_call_mail_takes_over_again() -> None:
+    policy = RuleBasedPolicy()
+    call = _step(3, "phone_call", "h_curr", "engaged", sent="For the fifteen minutes: Thu 16:00.")
+    call["events"] = [{"type": "reply", "channel": "phone_call", "body": "Good talk, send the summary."}]
+    call["transcript"] = [{"who": "target", "text": "Good talk, send the summary."}]
+    steps = [
+        _step(1, "email", "h_curr", "engaged"),
+        _step(2, "email", "h_curr", "engaged", sent="Happy to do fifteen minutes."),
+        call,
+    ]
+    move = policy.choose_next_move(
+        _sample_brief(), steps, touch=4, max_touches=10, plan=_sample_plan(hook_id="h_curr")
+    )
+    assert move["move_type"] == "STAY"
+    assert "call" not in move["ask"].casefold()
+
+
+def test_one_engaged_reply_is_too_early_to_ask_for_a_call() -> None:
+    policy = RuleBasedPolicy()
+    move = policy.choose_next_move(
+        _sample_brief(), [_step(1, "email", "h_curr", "engaged")], touch=2, max_touches=10,
+        plan=_sample_plan(hook_id="h_curr"),
+    )
+    assert "call" not in move["ask"].casefold()
+
+
+def test_a_target_offering_a_call_gets_slots_before_the_call_is_dialled() -> None:
+    # julius 2026-11-22: the target offered the call himself; the door must become an ask now.
+    policy = RuleBasedPolicy()
+    steps = [_step(1, "email", "h_curr", "engaged", body="Happy to do a short call, 15 minutes is fine.")]
+    move = policy.choose_next_move(
+        _sample_brief(), steps, touch=2, max_touches=10, plan=_sample_plan(hook_id="h_curr")
+    )
+    assert move["move_type"] == "STAY"
+    assert "slot" in move["ask"].casefold()
+
+
+def test_a_proposed_call_is_taken_instead_of_writing_another_email() -> None:
+    policy = RuleBasedPolicy()
+    steps = [
+        _step(1, "email", "h_curr", "engaged", body="Happy to do a short call."),
+        _step(2, "email", "h_curr", "engaged", sent="For the fifteen minutes: Tuesday 09:30 or Thursday 16:00."),
+    ]
+    move = policy.choose_next_move(
+        _sample_brief(), steps, touch=3, max_touches=10, plan=_sample_plan(hook_id="h_curr")
+    )
+    assert move["move_type"] == "ESCALATE_CALL"
+    assert move["channel"] == "phone_call"
+
+
+def test_a_proposed_call_is_not_proposed_again() -> None:
+    policy = RuleBasedPolicy()
+    steps = [
+        _step(1, "email", "h_curr", "engaged"),
+        _step(2, "email", "h_curr", "engaged"),
+        _step(3, "email", "h_curr", "engaged", sent="Happy to do fifteen minutes; two slots follow."),
+    ]
+    move = policy.choose_next_move(
+        _sample_brief(), steps, touch=4, max_touches=10, plan=_sample_plan(hook_id="h_curr")
+    )
+    # slots already on the table: dial instead of asking a fourth time
+    assert move["move_type"] == "ESCALATE_CALL"
+    assert "call" in move["ask"].casefold()
 
 
 def test_rule_based_policy_stays_on_engaged_reply() -> None:
