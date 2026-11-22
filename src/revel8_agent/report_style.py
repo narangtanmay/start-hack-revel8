@@ -43,7 +43,7 @@ a{color:var(--blue-text);text-decoration:none;text-underline-offset:3px}a:hover{
 /* ---------- navigation: frosted white bar, the only glass on the site ---------- */
 .nav{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);
 -webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(0,0,0,.07)}
-.nav-in{max-width:1200px;margin:0 auto;padding:0 32px;height:52px;display:flex;align-items:center;gap:30px}
+.nav-in{max-width:1200px;margin:0 auto;padding:11px 32px;min-height:52px;display:flex;align-items:center;gap:30px}
 .logo{display:none}
 .brand{font:700 19px/1 var(--display);letter-spacing:-.03em;color:var(--text)}.brand:hover{text-decoration:none}
 .brand i{font-style:normal;color:var(--blue)}
@@ -80,7 +80,7 @@ h3{font:650 19px/1.25 var(--display);letter-spacing:-.018em}
 /* ---------- buttons and links ---------- */
 .btn{display:inline-flex;align-items:center;gap:10px;background:var(--blue);color:#fff;border:0;border-radius:999px;padding:13px 24px;
 font:600 17px/1 var(--sans);letter-spacing:-.01em;cursor:pointer;transition:background .2s,transform .2s var(--ease)}
-.btn:hover{background:#0077ed;text-decoration:none}.btn:active{transform:scale(.97)}
+.btn:hover{background:#005fcc;text-decoration:none}.btn:active{transform:scale(.97)}
 .btn .svgi{width:15px;height:15px}
 .more{font-size:17px;color:var(--blue-text);display:inline-flex;align-items:center;gap:4px}
 .more::after{content:"";width:7px;height:7px;border-top:1.6px solid currentColor;border-right:1.6px solid currentColor;transform:rotate(45deg);
@@ -252,7 +252,7 @@ blockquote{margin:8px 0 4px;padding:10px 14px;border:0;background:var(--surface-
 
 /* ---------- narrow screens: 16px gutters, nothing scrolls sideways ---------- */
 @media(max-width:760px){
-.nav-in{padding:0 16px;gap:20px}.live{display:none}
+.nav-in{padding:11px 16px;gap:20px}.live{display:none}
 .page{padding:48px 16px 96px}h1{font-size:38px}.sub{font-size:18px;margin-bottom:48px}
 .card:has(>table){overflow-x:auto}
 .tile .value{font-size:34px}

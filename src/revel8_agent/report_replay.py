@@ -185,7 +185,7 @@ _SHELL = """
 
 _CSS = """
 /* fixed top navigation: never floats over content */
-.nav{position:fixed;top:0;left:0;right:0;z-index:30;background:#0b1720;backdrop-filter:none;border-bottom:1px solid #ffffff14}
+.nav{position:fixed;top:0;left:0;right:0;z-index:30;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(0,0,0,.07)}
 .nav-in{max-width:1560px;flex-wrap:nowrap;padding:10px 28px;gap:16px}
 .tabs{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;margin-left:8px}.tabs::-webkit-scrollbar{display:none}
 .tabs a{white-space:nowrap}.nav .spacer,.nav .crumb{display:none}

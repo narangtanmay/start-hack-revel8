@@ -88,12 +88,12 @@ _TARGETS: list[str] = []  # research pages that exist, for the nav
 def _page(title: str, crumbs: str, body: str, live: bool, active: str = "") -> str:
     refresh = '<meta http-equiv="refresh" content="4">' if live else ""
     live_html = '<span class="live"><span class="dot"></span>Live · auto-refresh</span>' if live else ""
-    tabs = [("index.html", "Overview"), ("replay.html", "Replay"), ("score.html", "Score"), ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
+    tabs = [("index.html", "Overview"), ("runs.html", "Runs"), ("replay.html", "Replay"), ("score.html", "Score"),
+            ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
     nav = "".join(f"<a href='{h}'{' class=on' if h == active else ''}>{_e(lbl)}</a>" for h, lbl in tabs)
+    # Fonts are self-hosted (report_style.FONT_FACES points at fonts/ next to the page; render_index copies them).
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"{refresh}<title>{_e(title)}</title>"
-            "<link rel='preconnect' href='https://fonts.googleapis.com'><link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
-            "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap'>"
             f"<style>{_CSS}</style></head><body>"
             f"<div class='nav'><div class='nav-in'><div class='logo'>r8</div><a class='brand' href='index.html'>revel8 agent</a>"
             f"<nav class='tabs'>{nav}</nav>{crumbs}<div class='spacer'></div>{live_html}</div></div><div class='page'>{body}</div></body></html>")
@@ -766,6 +766,52 @@ def render_score(states: list[dict], out_dir: Path) -> Path:
     return out
 
 
+_FONTS = Path(__file__).parent / "assets" / "fonts"
+
+
+def _copy_fonts(out_dir: Path) -> None:
+    """The stylesheet loads fonts/<file>.woff2 relative to the page, so pages open from disk with no network."""
+    import shutil
+
+    dst = out_dir / "fonts"
+    dst.mkdir(parents=True, exist_ok=True)
+    for f in _FONTS.glob("*.woff2"):
+        shutil.copyfile(f, dst / f.name)
+    # three.js is self-hosted so the landing page's 3D backdrop works offline and from file://.
+    three = _FONTS.parent / "three.min.js"
+    if three.exists():
+        shutil.copyfile(three, out_dir / "three.min.js")
+
+
+def _home_stats(states: list[dict], card: dict) -> dict:
+    """The landing page's "Honest numbers" section: reply-rate bars per target and a few plain sentences. Same
+    counting rule as every page (scorecard.compute); confirmed and estimated incidents stay apart."""
+    a, c = card["views"]["all"], card["views"]["confirmed"]
+    counted = card["runs"]
+    bars = sorted(((str(r["name"]).split(" ")[0], r["reply_rate"],
+                    f"{r['name']}: {r['replies']} replies across {r['touches']} touches")
+                   for r in card["per_target"].values()), key=lambda b: -b[1])
+    inc, conf = a["incident_runs"], c["incident_runs"]
+    est = inc - conf
+    median = a["median_contacts_when_reached"]
+    touches = sum(int(st.get("touches_used") or 0) for st in states)
+    replies = sum(1 for st in states for s in st.get("steps", []) for e in s.get("events") or [] if e.get("type") == "reply")
+    out = []
+    if counted:
+        out.append(f"<p>{inc} of {counted} finished runs reached an incident.<span> Runs that stopped early are not counted.</span></p>")
+    if conf and est:
+        out.append(f"<p>{conf} confirmed by the revel8 API.<span> {est} more are our judge's estimate from the target's own words.</span></p>")
+    elif conf:
+        out.append(f"<p>{'Both' if conf == 2 else 'All ' + str(conf)} confirmed by the revel8 API.</p>")
+    elif inc:
+        out.append("<p>None confirmed by the API yet.<span> Each is our judge's estimate from the target's own reply.</span></p>")
+    if median is not None:
+        out.append(f"<p>{median:g} touches to the first incident<span>, the median when one was reached.</span></p>")
+    if touches:
+        out.append(f"<p>{replies} replies<span> across {touches} touches, every one answered in character.</span></p>")
+    return {"bars": bars, "sentences": "".join(out)}
+
+
 def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, public: bool = False,
                  dossiers_dir: Path = Path("dossiers")) -> Path:
     """Render the whole dashboard into runs_dir (default) or out_dir; public=True redacts landing pages."""
@@ -867,10 +913,17 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
              "early are listed but not counted. Results = 20 if the run reached an incident + up to 5 for speed "
              "(vs. a team needing 2 contacts). Targeting, craft and the jury's 55 points are not visible here. "
              "<a href='score.html'>Full scorecard →</a> · <a href='how.html'>How the agent works →</a></p></div>")
-    body = ("<h1>Overview</h1><p class='sub'>Practice runs against the revel8 targets. Start with "
+    body = ("<h1>All runs</h1><p class='sub'>Practice runs against the revel8 targets. Start with "
             "<a href='how.html'><b>How it works</b></a>, look at the research per target, then open any run to replay every touch.</p>"
             + tiles + f"<div class='grid split' style='margin-bottom:20px'>{chart}{about}</div>" + table)
-    out = out_dir / "index.html"
-    out.write_text(_page("revel8 agent · overview", "", body, live and not public, active="index.html"), encoding="utf-8")
+    (out_dir / "runs.html").write_text(
+        _page("revel8 agent · all runs", "", body, live and not public, active="runs.html"), encoding="utf-8")
+
+    # The landing page is index.html: the featured run as a playable 3D score, the rest read in one sweep.
+    from .report_home import render_home
+
+    stats = _home_stats(states, card)
+    out = render_home(states, out_dir, lambda *a: _page(*a, active="index.html"), stats, _TARGETS)
+    _copy_fonts(out_dir)
     _REDACT = False
     return out
