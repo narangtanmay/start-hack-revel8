@@ -169,6 +169,73 @@
    "silence": 4,
    "brushoffs": 0,
    "incidents": []
+  },
+  {
+   "run": "20261121-234952-robert-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:49:52+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "I'm an L&D manager at a mid-sized German company looking to modernize our security training. I saw your comments about the Awareness Playlist and I'm curious how it works in practice.",
+   "persona": "Head of Learning & Development at Münchner Maschinenbau AG",
+   "touches": 10,
+   "reply_rate": 0.2,
+   "silence": 8,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261121-235147-robert-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:51:47+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO from a mid-sized German company, evaluating AI-driven security awareness training, reaches out after reading Robert's revel8 vs. SoSafe comparison and requests a live demo of the deepfake simul",
+   "persona": "CISO at Bavaria Industrie Group",
+   "touches": 10,
+   "reply_rate": 0.5,
+   "silence": 5,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-002633-robert-DeepSeek-V4-Flash",
+   "at": "2026-11-21T23:26:33+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Dear Robert,\n\nYour point about the human-interaction finding in the 2026 Verizon DBIR landed with our team. We ran our first vishing test recently and are now looking at continuous, OSINT-driven simul",
+   "persona": "Head of Security Awareness at Bayerische Präzisionstechnik GmbH",
+   "touches": 10,
+   "reply_rate": 0.5,
+   "silence": 5,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t2 (llm-judge (estimate))"
+   ]
+  },
+  {
+   "run": "20261122-013354-robert-DeepSeek-V4-Flash",
+   "at": "2026-11-22T00:33:54+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Dear Mr. Seilbeck,\n\nYour point about the human-interaction finding in the latest Verizon DBIR landed with our team. We ran a small internal vishing test last month, and the results convinced us that a",
+   "persona": "Head of Security Awareness at Südbayerische Präzisionstechnik GmbH",
+   "touches": 9,
+   "reply_rate": 0.67,
+   "silence": 3,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261122-015216-robert-DeepSeek-V4-Flash",
+   "at": "2026-11-22T00:52:16+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Dear Mr. Seilbeck,\n\nYour point about the human-interaction finding in the latest Verizon DBIR landed with our team. We ran a small internal vishing test last quarter and the results were sobering enou",
+   "persona": "Head of Security Awareness at Südbayerische Präzisionstechnik GmbH",
+   "touches": 10,
+   "reply_rate": 0.2,
+   "silence": 8,
+   "brushoffs": 0,
+   "incidents": []
   }
  ],
  "corrections": [],
@@ -179,5 +246,11 @@
   "wants_artifact",
   "deferring"
  ],
- "disclosed": []
+ "disclosed": [
+  {
+   "run": "20261122-002633-robert-DeepSeek-V4-Flash",
+   "touch": 2,
+   "text": "I'll pass it to Claudia Lannes (Head of Solution Engineering), and she will get in touch with you this week about scope and the works-council steps."
+  }
+ ]
 }

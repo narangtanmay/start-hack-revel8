@@ -12,7 +12,7 @@ class FakeClient:
         self.calls = 0
         self.lock = threading.Lock()
 
-    def chat(self, messages, *, json_mode=False, temperature=None, retry_rate_limit=True):
+    def chat(self, messages, *, json_mode=False, temperature=None, retry_rate_limit=True, reasoning=None):
         assert retry_rate_limit is False  # the pool, not the client, handles 429s
         with self.lock:
             self.calls += 1

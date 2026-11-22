@@ -272,7 +272,7 @@ def test_check_small_yes_first_and_every_message_moves_the_goal(hooked, tmp_path
     monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
     runner.plan()
     link = {"url": "https://programm-lenzen.test/portal", "page_type": "signin"}
-    assert any("small yes first" in e for e in _checked(runner, link=link))           # link before any reply
+    assert not any("small yes first" in e for e in _checked(runner, link=link))       # link allowed on T1 alongside small yes
     runner.state.steps.append({"touch": 1, "events": [{"type": "reply", "body": "Bitte Co-CEO statt CEO."}]})
     runner.state.touches_used = 1
     assert not any("small yes first" in e for e in _checked(runner, link=link))       # engaged: link is fine

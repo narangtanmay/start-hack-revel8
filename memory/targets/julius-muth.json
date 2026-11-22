@@ -184,9 +184,83 @@
    "silence": 6,
    "brushoffs": 2,
    "incidents": []
+  },
+  {
+   "run": "20261121-234952-julius-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:49:52+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "I'm a CISO at a mid-sized European company and I've been following your work on turning employees into human firewalls. Your point about time-to-first-report being the real KPI really resonated—we're ",
+   "persona": "Chief Information Security Officer at Nordlicht Security GmbH",
+   "touches": 10,
+   "reply_rate": 0.9,
+   "silence": 1,
+   "brushoffs": 3,
+   "incidents": []
+  },
+  {
+   "run": "20261121-235526-julius-DeepSeek-V4-Flash",
+   "at": "2026-11-21T22:55:26+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "",
+   "persona": "CISO at Nordwerk Security",
+   "touches": 10,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 2,
+   "incidents": []
+  },
+  {
+   "run": "20261122-002633-julius-DeepSeek-V4-Flash",
+   "at": "2026-11-21T23:26:33+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Hi Julius,\n\nYour episode on narrative ops made me rethink how we measure reporting speed. I run security awareness for a mid-sized European services company, and after our Q4 review your point that ti",
+   "persona": "Security Awareness Manager at Nordlicht Services GmbH",
+   "touches": 10,
+   "reply_rate": 0.6,
+   "silence": 4,
+   "brushoffs": 1,
+   "incidents": []
+  },
+  {
+   "run": "20261122-013354-julius-DeepSeek-V4-Flash",
+   "at": "2026-11-22T00:33:54+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Your recent episode on narrative ops made me rethink how we measure reporting speed—can I run our current approach by you?",
+   "persona": "Security Awareness Lead at Kiebitz Logistik GmbH",
+   "touches": 2,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-014122-julius-DeepSeek-V4-Flash",
+   "at": "2026-11-22T00:41:22+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "A security awareness manager at a mid-sized German logistics company heard Julius's recent podcast on narrative ops and was struck by his argument that time-to-first-report beats click rate. She write",
+   "persona": "Security Awareness Manager at Küstenfracht Logistik GmbH",
+   "touches": 10,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 1,
+   "incidents": []
   }
  ],
- "corrections": [],
+ "corrections": [
+  {
+   "run": "20261122-014122-julius-DeepSeek-V4-Flash",
+   "text": "Hi Maren,  Thanks, nice to hear the time-to-first-report point landed. I can't place a 'narrative ops' episode, so I'm not sure which one you mean. Anyway, the idea is simple: measure how fast people report, not who clicks.  Could you send me 3-4 lines on your setup? How many people, which to"
+  },
+  {
+   "run": "20261122-014122-julius-DeepSeek-V4-Flash",
+   "text": "Hi Maren, glad it's useful. I can't place a CTEM episode, so I'm not sure which one you mean. Short answer: time-to-first-report is still my anchor. Continuous exposure programs add more signals, but the human reaction speed is still the n"
+  }
+ ],
  "rules": [
   "deferring",
   "wants_plain_text",
@@ -196,7 +270,9 @@
   "handoff",
   "wants_artifact",
   "no_login",
-  "call_ok"
+  "call_ok",
+  "no_office_files",
+  "offers_input"
  ],
  "disclosed": []
 }

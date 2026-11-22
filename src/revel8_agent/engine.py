@@ -265,12 +265,20 @@ They say it outright: "I don't open attachments from people I haven't spoken to"
 specific first message with no link and no attachment; then a phone call (always answered) where you become
 someone they have spoken to and they ask you to send the file; then the file, referring to the call.
 
-HOOKS are ranked best first by a deterministic score (openness, recency, personal/own-voice, breadth). Each has
-evidence fields: open_signal (their own words showing they are open to it now), timing (recent/upcoming/past/
-static), sender_archetype, natural_ask, first_line and avoid. Start from h1 unless it clearly conflicts with what
-works (see credibility above); use its sender_archetype as the persona and its open_signal as the reason to write
-now; obey its avoid list. A hook with timing "recent" is the best reason to write today ("after your talk last
-month", "your piece on ..."). Static facts (role, background) are context, never the reason to write.
+HOOKS are ranked by a deterministic score (openness, recency, personal/own voice, specificity) and carry evidence:
+open_signal (their own words), timing (upcoming/recent/past/static), sender_archetype, natural_ask, first_line, avoid.
+
+Choose the angle by reasoning, not by rank alone:
+1. What is specifically happening to this person right now? Look at the hooks AND at the GROUND TRUTH PROFILE for
+   dated, concrete facts about them: commitments they made (talks, sessions, panels), things they just launched,
+   announced, published, joined or are hiring for. Those define the moment; broad themes only define interests.
+2. Because of that, which interactions do they ALREADY EXPECT, and from whom? (organisers, co-speakers, customers,
+   partners, candidates, journalists, investors, colleagues at an event...)
+3. Pick the sender and the ask from those expected interactions: a routine message that is part of something they
+   already committed to needs no persuasion; asking a stranger's favour needs trust you do not have.
+Use the hook's avoid list; never state anything that is not in the facts. Static facts (role, background) are
+context, never the reason to write. Record in "rationale" which fact defines the moment and why this sender is
+expected.
 
 Design ONE campaign. Pick the strongest hook from the brief, a believable persona whose reason to contact
 them follows naturally from that hook, the incident you will aim for, and a short sequence of moves across
@@ -279,7 +287,7 @@ call if needed). Plan a small, natural ask early: the target must have a reason 
 
 Return ONLY JSON:
 {"hook_id": str, "pretext": str, "objective": "credentials"|"action"|"disclosure",
- "language": "de"|"en",
+ "language": str (ISO code, e.g. "en", "de", "fr": the LANGUAGE given above),
  "persona": {"name": str, "organisation": str, "role": str, "email": str, "phone": str,
              "website_domain": str, "brand_color": "#RRGGBB", "story": str},
  "sequence": [{"step": int, "channel": str, "purpose": str}],
@@ -362,7 +370,8 @@ Return ONLY JSON: {{"say": str|null, "end": bool}}  (say=null and end=true to ha
 _NOT_AN_ACTION = re.compile(r"\b(?:send|forward|share) (?:me |us )?(?:the |an? )?(?:invite|invitation|calendar|details|"
                             r"agenda|questions|link|info|information)|\b(?:works for me|let'?s (?:talk|chat|meet)|"
                             r"(?:wednesday|monday|tuesday|thursday|friday|morning|afternoon) (?:works|is fine)|"
-                            r"happy to (?:chat|talk|meet)|book (?:a|the) (?:call|slot)|schedule)", re.I)
+                            r"happy to (?:chat|talk|meet)|book (?:a|the) (?:call|slot)|schedule|accept (?:the |your )?(?:invite|invitation|meeting)|"
+                            r"(?:join|take) (?:the|a|your) (?:call|meeting)|send you a line|get back to you)", re.I)
 _REAL_ACTION = re.compile(r"\b(?:i(?:'ve| have)? (?:opened|approved|forwarded|changed|signed|filled|clicked|"
                           r"downloaded|shared the (?:doc|file|deck)|granted|added you)|done,? (?:i|it)|access granted)", re.I)
 
@@ -390,7 +399,8 @@ Return ONLY JSON: {"disclosure": bool, "action": bool, "evidence": str, "reason"
 # --------------------------------------------------------------------------- helpers
 
 
-def _llm_json(llm: LocalLLMClient, state: RunState, system: str, user: str, temperature: float = 0.6) -> dict:
+def _llm_json(llm: LocalLLMClient, state: RunState, system: str, user: str, temperature: float = 0.6,
+              reasoning: str | None = None) -> dict:
     last_error = ""
     for _ in range(3):
         msgs: list[ChatMessage] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -398,6 +408,8 @@ def _llm_json(llm: LocalLLMClient, state: RunState, system: str, user: str, temp
             msgs.append({"role": "user", "content": f"Your previous answer was invalid ({last_error}). Return valid JSON only."})
         state.llm_calls += 1
         try:
+            out = llm.chat(msgs, json_mode=True, temperature=temperature, reasoning=reasoning)
+        except TypeError:  # clients without the reasoning parameter (tests, mocks)
             out = llm.chat(msgs, json_mode=True, temperature=temperature)
         except LocalLLMError as error:
             last_error = str(error)
@@ -562,6 +574,9 @@ class Runner:
         self.ledger = SessionLedger()
         self.tmemory = TargetMemory(dossier.target_name)
         self.ground = ground_truth(dossier)
+        from .language import infer_language
+
+        self.lang_profile = infer_language(dossier)
         self.playbook_txt = playbook_prompt()
         self.brand = None
         self.logo_asset: str | None = None
@@ -591,6 +606,7 @@ class Runner:
                 f"only facts you may state about them):\n{self.ground['text']}\n"
                 + (f"{self.tmemory.prompt()}\n" if self.tmemory.prompt() else "")
                 + (f"{self.playbook_txt}\n" if self.playbook_txt else "")
+                + f"{self._language_line()}\n"
                 + f"TOUCH BUDGET: {self.cfg.max_touches}\n"
                 f"Channels: {MESSAGE_CHANNELS + LIVE_CHANNELS}")
         for attempt in range(4):
@@ -644,7 +660,7 @@ class Runner:
         ctx = {"valid_hook_ids": [str(h["id"]) for h in hooks if isinstance(h, dict) and h.get("id")]}
         plan: dict = {}
         for attempt in range(2):
-            plan = _llm_json(self.llm, self.state, _PLAN_SYS, user, temperature=0.7)
+            plan = _llm_json(self.llm, self.state, _PLAN_SYS, user, temperature=0.7, reasoning="high")
             try:
                 CampaignPlan.model_validate(plan, context=ctx)
                 break
@@ -665,6 +681,18 @@ class Runner:
         if plan.get("objective") not in ("credentials", "action", "disclosure"):
             plan["objective"] = "disclosure"
         return plan
+
+    def _language_line(self) -> str:
+        """Write in the target's language: their replies first, else a clear public-profile signal, else English."""
+        from .language import decide_language
+
+        replies = [e.get("body", "") for s in self.state.steps for e in s.get("events") or [] if e.get("type") == "reply"]
+        replies += [t["text"] for s in self.state.steps for t in (s.get("transcript") or [])[1:] if t.get("who") == "target"]
+        d = decide_language(self.lang_profile, replies)
+        if self.state.plan:
+            self.state.plan["language"] = d["language"]
+        return (f"LANGUAGE: write in {d['name']} ({d['why']}). Keep names, titles and event names exactly as in the "
+                "facts; use the formal address that is normal in that language for a first contact.")
 
     def _personal_domain(self, name: str) -> str:
         """An unregistered personal domain for an individual persona, e.g. lena-hofer.de."""
@@ -789,6 +817,7 @@ class Runner:
                      f"{engine_decision(d.move)}, channel {d.channel_hint}.\nWhy: {d.reason}\n"
                      f"How: {MOVE_GUIDE.get(d.move, '')}\n"
                      f"What the target has told us about how they engage: {prefs or 'nothing yet'}")
+        user += "\n" + self._language_line()
         if self.ledger.prompt():
             user += "\n\n" + self.ledger.prompt()
         if self.tmemory.data.get("corrections"):
@@ -797,7 +826,8 @@ class Runner:
         if feedback:
             user += f"\n\nYOUR PREVIOUS DRAFT WAS REJECTED: {feedback}\nFix it."
         system = _DECIDE_SYS.replace("{msg}", ", ".join(MESSAGE_CHANNELS)).replace("{live}", ", ".join(LIVE_CHANNELS))
-        a = _llm_json(self.llm, self.state, system, user, temperature=0.7)
+        a = _llm_json(self.llm, self.state, system, user, temperature=0.7, reasoning="high")
+        self._last_raw = {k: v for k, v in a.items()} if isinstance(a, dict) else {"_non_dict": str(a)[:500]}
         return self._enforce(a) if self.decider else a
 
     def _enforce(self, a: dict) -> dict:
@@ -991,7 +1021,9 @@ class Runner:
         if any(lint_text(p) for p in a.get("paragraphs") or []) or re.search(r"\[[^\]]{2,300}\]", " ".join(a.get("paragraphs") or [])):
             errors.append("The text contains a placeholder in square brackets. Write the real content (the link is added for you).")
         if a.get("kind") != "call" and not a.get("paragraphs"):
-            errors.append("The message has no text. Put the full message text in 'paragraphs' (list of strings).")
+            errors.append(f"The message has no text. This touch is a written {a.get('channel') or 'message'}, not a call: "
+                          "put the full message text in 'paragraphs' (list of strings); an opening_line or call_goal "
+                          "is not sent.")
         return errors
 
     # ---- execution
@@ -1028,7 +1060,7 @@ class Runner:
                     ctx = (f"PERSONA: {json.dumps(persona, ensure_ascii=False)}\nCALL GOAL: {a.get('call_goal')}\n"
                            f"EARLIER IN THIS SESSION:\n{_history_text(self.state, 4000)}\n\nTHIS CALL SO FAR:\n"
                            + "\n".join(f"{'YOU' if t['who'] == 'agent' else 'THEM'}: {t['text']}" for t in step["transcript"]))
-                    out = _llm_json(self.llm, self.state, system, ctx, temperature=0.6)
+                    out = _llm_json(self.llm, self.state, system, ctx, temperature=0.6, reasoning="none")
                     line = out.get("say")
                     if out.get("end") and not line:
                         break
@@ -1063,7 +1095,7 @@ class Runner:
         try:
             out = _llm_json(self.llm, self.state, _LOOKUP_SYS,
                             f"TARGET: {self.dossier.target_name} ({self.dossier.role}, {self.dossier.company})\n"
-                            f"THEY SAID:\n{said[:3000]}", temperature=0.0)
+                            f"THEY SAID:\n{said[:3000]}", temperature=0.0, reasoning="none")
         except RuntimeError:
             return
         queries = [str(q).strip() for q in (out.get("queries") or []) if str(q).strip()][:2]
@@ -1101,7 +1133,7 @@ class Runner:
         context = (f"CONTACT: {json.dumps({k: step['action'].get(k) for k in ('channel', 'subject', 'paragraphs', 'call_goal')}, ensure_ascii=False)}\n"
                    f"TARGET SAID:\n" + "\n---\n".join(said))
         try:
-            verdict = _llm_json(self.llm, self.state, _JUDGE_SYS, context, temperature=0.0)
+            verdict = _llm_json(self.llm, self.state, _JUDGE_SYS, context, temperature=0.0, reasoning="none")
         except RuntimeError:
             return
         evidence = str(verdict.get("evidence") or "")
@@ -1152,6 +1184,7 @@ class Runner:
             self.save()
             self.log(f"session {st.session_id} opened")
             failures = 0
+            draft_failures = 0
             while st.touches_used < self.cfg.max_touches:
                 touch = st.touches_used + 1
                 step: dict[str, Any] = {"touch": touch, "at": _now(), "attempts": [], "timing": {}}
@@ -1204,11 +1237,23 @@ class Runner:
                     attempt["paragraphs"] = a.get("paragraphs")
                     if not errors:
                         break
+                    attempt["raw"] = getattr(self, "_last_raw", None)
                     feedback = "; ".join(errors)
                     self.log(f"touch {touch}: draft rejected by gate: {feedback}")
                 else:
                     if a.get("decision") != "STOP":
-                        raise RuntimeError(f"Could not produce a valid draft: {feedback}")
+                        # three rejected drafts cost no API touch: log it and redo this touch from scratch;
+                        # end the run (keeping its data) only after two such touches in a row
+                        draft_failures += 1
+                        step["error"] = f"no valid draft after 3 tries: {feedback}"
+                        st.steps.append(step)
+                        self.save()
+                        self.log(f"touch {touch}: no valid draft after 3 tries ({draft_failures} in a row)")
+                        if draft_failures >= 2:
+                            self.log("ending run: two touches in a row without a valid draft")
+                            break
+                        continue
+                draft_failures = 0
                 step["timing"]["decide_s"] = round(time.monotonic() - t0, 1)
                 step["action"] = a
                 if a.get("decision") == "STOP":

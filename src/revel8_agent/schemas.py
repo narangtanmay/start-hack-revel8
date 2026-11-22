@@ -43,6 +43,8 @@ class HookHypothesis(BaseModel):
     timing: str = ""                      # current | upcoming | this-year | undated | past (from supporting facts)
     sender_archetype: str = ""            # who would naturally contact them about this
     natural_ask: str = ""                 # the small, natural thing they would do for that sender
+    answers_personally: str = ""          # yes | maybe | no: LLM judgement whether THEY handle the ask or hand it off
+    handed_to: str = ""                   # who they would hand it to (LLM), when not "yes"
     incident_path: str = ""               # disclosure | action | credentials
     first_line: str = ""                  # opener grounded in one cited fact
     verify_risk: str = ""                 # what they could check about the sender, and how to stay plausible

@@ -482,8 +482,10 @@ class ActorRunner(Runner):
         text = " ".join([str(a.get("subject") or ""), str(a.get("opening_line") or ""),
                          *[str(p) for p in a.get("paragraphs") or []]])
         name = self.dossier.target_name
-        # 1. no year the target never used (it-sa "2025" vs Tom's "2026", 2026-11-22)
+        # 1. no year the target or verified dossier facts never used (it-sa "2025" vs Tom's "2026", 2026-11-22)
         allowed = set(_YEAR.findall(" ".join(said)))
+        for f in self.dossier.facts:
+            allowed.update(_YEAR.findall(f"{f.fact} {f.verbatim_quote} {f.recency}"))
         allowed.add(str(self.state.plan.get("character", {}).get("deadline", ""))[:4])
         bad = unsupported_years(text, allowed)
         if bad:
@@ -498,11 +500,7 @@ class ActorRunner(Runner):
                           f"names: they would look them up. Describe the role instead of naming anyone.")
         is_call = a.get("kind") == "call"
         link = a.get("link") if isinstance(a.get("link"), dict) and a["link"].get("url") else None
-        # 3. small yes first: no sign-in page before they have engaged at all
-        if link and not said and not is_call:
-            errors.append("They have not replied yet. Ask your small yes first (answerable by reply, no link); the "
-                          "link comes once they have engaged, framed as confirming what they told you.")
-        # 4. every message moves the goal: a link, a file or a question (closing notes waste the touch)
+        # 3. every message moves the goal: a link, a file or a question (closing notes waste the touch)
         last_touch = touch >= self.cfg.max_touches
         if not is_call and not last_touch and not link and not a.get("attachment_filename") and "?" not in text:
             errors.append("This message asks for nothing. A no closes a route, not your goal: carry your link, your "

@@ -28,7 +28,8 @@ def main() -> int:
     ap.add_argument("--model", required=True)
     ap.add_argument("--targets", default="julius,tom,robert")
     ap.add_argument("--touches", type=int, default=10)
-    ap.add_argument("--decider", default="controller")
+    ap.add_argument("--decider", default="controller", choices=["controller", "llm", "rules"],
+                    help="rules = Tanmay's RuleBasedPolicy (cli --policy)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--real", action="store_true",
                     help="Use the real Revel8 practice API (spends practice touches) instead of the mock target.")
@@ -42,14 +43,14 @@ def main() -> int:
     calls: list[dict] = []
     orig = LocalLLMClient.chat
 
-    def chat(self, messages, *, json_mode=False, temperature=None):  # type: ignore[no-untyped-def]
+    def chat(self, messages, *, json_mode=False, temperature=None, **kw):  # type: ignore[no-untyped-def]
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         kind = ("plan" if "planning brain" in system else "decide" if "decision brain" in system
                 else "call" if "You are on a live" in system else "judge" if "You judge" in system else "other")
         t0 = time.monotonic()
-        rec = {"kind": kind, "json_mode": json_mode}
+        rec = {"kind": kind, "json_mode": json_mode, "reasoning": kw.get("reasoning")}
         try:
-            out = orig(self, messages, json_mode=json_mode, temperature=temperature)
+            out = orig(self, messages, json_mode=json_mode, temperature=temperature, **kw)
         except LocalLLMError as e:
             rec.update(ok=False, error=str(e), status=e.status_code, s=round(time.monotonic() - t0, 2))
             calls.append(rec)
@@ -74,7 +75,7 @@ def main() -> int:
         try:
             mode = [] if args.real else ["--mock", "--seed", str(args.seed)]
             code = cli.main(["run", "--target", target, *mode, "--touches", str(args.touches),
-                             "--decider", args.decider, "--runs-dir", str(out_dir), "--label", slug])
+                             *(["--policy"] if args.decider == "rules" else ["--decider", args.decider]), "--runs-dir", str(out_dir), "--label", slug])
         except Exception as e:  # noqa: BLE001
             code = f"crash: {type(e).__name__}: {e}"
         latest = max(out_dir.glob(f"*{target}*.json"), key=lambda p: p.stat().st_mtime, default=None)
