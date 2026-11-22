@@ -175,6 +175,11 @@ LLM_MAX_TOKENS=8192 \
 | Eval 1 | `patrick` | `succ-standard-open` (`--policy --shadow-twin`) | `s_2a2bff93a9` | done | 10 | 0 (`disclosure` judge est. T2: `Luisa Buche` + stage) | pending | `runs/20261122-110514-patrick-eval-run-1-patrick-84da14.html` |
 | Eval 2 | `titus` | `succ-standard-open` (`--policy --shadow-twin`) | `s_b38472719c` | done | 10 | `attachment.opened` (`Kadenzwerk_Role_Brief_2027.pdf`, T7) + `disclosure` T2/T8 | pending | `runs/20261122-110818-titus-eval-run-2-titus-6c900d.html` |
 | Eval 3 | `jonas` | `succ-standard-open` (`--policy --shadow-twin`) | `s_d35906078b` | done | 10 | 0 (`disclosure` judge est. T1/T9: Entra/Okta SSO & provisioning) | pending | `runs/20261122-111314-jonas-eval-run-3-jonas-a92c95.html` |
+| Eval 4 | `patrick` | `succ-standard-open` (`--policy --shadow-twin`) | `s_384cbe10bc` | done | 10 | 0 `page.submitted`; 0 `attachment.opened`; 0 `link.opened`; judged disclosure estimate T8 | not run | `runs/20261122-122546-patrick-eval-run-4-patrick-5ba1de.html` |
+| Eval 5 | `titus` | `succ-standard-open` (`--policy --shadow-twin`) | `s_96e0fdcb10` | done | 10 | 0 `page.submitted`; `link.opened` T1; `attachment.opened` T3/T5 (logged signals, not incidents) | not run | `runs/20261122-123014-titus-eval-run-5-titus-db8efc.html` |
+| Eval 6 | `jonas` | `succ-standard-open` (`--policy --shadow-twin`) | `s_26bb9800d2` | done | 10 | 0 `page.submitted`; 0 `attachment.opened`; 0 `link.opened`; judged disclosure estimates T1–T6/T8–T10 | not run | `runs/20261122-123514-jonas-eval-run-6-jonas-a8961d.html` |
+
+Attempts 4–6 were the user-requested single retry per persona, run sequentially on the frozen code. Six of 15 sessions are used (two per persona); three per persona remain. See `report-eval-runs-4-6.md` for exact event accounting and behavioral evidence.
 
 ---
 
