@@ -271,16 +271,28 @@ def select_shadow_twin_move(
     unused = [m for m in message_channels if m not in c["used_channels"] and m != c["last_channel"] and m != "linkedin_connection_request"]
     call_channel = live_channels[0] if live_channels else "phone_call"
     call_invited = "wants_call" in open_doors and not target_state.get("call_completed") and "phone_switch" not in blocked
-    bold_channel = call_channel if (call_invited or c["silent_message_touches"] >= 3 or not unused) else unused[0]
+    # A target who keeps answering is never silent, so silence could never escalate them: robert
+    # answered all ten mails with intent to keep it there (live 2026-11-22). Slots on the table
+    # and repeated engaged replies are progression signals, not a reason to keep writing.
+    engaged_replies = int(target_state.get("engaged_replies") or 0)
+    slots_offered = bool(target_state.get("call_proposed")) and not target_state.get("call_completed")
+    propose_slots = (call_invited or engaged_replies >= 2) and not slots_offered and not target_state.get("call_completed")
+    bold_channel = call_channel if (
+        call_invited or slots_offered or c["silent_message_touches"] >= 3 or not unused) else unused[0]
 
     specs: dict[Tier, tuple[str, dict[str, Any] | None, str, str, str]] = {
         "safe": (safe_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
                  "Stay in-thread with one low-friction clarifying question.",
                  f"stay on {safe_channel} with the active hook"),
         "balanced": (balanced_channel, balanced_hook, plan_objective,
+                     "Answer what they asked, then propose a short fifteen-minute call and name two or three "
+                     "concrete slots instead of asking whether a call suits."
+                     if propose_slots else
                      "Advance the objective directly with one concrete, single-purpose request.",
                      f"advance {plan_objective} on {balanced_channel}"),
         "bold": (bold_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
+                 "Place the call now that the slots are on the table; confirm the agreed time in one line."
+                 if slots_offered else
                  "Place the brief call the target asked for so they can review the document right after."
                  if call_invited else "Escalate to a live call or an unused channel with a higher-commitment ask.",
                  f"escalate to {bold_channel}"),
@@ -296,6 +308,11 @@ def select_shadow_twin_move(
             "ev_score": score_forecast(fc), "summary": summary, "forecast": fc.model_dump(),
         })
     winner = max(candidates, key=lambda x: x["ev_score"])  # first max wins ties: safe > balanced > bold
+    if slots_offered:
+        # The slots are already accepted in the thread; a further mail only adds a round-trip.
+        winner = next(c for c in candidates if c["risk_tier"] == "bold")
+        for cand in candidates:
+            cand["selected"] = cand is winner
     winner["selected"] = True
 
     tier: Tier = winner["risk_tier"]

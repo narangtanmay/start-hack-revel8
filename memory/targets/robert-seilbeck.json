@@ -259,6 +259,21 @@
     "disclosure@t9 (llm-judge (estimate))",
     "disclosure@t10 (llm-judge (estimate))"
    ]
+  },
+  {
+   "run": "20261122-103028-robert-loop3-robert-ebd9d1",
+   "at": "2026-11-22T09:30:28+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO at a mid-sized German manufacturer who is actively shortlisting security-awareness vendors after reading Robert's own revel8 vs. SoSafe comparison, with a concrete works-council/MS Teams vishin",
+   "persona": "CISO / Head of IT Security at Wendelsteiner Präzisionsteile GmbH",
+   "touches": 10,
+   "reply_rate": 0.2,
+   "silence": 8,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t1 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [],
@@ -320,6 +335,11 @@
    "run": "20261122-102354-robert-loop2-robert-d61d3c",
    "touch": 10,
    "text": "Claudia Lannes owns the scope with you. I do the technical review. Who staffs the pilot beyond that is set in the scope, not by mail."
+  },
+  {
+   "run": "20261122-103028-robert-loop3-robert-ebd9d1",
+   "touch": 1,
+   "text": "Questions on pilots and works-council documentation are handled by our sales and solution engineering team. Please send them your three questions through the contact form on revel8.ai, or tell me which of our colleagues you have already talked to, and I will pass it on. The current comparison is the"
   }
  ]
 }

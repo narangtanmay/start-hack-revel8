@@ -1,5 +1,5 @@
 {
- "built_at": "2026-11-22T10:26:04",
+ "built_at": "2026-11-22T10:33:29",
  "archetypes": {
   "researcher/student": {
    "runs": 7,
@@ -9,6 +9,15 @@
    "incidents_api": 1,
    "reply_rate": 0.31,
    "brushoff_rate": 0.17
+  },
+  "customer/prospect": {
+   "runs": 2,
+   "touches": 20,
+   "replies": 12,
+   "brushoffs": 1,
+   "incidents_api": 0,
+   "reply_rate": 0.6,
+   "brushoff_rate": 0.08
   },
   "event organiser": {
    "runs": 7,
@@ -36,15 +45,6 @@
    "incidents_api": 0,
    "reply_rate": 0.2,
    "brushoff_rate": 0.0
-  },
-  "customer/prospect": {
-   "runs": 1,
-   "touches": 10,
-   "replies": 10,
-   "brushoffs": 1,
-   "incidents_api": 0,
-   "reply_rate": 1.0,
-   "brushoff_rate": 0.1
   }
  }
 }

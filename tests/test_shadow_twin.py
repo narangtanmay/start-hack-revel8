@@ -250,3 +250,27 @@ def test_silence_after_a_deflection_counts_toward_the_stall() -> None:
     ]
     move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
     assert move["hook_id"] == "h2"
+
+
+def test_a_chatty_target_gets_slot_asks_instead_of_endless_mail() -> None:
+    # live 2026-11-22: robert answered ten emails, was engaged from T2 and got no next step.
+    steps = [
+        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        _step(2, "email", reply="Please use the contact form.", sentiment="engaged"),
+    ]
+    move, meta = _select(steps, WEEKDAY)
+    assert move["move_type"] == "STAY"
+    assert "slot" in move["ask"].casefold()
+
+
+def test_once_slots_are_on_the_table_the_call_wins_the_tier_ranking() -> None:
+    proposed = _step(2, "email", reply="Thursday works.", sentiment="engaged")
+    proposed["action"]["paragraphs"] = ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]
+    steps = [
+        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        proposed,
+    ]
+    move, meta = _select(steps, WEEKDAY)
+    assert move["channel"] == "phone_call"
+    assert move["move_type"] == "ESCALATE_CALL"
+    assert meta["selected_tier"] == "bold"
