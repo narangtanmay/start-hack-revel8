@@ -316,6 +316,14 @@ def test_the_advance_ask_names_an_internal_detail() -> None:
     assert "internal" in move["ask"].casefold()
 
 
+def test_the_first_touch_offers_a_slot_as_well_as_the_internal_question() -> None:
+    # loop7-robert T1 asked only for internal detail and got "not by mail with me", then silence.
+    # A router needs something to accept first; the internal question rides along, and lives on the call.
+    move, _ = _select([], WEEKDAY)
+    ask = move["ask"].casefold()
+    assert "slot" in ask and "internal" in ask
+
+
 def test_a_handoff_by_mail_is_mailed_instead_of_another_hook_pivot() -> None:
     # loop6-robert T1: "I'm passing this to them" -> T2 pivoted the hook instead of writing to them.
     steps = [_step(1, "email", reply="I'm passing this to Claudia at info@revel8.ai, she owns it.",

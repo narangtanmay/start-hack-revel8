@@ -324,6 +324,12 @@ def select_shadow_twin_move(
                      "Answer what they asked, then propose a short fifteen-minute call and name two or three "
                      "concrete slots instead of asking whether a call suits."
                      if propose_slots else
+                     # First touch on a router (robert: "not by mail with me") needs a slot to accept, not
+                     # an internal question alone — loop7 T1 got one routing answer and then silence.
+                     "Open with the specific reason you are writing, name two or three concrete slots for "
+                     "the fifteen-minute call, and add the one internal detail their site does not state. "
+                     "Advance the objective directly with one concrete, single-purpose request."
+                     if not c["history"] else
                      "Advance the objective directly with one concrete, single-purpose request. "
                      "Ask for one internal detail their site does not state \u2014 who owns it, how they "
                      "run it, or the number behind it.",
