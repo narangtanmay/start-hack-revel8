@@ -172,6 +172,25 @@ These come from 16 real exchanges with Julius, Tom and Robert. Quotes are the ta
 
 14. **"What would you recommend?" gets advice, not a disclosure** (Julius T4). He answered precisely ("a report button in the mail client… With M365 that's the built-in report button feeding one log that Power BI reads"), but about *our* setup. That is not an incident. The question has to be anchored on *their own* organisation ("what do you run for this internally?"), and in writing he has already said he keeps internals for the call. Once a call is booked and the thread is warm, the next move is a short `phone_call` ("two minutes ahead of Tuesday"), not another advice question by email. (General.)
 
+### Eval command (branch `saket/v3-incident-first`, everything tested 22 Nov)
+Eval always does live research (no `--dossier`). Run the three sessions **one after another from the same folder**, so `memory/` carries run 1's thread into runs 2 and 3.
+```bash
+set -a; source .env; set +a
+LLM_BASE_URL=$KIMI_BASE_URL LLM_API_KEY=$KIMI_API_KEY LLM_API_KEYS=$KIMI_API_KEY \
+LLM_MODEL=succ-standard-open LLM_FALLBACK_MODEL=succ-deepseek-flash-abliterated \
+LLM_JSON_MODE=0 LLM_REASONING=0 PYTHONUNBUFFERED=1 REVEL8_COUNCIL=3 \
+uv run python -m revel8_agent.cli run --scenario eval --allow-eval --target <ID> \
+  --touches 10 --policy --shadow-twin --label eval-run-N
+```
+Defaults that matter, with their switches: only `page.submitted` stops a run (`REVEL8_STOP_ON_JUDGED=1` re-enables judged stops); council of 3 including known-contact (`REVEL8_COUNCIL=0` off); greedy sender choice, none for unseen role families (`REVEL8_BANDIT=0` off); ask gate, conversion point, pre-call move and channel switch after silence are in `ladder.py` (`REVEL8_LADDER=0` off).
+
+**What should carry over to unseen targets:**
+1. Give something concrete first.
+2. Get a call booked.
+3. Send the invite they asked for, with the dial-in and pre-read **only** behind a registered sign-in page.
+
+Two of two Julius sessions converted this way at touch 3. Not yet proven on other roles: a held-out test bench (LLM-simulated targets in other roles, several persona agents each) is the next build.
+
 ### Model setup (22 Nov, measured)
 Main model `succ-standard-open` (DeepSeek V4.1 Flash uncensored; 1.5 s wall for 3 parallel calls; the model behind the first confirmed win). **Always set `LLM_FALLBACK_MODEL=succ-deepseek-flash-abliterated`**: the main model on succ.ai returned 503 for ~10 min on 22 Nov, and without a fallback the runs stall silently in back-off. The client already retries one failed call (5xx, timeout, invalid JSON) on the fallback model. Use `LLM_JSON_MODE=0 LLM_REASONING=0` for both.
 
