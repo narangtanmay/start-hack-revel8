@@ -422,7 +422,8 @@ class RuleBasedPolicy:
                 move_type,
                 hook_id,
                 channel,
-                "Send a concise, direct follow-up with one specific question tied to the current objective.",
+                "Send a concise, direct follow-up asking one internal detail their site does not state \u2014 who "
+                "owns it, how they run it, or the number behind it.",
                 ["Keep the same persona identity", "Keep the ask concrete and single-purpose"],
                 f"{why} Budget remains ({touch}/{max_touches}), so de-escalate via {move_type} "
                 f"to hook {hook_id or 'none'} on {channel} instead of stopping.",
@@ -498,13 +499,13 @@ class RuleBasedPolicy:
                 )
 
             handoff = str(target_state["call_handoff"] or "")
-            if target_state["call_completed"] and handoff:
+            if handoff:
                 return build_move(
                     "STAY",
                     last_hook_id,
                     "email",
-                    f"Write to {handoff} instead of the target, cc the target, name the two times and ask for "
-                    "the fifteen minutes; quote that it was agreed on the call.",
+                    f"Write to {handoff} instead of the target, cc the target, put the concrete detail in that "
+                    "mail and quote the target's own words as the reason for writing.",
                     ["Quote the agreed time on the call", "Keep persona and prior details consistent"],
                     "The call took place but scheduling was handed to a named person; the next step is that "
                     "person with the slots, not another mail to the target.",
@@ -673,7 +674,8 @@ class RuleBasedPolicy:
                 "ESCALATE_CALL",
                 last_hook_id,
                 call_chan,
-                "Escalate to a brief live call referencing prior messages.",
+                "Escalate to a brief live call referencing prior messages and ask the internal detail their site "
+                "does not answer.",
                 ["Keep persona and prior message details consistent", "End politely if target declines"],
                 f"Silent across message channels; escalating to live channel {call_chan}.",
                 [

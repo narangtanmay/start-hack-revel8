@@ -161,11 +161,22 @@ _PROPOSES_CALL_RE = re.compile(
 # A completed call that hands scheduling to a named person: "write to Claudia with a few slots".
 # robert's whole block is "not my job, sales schedules" — the close is to mail that person, not him.
 _HANDOFF_RE = re.compile(
-    r"\b(?:write|mail|send|reach out|schreib\w*|sende\w*|wende\w* dich)"
-    r"[^.\n]{0,50}?\b(?:to|an|bei)\s+"
-    r"([A-ZÄÖÜ][\wäöüß\-]+(?:\s+[A-ZÄÖÜ][\wäöüß\-]+)?)",
+    r"\b(?:write|mail|send out|send|forward|pass\w*|direct|reach out|leite\w* weiter|schreib\w*|sende\w*|wende\w* dich)"
+    r"[^.\n]{0,50}?\b(?:to|an|bei)\s+(?:(?:the|a|an|our|your|der|die|dem|den|unser\w*)\s+)?"
+    r"([\wäöüß\-]+(?:\s+[\wäöüß\-]+){0,2})",
     re.IGNORECASE,
 )
+_HANDOFF_STOP = {"the", "a", "an", "them", "us", "it", "there", "him", "her"}
+# ...but only when the next step is somebody *else's*. "Send the invite to tom@revel8.ai" on a thread
+# with tom is not a handoff, it is the booking (loop6-robert kept the dial, Tom must too).
+_HANDOFF_CUE_RE = re.compile(
+    r"\b(?:not (?:me|my job|my (?:topic|area))|wrong person|pass(?:ing|ed|e)? (?:this|it)|they will|"
+    r"she owns|he owns|(?:best|better) (?:handled|placed|sent|directed)|zust\u00e4ndig|nicht zust\u00e4ndig|"
+    r"weitergeleitet|leite(?:n sie)? weiter)\b",
+    re.IGNORECASE,
+)
+_DESK_LOCAL = {"info", "sales", "contact", "kontakt", "team", "office", "hello", "hi", "mail",
+               "support", "vertrieb", "anfrage", "servicedesk", "helpdesk", "presse"}
 _EMAIL_RE = re.compile(r"[\w.\-]+@[\w.\-]+\.\w+")
 
 # The target accepting a named slot: without this a call is only offered, not agreed.
@@ -350,9 +361,17 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
                 call_accepted = True
             names = _HANDOFF_RE.findall(combined)
             mail = _EMAIL_RE.search(combined)
-            if names or mail:
-                who = re.sub(r"\s+(?:or|oder|and|und|bzw\.?)$", "", names[0].strip(" .,;")) if names else ""
+            desk = bool(mail) and mail.group(0).split("@")[0].casefold() in _DESK_LOCAL
+            desk = desk or (bool(names) and names[0].split()[0].casefold() in _DESK_LOCAL)
+            if (names or mail) and (desk or _HANDOFF_CUE_RE.search(combined)):
+                who = re.split(r"\s+(?:or|oder|and|und|bzw\.?|at|bei|to|with|mit|please)\b",
+                               names[0].strip(" .,;"), maxsplit=1)[0] if names else ""
+                who = re.sub(r"^(?:the|a|an|our|your)\s+", "", who, flags=re.IGNORECASE).strip(" .,;")
+                if who.casefold() in _HANDOFF_STOP:
+                    who = ""
+                desk = desk or who.casefold() in _DESK_LOCAL
                 call_handoff = f"{who} <{mail.group(0)}>" if who and mail else (who or (mail.group(0) if mail else ""))
+                call_handoff = call_handoff or "the person they named"
             last_reply_routed = bool(_ROUTED_RE.search(combined))
             last_reply_blocked = False
             last_reply_open_door = False

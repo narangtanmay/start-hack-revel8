@@ -193,10 +193,13 @@ TWO_HOOKS = {**BRIEF, "hooks": BRIEF["hooks"] + [
 
 
 def test_stalled_hook_pivots_regardless_of_reply_wording() -> None:
+    # Every one of these replies routes to info@ — the dead hook is dropped (h2) and, since 22 Nov,
+    # the stall is closed by mailing the desk instead of pivoting onto the same dead thread.
     steps = [_step(i + 1, "email", reply=r) for i, r in enumerate(ROBERT_REPLIES)]
     move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
     assert move["hook_id"] == "h2"
-    assert move["move_type"] == "PIVOT_HOOK"
+    assert move["move_type"] == "STAY"
+    assert "info@revel8.ai" in move["ask"]
 
 
 def test_one_unproductive_reply_does_not_pivot() -> None:
@@ -255,7 +258,7 @@ def test_silence_after_a_deflection_counts_toward_the_stall() -> None:
 def test_a_chatty_target_gets_slot_asks_instead_of_endless_mail() -> None:
     # live 2026-11-22: robert answered ten emails, was engaged from T2 and got no next step.
     steps = [
-        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        _step(1, "email", reply="Thanks, useful context.", sentiment="engaged"),
         _step(2, "email", reply="Please use the contact form.", sentiment="engaged"),
     ]
     move, meta = _select(steps, WEEKDAY)
@@ -267,7 +270,7 @@ def test_an_unconfirmed_offer_keeps_the_thread_in_mail() -> None:
     proposed = _step(2, "email", reply="Let me check my calendar.", sentiment="engaged")
     proposed["action"]["paragraphs"] = ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]
     steps = [
-        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        _step(1, "email", reply="Thanks, useful context.", sentiment="engaged"),
         proposed,
     ]
     move, meta = _select(steps, WEEKDAY)
@@ -279,7 +282,7 @@ def test_once_slots_are_on_the_table_the_call_wins_the_tier_ranking() -> None:
     proposed = _step(2, "email", reply="Thursday works.", sentiment="engaged")
     proposed["action"]["paragraphs"] = ["For the fifteen minutes: Tue 09:30 or Thu 16:00."]
     steps = [
-        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        _step(1, "email", reply="Thanks, useful context.", sentiment="engaged"),
         proposed,
     ]
     move, meta = _select(steps, WEEKDAY)
@@ -305,9 +308,27 @@ def test_after_a_call_the_thread_is_not_pivoted_or_dialled_again() -> None:
     assert "promised" in move["ask"].casefold()
 
 
+def test_the_advance_ask_names_an_internal_detail() -> None:
+    # Organiser 09:35: only internal, non-public disclosure or a real action is an incident. A generic
+    # ask earns generic answers, so every advance ask names the kind of thing that scores.
+    steps = [_step(1, "email", reply="Thanks, useful context.", sentiment="engaged")]
+    move, _ = _select(steps, WEEKDAY)
+    assert "internal" in move["ask"].casefold()
+
+
+def test_a_handoff_by_mail_is_mailed_instead_of_another_hook_pivot() -> None:
+    # loop6-robert T1: "I'm passing this to them" -> T2 pivoted the hook instead of writing to them.
+    steps = [_step(1, "email", reply="I'm passing this to Claudia at info@revel8.ai, she owns it.",
+                   sentiment="engaged")]
+    move, meta = _select(steps, WEEKDAY)
+    assert move["move_type"] == "STAY"
+    assert move["channel"] == "email"
+    assert "claudia" in move["ask"].casefold()
+
+
 def test_a_handoff_on_the_call_is_mailed_instead_of_the_target() -> None:
     steps = _completed_call([
-        _step(1, "email", reply="Send them to sales please.", sentiment="engaged"),
+        _step(1, "email", reply="Thanks, useful context.", sentiment="engaged"),
         _step(2, "email", reply="Tuesday works.", sentiment="engaged"),
     ], reply="Write to Claudia or info@revel8.ai with a few time slots.",
        transcript="Write to Claudia or info@revel8.ai with a few time slots.")

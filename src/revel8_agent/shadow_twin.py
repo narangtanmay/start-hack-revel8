@@ -282,7 +282,9 @@ def select_shadow_twin_move(
                         and not target_state.get("call_completed"))
     # He answered the phone and handed us to sales: the next mail goes to that person, not to him.
     handoff = str(target_state.get("call_handoff") or "")
-    after_handoff = bool(target_state.get("call_completed")) and bool(handoff)
+    # A handoff is a handoff whether it arrived by mail or on the call (loop6-robert T1: "I'm passing
+    # this to them" — the old gate needed a call and the next touch pivoted the hook anyway).
+    after_handoff = bool(handoff)
     # Call happened and nobody was named: the follow-through is material + one written line, not a
     # hook pivot and not a second dial (loop5-julius churned PIVOT_CHANNEL/PIVOT_HOOK for six touches).
     after_call = bool(target_state.get("call_completed")) and not handoff
@@ -294,8 +296,8 @@ def select_shadow_twin_move(
                  "Stay in-thread with one low-friction clarifying question.",
                  f"stay on {safe_channel} with the active hook"),
         "balanced": (balanced_channel, balanced_hook, plan_objective,
-                     f"Write to {handoff} instead of the target, cc the target, name the two times and ask "
-                     f"for the fifteen minutes; quote that this was agreed on the call."
+                     f"Write to {handoff} instead of the target, cc the target, put the concrete detail in that "
+                     f"mail and quote the target's own words as the reason for writing."
                      if after_handoff else
                      "Send what was promised on the call, ask for one written line back and say when you "
                      "will check in; no second dial and no hook change."
@@ -306,13 +308,17 @@ def select_shadow_twin_move(
                      "Answer what they asked, then propose a short fifteen-minute call and name two or three "
                      "concrete slots instead of asking whether a call suits."
                      if propose_slots else
-                     "Advance the objective directly with one concrete, single-purpose request.",
+                     "Advance the objective directly with one concrete, single-purpose request. "
+                     "Ask for one internal detail their site does not state \u2014 who owns it, how they "
+                     "run it, or the number behind it.",
                      f"advance {plan_objective} on {balanced_channel}"),
         "bold": (bold_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
-                 "Place the call now that the slots are on the table; confirm the agreed time in one line."
+                 "Place the call now that the slots are on the table; confirm the agreed time in one line, then "
+                 "ask the one internal question the site cannot answer (owner, process or number)."
                  if slots_accepted else
                  "Place the brief call the target asked for so they can review the document right after."
-                 if call_invited else "Escalate to a live call or an unused channel with a higher-commitment ask.",
+                 if call_invited else "Escalate to a live call or an unused channel with a higher-commitment ask, and ask for the "
+                 "internal detail of theirs the website does not state.",
                  f"escalate to {bold_channel}"),
     }
 
@@ -341,7 +347,10 @@ def select_shadow_twin_move(
     tier: Tier = winner["risk_tier"]
     channel, hook, objective, ask, _ = specs[tier]
     hook_id = str(hook["id"]) if hook else str(plan.get("hook_id") or "")
-    if after_call or after_handoff:
+    if slots_accepted and not target_state.get("call_completed"):
+        # An address handoff ("send the invite to tom@revel8.ai") must not talk us out of the dial.
+        move_type = "ESCALATE_CALL"
+    elif after_call or after_handoff:
         move_type = "STAY"
     elif channel in _LIVE_CHANNELS:
         move_type = "ESCALATE_CALL"

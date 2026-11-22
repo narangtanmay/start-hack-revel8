@@ -2,19 +2,6 @@
  "name": "Robert Seilbeck",
  "sessions": [
   {
-   "run": "20261121-231838-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:18:38+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "I am a technical writer and security researcher preparing a case study on how European cybersecurity startups scale their engineering teams after a major funding round. Given revel8's recent €5.7M see",
-   "persona": "Technical Writer & Security Researcher at independent",
-   "touches": 10,
-   "reply_rate": 0.1,
-   "silence": 9,
-   "brushoffs": 1,
-   "incidents": []
-  },
-  {
    "run": "20261121-232112-robert-DeepSeek-V4-Flash",
    "at": "2026-11-21T22:21:12+00:00",
    "scenario": "practice",
@@ -278,6 +265,22 @@
    "incidents": [
     "disclosure@t1 (llm-judge (estimate))"
    ]
+  },
+  {
+   "run": "20261122-104136-robert-loop6-robert-e27746",
+   "at": "2026-11-22T09:41:36+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO at a mid-sized German precision-parts manufacturer is shortlisting security-awareness vendors after reading Robert's revel8-vs-SoSafe comparison, and asks a concrete follow-up question about MS",
+   "persona": "Head of IT Security (CISO) at Hirschauer Präzisionsteile GmbH",
+   "touches": 10,
+   "reply_rate": 0.6,
+   "silence": 4,
+   "brushoffs": 0,
+   "incidents": [
+    "action@t1 (llm-judge (estimate))",
+    "disclosure@t3 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [],
@@ -355,6 +358,11 @@
    "run": "20261122-103723-robert-loop5-robert-b15b9a",
    "touch": 1,
    "text": "Claudia Lannes (Head of Solution Engineering)"
+  },
+  {
+   "run": "20261122-104136-robert-loop6-robert-e27746",
+   "touch": 3,
+   "text": "the call would be with Claudia Lannes, not with me. She owns the technical review of the scenarios."
   }
  ]
 }
