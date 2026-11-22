@@ -47,3 +47,12 @@ def plan() -> ContactPlan:
 def _isolated_memory(tmp_path, monkeypatch):
     """Keep tests from writing into the real memory/ dir (engine runs update target memory and the playbook)."""
     monkeypatch.setenv("REVEL8_MEMORY_DIR", str(tmp_path / "memory"))
+
+
+@pytest.fixture(autouse=True)
+def _neutral_llm_env(monkeypatch):
+    """The LLM client calls load_dotenv(), which never overrides a set variable: pin the tuning knobs to their
+    defaults so a developer's .env (e.g. Qwen's LLM_EXTRA_BODY, LLM_REASONING=0) cannot change request payloads."""
+    for name, value in (("LLM_EXTRA_BODY", ""), ("LLM_REASONING", "1"), ("LLM_REASONING_EFFORT", ""),
+                        ("LLM_REASONING_DEFAULT", ""), ("LLM_MAX_TOKENS", ""), ("LLM_TIMEOUT", "")):
+        monkeypatch.setenv(name, value)

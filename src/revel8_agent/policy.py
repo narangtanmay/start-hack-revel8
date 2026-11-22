@@ -224,6 +224,20 @@ class RuleBasedPolicy:
         ranked_hooks = _rank_hooks(list(brief.get("hooks") or []), preferred_id=planned_hook)
         hooks_by_id = {str(h["id"]): h for h in ranked_hooks}
         message_channels, live_channels = _channel_ladder(plan)
+        # Same rule as gate._social_norm: an email-only target who never gave a number is not texted. Proposing
+        # sms anyway made the gate reject every draft of the touch (qwen-R3 robert T6, 2026-11-22).
+        from .gate import _PHONE_RE
+
+        _replied_on: set[str] = set()
+        _said = ""
+        for _s in steps:
+            _act = _s.get("action") if isinstance(_s.get("action"), dict) else {}
+            for _e in _s.get("events") or []:
+                if isinstance(_e, dict) and _e.get("type") == "reply":
+                    _replied_on.add(str(_e.get("channel") or _act.get("channel") or ""))
+                    _said += f" {_e.get('body') or ''}"
+        if "email" in _replied_on and not (_replied_on & _LIVE_CHANNELS) and not _PHONE_RE.search(_said):
+            message_channels = [c for c in message_channels if c not in ("sms", "whatsapp")] or ["email"]
         default_channel = message_channels[0] if message_channels else "email"
         initial_hook = ranked_hooks[0] if ranked_hooks else None
         initial_hook_id = str(initial_hook["id"]) if initial_hook else (planned_hook or "")

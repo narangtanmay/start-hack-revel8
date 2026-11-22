@@ -739,3 +739,18 @@ def test_first_bounce_keeps_link_second_bounce_switches_route() -> None:
     two = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [bounced(1), bounced(2)], touch=3, max_touches=10,
                                              plan=plan)
     assert two["require_link"] is False
+
+
+def test_policy_never_proposes_sms_to_an_email_only_target() -> None:
+    plan = _sample_plan(hook_id="h_curr")
+    plan["objective"] = "disclosure"
+    steps = []
+    for i, ch in enumerate(["email", "email", "linkedin_message", "slack", "teams_chat"], start=1):
+        st = _step(i, ch, "h_curr", "silent" if i > 2 else "engaged")
+        if i <= 2:
+            st["events"] = [{"type": "reply", "channel": "email", "body": "Thanks, noted."}]
+        steps.append(st)
+    for touch in range(6, 10):
+        move = RuleBasedPolicy().choose_next_move(_sample_brief(), steps, touch=touch, max_touches=10, plan=plan)
+        assert move["channel"] not in ("sms", "whatsapp")
+        steps.append(_step(touch, move["channel"], move["hook_id"], "silent"))
