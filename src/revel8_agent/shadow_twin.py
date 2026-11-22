@@ -230,7 +230,8 @@ def select_shadow_twin_move(
     last_hook_id = c["used_hooks"][-1] if c["used_hooks"] else None
     current_hook = next((h for h in ranked if str(h["id"]) == last_hook_id), top)
     unused_hook = next((h for h in non_past if str(h["id"]) not in c["used_hooks"]), top)
-    routed = c["target_state"]["reaction_tag"] == "ROUTED"
+    # Only the touch that got the routing reply pivots; the tag stays ROUTED through silence (Robert smoke T5/T6).
+    routed = c["target_state"]["reaction_tag"] == "ROUTED" and bool(c["history"]) and bool(_replies(c["history"][-1]))
     if _unproductive_replies_on_hook(c["history"]) >= _STALL_REPLIES:
         current_hook = unused_hook  # stalled hook is dead for every tier, not just balanced
     balanced_hook = unused_hook if (routed or not c["last_replied_channel"]) else current_hook

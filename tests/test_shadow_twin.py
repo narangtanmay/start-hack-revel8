@@ -225,3 +225,17 @@ def test_engaged_target_with_undelivered_ask_keeps_hook() -> None:
     steps = [_step(i + 1, "email", reply=r) for i, r in enumerate(TOM_REPLIES)]
     move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
     assert move["hook_id"] == "h1"
+
+
+THREE_HOOKS = {**BRIEF, "hooks": TWO_HOOKS["hooks"] + [
+    {"id": "h3", "timing": "upcoming", "confidence": 0.7, "supporting_fact_ids": ["f1"]}]}
+
+
+def test_routed_pivots_once_not_on_every_silent_touch() -> None:
+    # Robert smoke T5/T6: ROUTED stuck after he went silent and the twin rotated h4 -> h2 -> h3.
+    routed = _step(1, "email", reply="Please send it to info@revel8.ai, not the right person for this.")
+    pivot, _ = _select([routed], WEEKDAY, brief=THREE_HOOKS)
+    assert pivot["hook_id"] == "h2"
+    silent = {"touch": 2, "action": {"channel": "email", "hook_id": "h2"}, "events": []}
+    move, _ = _select([routed, silent], WEEKDAY, brief=THREE_HOOKS)
+    assert move["hook_id"] == "h2"
