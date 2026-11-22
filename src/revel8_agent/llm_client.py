@@ -171,13 +171,14 @@ class LocalLLMClient:
         reasoning: str | None = None,
     ) -> JsonValue:
         payload: dict[str, JsonValue] = {**extra, "model": model, "messages": list(messages)}
+        _openai_new = model.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
         if self.max_tokens is not None:
-            payload["max_tokens"] = self.max_tokens
+            payload["max_completion_tokens" if _openai_new else "max_tokens"] = self.max_tokens
         # per-call effort (judgement calls ask "high") > LLM_REASONING_EFFORT > LLM_REASONING_DEFAULT
         effort = reasoning or self.reasoning_effort or os.getenv("LLM_REASONING_DEFAULT", "").strip() or None
         if effort and os.getenv("LLM_REASONING", "1") == "1":
             payload["reasoning_effort"] = effort
-        if temperature is not None:
+        if temperature is not None and not _openai_new:
             payload["temperature"] = temperature
         if json_mode and os.getenv("LLM_JSON_MODE", "1") == "1":
             payload["response_format"] = {"type": "json_object"}
