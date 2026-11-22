@@ -5580,234 +5580,243 @@
   "hypotheses": [
     {
       "id": "h1",
-      "topic": "live recording at ONE Conference in The Hague",
-      "rationale": "f151 is a recent episode recorded live at ONE Conference (Oct 27, 2026), so he is likely still receiving follow-ups from that audience.",
-      "confidence": 0.65,
+      "topic": "Advocating time-to-first-report as a security KPI over click rate",
+      "rationale": "Julius has publicly advocated that time-to-first-report beats click rate as a security KPI. This is a recurring theme in his talks and interviews. A security metrics enthusiast or CISO would naturally reach out to discuss this perspective and share their own experiences.",
+      "confidence": 0.85,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f151"
+        "f83",
+        "p55"
       ],
-      "open_signal": "",
+      "open_signal": "time-to-first-report beats click rate as a security KPI",
       "timing": "recent",
-      "sender_archetype": "A conference attendee who watched the live recording and wants to continue the conversation.",
-      "natural_ask": "Reply with a question about the AI-driven social engineering point he made on stage.",
+      "sender_archetype": "A CISO at a mid-sized company interested in modern security metrics",
+      "natural_ask": "Would you be open to a brief call to discuss how you measure time-to-first-report in practice?",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "I caught your live recording at ONE Conference and wanted to follow up on the point you made about AI-driven social engineering.",
-      "verify_risk": "They can verify the episode was recorded live at ONE Conference; the archetype is plausible because attendees often follow up with speakers.",
+      "first_line": "I heard you on a podcast advocating time-to-first-report over click rate – I'm trying to implement that metric and would love your insights.",
+      "verify_risk": "The sender can be verified by checking their LinkedIn profile and company. The archetype is plausible as CISOs often reach out to peers for advice.",
       "avoid": [
-        "Claiming to have spoken with him in person",
-        "Claiming to be an organizer",
-        "Mentioning the exact date"
+        "Don't claim to have heard a specific podcast episode not in the facts.",
+        "Don't mention specific metrics or numbers not in the facts."
       ],
-      "score": 0.62,
+      "score": 0.828,
       "score_breakdown": {
-        "openness": 0.2,
+        "openness": 0.6,
         "recency": 0.95,
-        "personal": 0.0,
-        "own_voice": 0.0,
-        "specificity": 1.0,
-        "breadth": 0.15,
-        "llm_confidence": 0.65,
+        "personal": 1.0,
+        "own_voice": 0.5,
+        "specificity": 0.6,
+        "breadth": 0.3,
+        "llm_confidence": 0.85,
         "needs_him": 1.0
       }
     },
     {
       "id": "h2",
-      "topic": "narrative ops and the 18-hour window",
-      "rationale": "His most recent podcast episode (f150) is from Nov 10, 2026 and centers on narrative ops and the 18-hour window; this is the topic he is actively thinking about right now.",
-      "confidence": 0.8,
+      "topic": "Panel at BCG's People-in-Motion on AI redefining processes and team roles",
+      "rationale": "Julius is part of a panel at BCG's People-in-Motion in Berlin in January 2026, exploring how AI redefines processes and transforms the role of teams. This is a recent commitment that aligns with his mission of building human resilience against AI attacks. A consultant or HR tech professional would naturally reach out to discuss the human factor in AI security.",
+      "confidence": 0.85,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f150",
-        "f83"
+        "f121"
       ],
       "open_signal": "",
-      "timing": "recent",
-      "sender_archetype": "A security awareness manager at a mid-sized European company who listens to the Cyber Security District podcast.",
-      "natural_ask": "Reply with a short note on how their team measures time-to-first-report, since he argues that metric beats click rate (f83).",
+      "timing": "undated",
+      "sender_archetype": "A management consultant at BCG working on the People-in-Motion event",
+      "natural_ask": "Could you share your perspective on how AI is changing the role of security teams for our panel prep?",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "Your episode on narrative ops made me rethink how we measure reporting speed—can I run our current approach by you?",
-      "verify_risk": "They can check the episode exists and that the sender references a specific concept from it; the archetype is plausible because the podcast is public and aimed at security professionals.",
+      "first_line": "I'm helping organize the People-in-Motion panel you're on – would you be open to a quick call to align on talking points?",
+      "verify_risk": "The sender can be verified by checking BCG's event page and their LinkedIn profile. The archetype is plausible as event organizers routinely contact speakers.",
       "avoid": [
-        "Claiming the episode was released on a specific date",
-        "Claiming to have met him at ONE Conference",
-        "Mentioning the 18-hour window as an exact number"
+        "Don't claim to have met Julius before if not in facts.",
+        "Don't mention specific panel topics not in the facts."
       ],
-      "score": 0.598,
+      "score": 0.743,
       "score_breakdown": {
-        "openness": 0.2,
-        "recency": 0.95,
-        "personal": 0.5,
-        "own_voice": 0.5,
-        "specificity": 1.0,
-        "breadth": 0.3,
-        "llm_confidence": 0.8,
-        "needs_him": 0.55
+        "openness": 0.4,
+        "recency": 0.45,
+        "personal": 1.0,
+        "own_voice": 1.0,
+        "specificity": 0.8,
+        "breadth": 1.0,
+        "llm_confidence": 0.85,
+        "needs_him": 1.0
       }
     },
     {
       "id": "h3",
-      "topic": "CTEM and AI-native security",
-      "rationale": "f152 is a recent podcast episode (Oct 13, 2026) where he discusses CTEM and AI-native security, a topic directly tied to revel8's platform and his current public conversation.",
-      "confidence": 0.75,
+      "topic": "Live deepfake attack demo at OMR Festival with KPMG",
+      "rationale": "revel8 will be at OMR Festival in Hamburg in May 2026 alongside partner KPMG for a live deepfake attack demo on stage and at KPMG's booth. This is a significant upcoming event with a major partner. A marketing or event coordinator at KPMG would naturally reach out to coordinate logistics or discuss the demo.",
+      "confidence": 0.7,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f152"
+        "f212"
       ],
-      "open_signal": "",
-      "timing": "recent",
-      "sender_archetype": "A security architect working on continuous threat exposure management at a European firm.",
-      "natural_ask": "A 15-minute peer call to compare how AI-native exposure programs are being operationalized.",
-      "incident_path": "action",
-      "first_line": "Your CTEM episode landed with our team right as we're building an AI-native exposure program—would you be open to a quick peer exchange?",
-      "verify_risk": "They can verify the episode and the sender's professional context via LinkedIn; the archetype is plausible because CTEM is a known security discipline.",
+      "open_signal": "live deepfake attack demo on stage and at KPMG's booth",
+      "timing": "undated",
+      "sender_archetype": "An event coordinator at KPMG's booth team",
+      "natural_ask": "Could you confirm the demo schedule and any technical requirements for the OMR booth?",
+      "answers_personally": "maybe",
+      "handed_to": "Marketing or events team at revel8",
+      "incident_path": "disclosure",
+      "first_line": "I'm coordinating the KPMG booth at OMR and wanted to confirm the details for the live deepfake demo with revel8.",
+      "verify_risk": "The sender can be verified by checking KPMG's event presence and their corporate email. The archetype is plausible as partners coordinate logistics.",
       "avoid": [
-        "Claiming to be a revel8 customer",
-        "Claiming CTEM certification",
-        "Mentioning the episode date"
+        "Don't claim to have met Julius before if not in facts.",
+        "Don't mention specific demo content not in the facts."
       ],
-      "score": 0.488,
+      "score": 0.668,
       "score_breakdown": {
-        "openness": 0.2,
-        "recency": 0.95,
-        "personal": 0.0,
-        "own_voice": 0.0,
-        "specificity": 1.0,
+        "openness": 1.0,
+        "recency": 0.45,
+        "personal": 1.0,
+        "own_voice": 1.0,
+        "specificity": 0.6,
         "breadth": 0.15,
-        "llm_confidence": 0.75,
-        "needs_him": 0.45
+        "llm_confidence": 0.7,
+        "needs_him": 0.5
       }
     },
     {
       "id": "h4",
-      "topic": "identity-based attacks and AI agents",
-      "rationale": "f153 is a recent podcast episode (Sep 29, 2026) focused on identity-based attacks and AI agents, which aligns with the attack simulations revel8 builds.",
-      "confidence": 0.7,
+      "topic": "Live demo of vishing attacks at it-sa Expo 2025",
+      "rationale": "Julius is scheduled to give a live demo of the latest vishing attacks on stage at it-sa Expo 2025 in Nuremberg. This is a concrete, upcoming event where he will be showcasing revel8's capabilities. A peer in the security community would naturally reach out to discuss the demo, share insights, or propose collaboration.",
+      "confidence": 0.9,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f153"
+        "f114"
       ],
       "open_signal": "",
-      "timing": "recent",
-      "sender_archetype": "An identity and access management engineer who deals with AI agent identities and service accounts.",
-      "natural_ask": "Send him a real-world identity-based attack scenario they encountered, asking if revel8's simulations cover it.",
+      "timing": "undated",
+      "sender_archetype": "A fellow security practitioner and speaker at it-sa Expo 2025",
+      "natural_ask": "Would you be open to exchanging notes on vishing techniques before the event?",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "Your episode on identity-based attacks and AI agents described exactly the gap we're seeing with service accounts—can I send you the scenario?",
-      "verify_risk": "They can check the episode and the sender's IAM role; the archetype is plausible because AI agent identity is a growing problem.",
+      "first_line": "I saw you're doing a live vishing demo at it-sa Expo – I'm also speaking there and would love to compare notes on the latest attack vectors.",
+      "verify_risk": "The sender can be verified by checking the it-sa Expo speaker list and their own registration. The archetype is plausible as many security professionals attend and speak at such events.",
       "avoid": [
-        "Claiming to work for a specific vendor",
-        "Claiming to be a victim of a specific attack",
-        "Mentioning the episode date"
+        "Don't claim to have seen a previous demo that isn't in the facts.",
+        "Don't mention specific dates or times not provided."
       ],
-      "score": 0.445,
+      "score": 0.665,
       "score_breakdown": {
-        "openness": 0.2,
-        "recency": 0.75,
-        "personal": 0.0,
-        "own_voice": 0.0,
-        "specificity": 1.0,
-        "breadth": 0.15,
-        "llm_confidence": 0.7,
-        "needs_him": 0.45
+        "openness": 0.0,
+        "recency": 0.45,
+        "personal": 1.0,
+        "own_voice": 1.0,
+        "specificity": 0.8,
+        "breadth": 1.0,
+        "llm_confidence": 0.9,
+        "needs_him": 1.0
       }
     },
     {
       "id": "h5",
-      "topic": "hiring a senior CTO and what changed after that",
-      "rationale": "f170 shows he discussed hiring a senior CTO and what changed after that, a topic relevant to his leadership journey as co-CEO.",
-      "confidence": 0.55,
+      "topic": "Co-hosting Winter Voices with ElevenLabs on frontier voice AI and deepfake threats",
+      "rationale": "Julius co-hosted Winter Voices: Frontier Tech Meets Glühwein in Berlin with ElevenLabs, exploring frontier voice AI, deepfake threats, and next-gen attack simulations. This is a past event but shows his active engagement with voice AI and deepfake topics. A voice AI researcher or ElevenLabs partner would naturally reach out to discuss collaboration or share insights.",
+      "confidence": 0.8,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f170"
+        "f120"
       ],
       "open_signal": "",
-      "timing": "static",
-      "sender_archetype": "A founder who recently hired a CTO and wants to compare transition experiences.",
-      "natural_ask": "Reply with a question about how he structured the transition.",
+      "timing": "undated",
+      "sender_archetype": "A product manager at ElevenLabs who helped co-host the event",
+      "natural_ask": "Would you be interested in a follow-up discussion on voice deepfake defense for enterprise clients?",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "Your story about hiring a senior CTO and what changed afterward was timely for us—can I ask how you structured the transition?",
-      "verify_risk": "They can check the podcast and the sender's founder background; the archetype is plausible because founder-to-founder advice is common.",
+      "first_line": "I was at the Winter Voices event you co-hosted with ElevenLabs – the discussion on voice deepfakes was fascinating, and I'd love to explore how we could collaborate further.",
+      "verify_risk": "The sender can be verified by checking the event attendee list or their ElevenLabs email domain. The archetype is plausible as event co-hosts often follow up with attendees.",
       "avoid": [
-        "Claiming to be a recruiter",
-        "Asking for a job",
-        "Mentioning specific names or dates"
+        "Don't claim to have spoken with Julius at the event if not in facts.",
+        "Don't mention specific attendees or details not in the facts."
       ],
-      "score": 0.328,
+      "score": 0.64,
       "score_breakdown": {
-        "openness": 0.4,
-        "recency": 0.35,
+        "openness": 0.0,
+        "recency": 0.45,
         "personal": 1.0,
         "own_voice": 1.0,
-        "specificity": 1.0,
-        "breadth": 0.15,
-        "llm_confidence": 0.55,
-        "needs_him": 0.45
+        "specificity": 0.6,
+        "breadth": 1.0,
+        "llm_confidence": 0.8,
+        "needs_him": 1.0
       }
     },
     {
       "id": "h6",
-      "topic": "scaling Revel8 from early MVPs to large enterprise rollouts",
-      "rationale": "f169 shows he recently discussed scaling Revel8 from early MVPs to large enterprise rollouts, a topic relevant to his current growth phase after funding.",
-      "confidence": 0.6,
+      "topic": "TUM.ai Agent Olympics challenge to build the best-performing AI agent",
+      "rationale": "revel8 is joining the TUM.ai Agent Olympics in Munich in January 2026, hosting a challenge to build the best-performing AI agent alongside major partners. This is a concrete, upcoming event where Julius's company is actively involved. A participant or organizer would naturally reach out to discuss the challenge or potential collaboration.",
+      "confidence": 0.75,
       "is_own_angle": false,
       "supporting_fact_ids": [
-        "f169"
+        "f202"
       ],
-      "open_signal": "",
-      "timing": "static",
-      "sender_archetype": "A fellow founder who has scaled a security product into enterprises and wants to exchange rollout lessons.",
-      "natural_ask": "Reply with one lesson learned from their own enterprise rollout.",
+      "open_signal": "hosting a challenge to build the best-performing AI agent",
+      "timing": "undated",
+      "sender_archetype": "A participant in the TUM.ai Agent Olympics hackathon",
+      "natural_ask": "Could you share more about the challenge criteria for the revel8 track?",
+      "answers_personally": "maybe",
+      "handed_to": "Tom Müller (co-founder, product development)",
       "incident_path": "disclosure",
-      "first_line": "Your point about scaling from MVPs to enterprise rollouts matches what we hit after our first big rollout—happy to compare notes.",
-      "verify_risk": "They can check the podcast and the sender's founder profile; the archetype is plausible because founders often compare notes.",
+      "first_line": "I'm planning to participate in the TUM.ai Agent Olympics and saw revel8 is hosting a challenge – could you point me to the details?",
+      "verify_risk": "The sender can be verified by checking the TUM.ai event registration. The archetype is plausible as hackathon participants often contact sponsors.",
       "avoid": [
-        "Claiming to be a revel8 customer",
-        "Claiming to have invested",
-        "Mentioning specific revenue numbers"
+        "Don't claim to have insider knowledge of the challenge.",
+        "Don't mention specific partners not in the facts."
       ],
-      "score": 0.246,
+      "score": 0.57,
       "score_breakdown": {
-        "openness": 0.0,
-        "recency": 0.35,
+        "openness": 0.6,
+        "recency": 0.45,
         "personal": 1.0,
         "own_voice": 1.0,
         "specificity": 0.4,
         "breadth": 0.15,
-        "llm_confidence": 0.6,
-        "needs_him": 0.45
+        "llm_confidence": 0.75,
+        "needs_him": 0.5
       }
     },
     {
       "id": "own1",
-      "topic": "validating a market with handwritten letters",
-      "rationale": "f81 is a personal, memorable story from his own social media: he validated the market by sending 100 handwritten letters. It shows his growth mindset and is a less obvious personal topic.",
-      "confidence": 0.6,
+      "topic": "Building '10 million human firewalls' – the human factor in AI security",
+      "rationale": "Julius's mission is to build '10 million human firewalls' against AI-powered attacks. This is a personal, mission-driven theme that he discusses in podcasts and interviews. A like-minded security awareness advocate would naturally reach out to share ideas or propose collaboration on this vision.",
+      "confidence": 0.8,
       "is_own_angle": true,
       "supporting_fact_ids": [
-        "f81"
+        "f79",
+        "f96",
+        "f99"
       ],
-      "open_signal": "",
-      "timing": "past",
-      "sender_archetype": "A first-time founder who used handwritten outreach to validate their own startup idea.",
-      "natural_ask": "Reply with a photo or story of their own handwritten outreach campaign.",
+      "open_signal": "10 million human firewalls",
+      "timing": "undated",
+      "sender_archetype": "A security awareness trainer at a large enterprise",
+      "natural_ask": "Would you be open to sharing how revel8 approaches scaling human firewall training across large organizations?",
+      "answers_personally": "yes",
+      "handed_to": "",
       "incident_path": "disclosure",
-      "first_line": "Your story about validating the market with handwritten letters stuck with me—I did the same for my first customers and would love to compare notes.",
-      "verify_risk": "They can check the podcast or social post where he told the story; the archetype is plausible because handwritten outreach is a known founder tactic.",
+      "first_line": "Your vision of building 10 million human firewalls really resonates – I'm working on similar challenges and would love to hear how you're scaling it.",
+      "verify_risk": "The sender can be verified by checking their LinkedIn profile and company. The archetype is plausible as security trainers often network with peers.",
       "avoid": [
-        "Claiming to have received a letter from him",
-        "Claiming to know the exact number of letters",
-        "Mentioning specific revenue"
+        "Don't claim to have met Julius before if not in facts.",
+        "Don't mention specific numbers or milestones not in the facts."
       ],
-      "score": 0.272,
+      "score": 0.76,
       "score_breakdown": {
-        "openness": 0.0,
-        "recency": 0.35,
+        "openness": 0.6,
+        "recency": 0.45,
         "personal": 1.0,
         "own_voice": 1.0,
-        "specificity": 0.4,
+        "specificity": 0.6,
         "breadth": 1.0,
-        "llm_confidence": 0.6,
-        "needs_him": 0.45
+        "llm_confidence": 0.8,
+        "needs_him": 1.0
       }
     }
   ],
