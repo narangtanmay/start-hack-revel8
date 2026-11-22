@@ -16,17 +16,25 @@ _META_TEXT = re.compile(
     re.IGNORECASE,
 )
 
-_CREDENTIAL_FIELDS = frozenset({"password", "passcode", "otp"})
-_NO_LOGIN_CLAIMS = (
-    "public page",
-    "no login",
-    "no account",
-    "without signing in",
-    "without an account",
-    "without logging in",
-    "no sign-in",
-    "no sign in",
+_CREDENTIAL_FIELDS = frozenset({"password", "passcode", "otp", "code"})  # "code": mfa_page
+# Access claims, matched as concepts not sentences: every page type we send asks for a sign-in, so any of
+# these next to a link is a broken promise (Robert smoke T3: "public programme overview" missed the old list).
+# ponytail: still a word list (EN/DE); an LLM paraphrase outside it slips through, upgrade = ask the drafter
+# to state page access and gate on that field.
+_NO_LOGIN_CLAIM_RE = re.compile(
+    r"\bpublicly (?:available|accessible|viewable)\b"
+    r"|\bpublic (?:\w+ )?(?:page|site|link|programme|program|overview|agenda|schedule|document|version)\b"
+    r"|\bno (?:log[- ]?in|sign[- ]?in|account|registration)\b"
+    r"|\bwithout (?:an? )?(?:account|log[- ]?in|logging in|sign[- ]?in|signing in|registration|registering)\b"
+    r"|\böffentlich\w* (?:\w+ )?(?:seite|programm\w*|übersicht|link|dokument\w*|agenda)"
+    r"|\bfrei zugänglich|\bohne (?:anmeldung|log[- ]?in|konto|registrierung)\b",
+    re.IGNORECASE,
 )
+
+
+def _requests_credentials(fields: Collection[str]) -> bool:
+    f = {x.strip().lower() for x in fields}
+    return bool(f & _CREDENTIAL_FIELDS) or {"email", "password"} <= f
 
 
 class _DraftHTML(HTMLParser):
@@ -174,10 +182,7 @@ def validate_session_consistency(
     if plan.attachments and any(c in t for t, _ in prior for c in _NO_ATTACHMENT_CLAIMS):
         errors.append("Cross-turn contradiction: an earlier message promised no attachment but this draft attaches a file.")
     if plan.landing_page:
-        fields = {f.strip().lower() for f in plan.landing_page.fields}
-        if (fields & _CREDENTIAL_FIELDS or {"email", "password"} <= fields) and any(
-            c in t for t, _ in prior for c in _NO_LOGIN_CLAIMS
-        ):
+        if _requests_credentials(plan.landing_page.fields) and any(_NO_LOGIN_CLAIM_RE.search(t) for t, _ in prior):
             errors.append("Cross-turn contradiction: an earlier message promised a public/no-login page but this draft sends a credential form.")
     return errors
 
@@ -228,11 +233,7 @@ def validate_contact_plan(
         errors.append("HTML images must use asset:// sources.")
 
     if plan.landing_page:
-        fields_lower = {field.strip().lower() for field in plan.landing_page.fields}
-        requests_credentials = bool(fields_lower & _CREDENTIAL_FIELDS) or (
-            {"email", "password"} <= fields_lower
-        )
-        if requests_credentials:
+        if _requests_credentials(plan.landing_page.fields):
             msg_candidates = [
                 plan.subject or "",
                 "".join(parsers[0].text),
@@ -241,7 +242,7 @@ def validate_contact_plan(
             normalized_msg = [
                 re.sub(r"\s+", " ", unescape(part)).casefold() for part in msg_candidates
             ]
-            if any(claim in part for part in normalized_msg for claim in _NO_LOGIN_CLAIMS):
+            if any(_NO_LOGIN_CLAIM_RE.search(part) for part in normalized_msg):
                 errors.append(
                     "Message promises a public/no-login page but landing page requests credentials."
                 )

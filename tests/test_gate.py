@@ -248,3 +248,42 @@ def test_social_norm_allows_when_phone_offered_or_no_reply(plan: ContactPlan, do
     assert not any("Social-norm" in e for e in _check(plan, dossier, []))
     plan.channel = "email"
     assert not any("Social-norm" in e for e in _check(plan, dossier, [_email_reply()]))
+
+
+# Robert smoke run (runs/*-robert-smoke-stall-1426b23-*.json) T3: called a sign-in link "public";
+# the 8-phrase list missed the paraphrase and Robert caught it. Match the claim, not the sentence.
+ROBERT_T3 = "<p>The public programme overview is at the link below.</p>"
+
+
+@pytest.mark.parametrize(
+    ("fields", "body"),
+    [
+        (["email", "password"], ROBERT_T3),
+        (["email", "password"], "<p>The agenda is publicly available here.</p>"),
+        (["email", "password"], "<p>Die öffentliche Programmübersicht finden Sie unter dem Link.</p>"),
+        (["code"], "<p>No login required to view the schedule.</p>"),  # mfa page
+    ],
+)
+def test_rejects_paraphrased_public_claim_on_login_page(
+    fields: list[str], body: str, plan: ContactPlan, dossier: VerifiedDossier
+) -> None:
+    assert plan.landing_page is not None
+    plan.landing_page.fields, plan.subject, plan.body = fields, "Programme", body
+    verdict = validate_contact_plan(plan, dossier, BLOCKED)
+    assert "Message promises a public/no-login page but landing page requests credentials." in verdict.errors
+
+
+def test_rejects_credential_form_after_paraphrased_public_promise(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    plan.attachments = []
+    assert plan.landing_page is not None
+    plan.landing_page.fields = ["email", "password"]
+    errors = _check(plan, dossier, steps=[_sent("The public programme overview is at the link below.")])
+    assert any("Cross-turn contradiction" in e and "credential" in e for e in errors)
+
+
+def test_both_drafting_prompts_say_every_link_needs_sign_in() -> None:
+    # Prevention at the source; _NO_LOGIN_CLAIM_RE is only the backstop (Robert smoke T3).
+    from revel8_agent.actor import _ACT_SYS
+    from revel8_agent.engine import _DECIDE_SYS
+    for prompt in (_DECIDE_SYS, _ACT_SYS):
+        assert "Every link opens a sign-in page" in prompt

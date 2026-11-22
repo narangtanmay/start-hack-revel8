@@ -329,7 +329,7 @@ For email you choose a format: "plain" (personal note from a person, best for in
 "branded_notice" (company notice with one button), "shared_doc" (document-sharing notification).
 If you include a link, it gets a landing page: page_type "signin" (email+password), "document" (sign in to
 view a document) or "mfa" (one-time code). The link host MUST be on the persona's website_domain or a
-subdomain of it. For messages on other channels, body is plain text (short for chat/SMS).
+subdomain of it. Every link opens a sign-in page. Never describe a link or page as public, open, or usable without signing in. For messages on other channels, body is plain text (short for chat/SMS).
 
 Return ONLY JSON:
 {"assessment": str, "decision": "STAY"|"PIVOT_CHANNEL"|"PIVOT_HOOK"|"ESCALATE_CALL"|"STOP",

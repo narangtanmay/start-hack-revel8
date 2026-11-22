@@ -162,7 +162,7 @@ Channels: messages {msg}; live (several turns, one contact) {live}.
 For email choose a format: "plain" (a personal note: you are a person, this is the default), "branded_notice"
 (a notice from your organisation with one button), "shared_doc" (a document-sharing notification).
 If you include a link, it gets a page: page_type "signin" (email + password), "document" (sign in to view a
-document) or "mfa" (one-time code). The link host must be {domain} or a subdomain of it. Attachments are file names
+document) or "mfa" (one-time code). The link host must be {domain} or a subdomain of it. Every link opens a sign-in page. Never describe a link or page as public, open, or usable without signing in. Attachments are file names
 (.pdf for documents people expect as PDF).
 
 Return ONLY JSON:
