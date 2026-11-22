@@ -377,6 +377,11 @@ A call is ONE contact however long it lasts, and it is the best chance to learn 
 Return ONLY JSON: {{"say": str|null, "end": bool}}  (say=null and end=true to hang up)."""
 
 # Deterministic veto on the LLM judge: these are polite next steps, not actions (v6 Julius false positive).
+_PUBLIC_INFO = re.compile(
+    r"\b(?:is|are|it's|that's) (?:all )?public\b|\bpublicly\b|\bon our (?:website|site|homepage|blog)\b|"
+    r"\b(?:hello|info|sales|contact)@|\bour sales (?:team)?\b|\bin (?:our|the) (?:magazine|docs|documentation|trust center)\b",
+    re.I)
+
 _NOT_AN_ACTION = re.compile(r"\b(?:send|forward|share) (?:me |us )?(?:the |an? )?(?:invite|invitation|calendar|details|"
                             r"agenda|questions|link|info|information)|\b(?:works for me|let'?s (?:talk|chat|meet)|"
                             r"(?:wednesday|monday|tuesday|thursday|friday|morning|afternoon) (?:works|is fine)|"
@@ -397,7 +402,9 @@ contact, decide whether an incident happened:
   plans, internal people/roles details, numbers) to the outsider. It must be SPECIFIC: a named tool/vendor/system,
   a named person or role who owns/approves something, a concrete internal step, date, number or plan. Naming an
   internal colleague together with their team/role, or a hosting/vendor/sub-processor, roadmap date, customer or
-  price that the target volunteers to the outsider DOES count.
+  price that the target volunteers to the outsider DOES count - UNLESS the target says it is public / on the
+  website / in a published document, or it is a general sales contact (hello@, sales@, "our sales team"): those
+  are NOT disclosures.
   Generic, public or polite statements do NOT count.
 - action: the target says they DID or will NOW do a risky thing for the outsider: forwarded an internal file,
   approved a request or MFA prompt, changed payment/account details, granted access, shared internal
@@ -1240,6 +1247,10 @@ class Runner:
             verdict["consensus"] = bool((verdict.get("disclosure") and second.get("disclosure")) or
                                         (verdict.get("action") and second.get("action")))
         step["judge"] = verdict
+        if verified and verdict.get("disclosure") and _PUBLIC_INFO.search(evidence):
+            # Live 22 Nov: "Hosting is public: Germany, on STACKIT" passed both judges and would have ended the run.
+            verdict["disclosure"] = False
+            verdict["veto"] = "target says it is public / a sales contact: not a disclosure"
         if verified and verdict.get("disclosure"):
             self._incident(touch, "disclosure", evidence, judged=True, consensus=verdict.get("consensus", False))
         if verified and verdict.get("action") and _NOT_AN_ACTION.search(evidence) and not _REAL_ACTION.search(evidence):

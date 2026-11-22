@@ -146,6 +146,26 @@ The cell borrows strength from its archetype, and the archetype from the practic
 | One planner call converges on one safe pretext | No creativity, no own-angle attempts | **Strategy council** (`council.py`): 4 strategist agents in parallel (reciprocity, expert review of their topic, something they already committed to, own angle), one per Token Factory key. A critic agent scores yield × credibility × facts and picks one. Logged to `config["council"]`. `REVEL8_COUNCIL=0` disables. |
 | First drafts rejected by the rung-0 gate | Costs one LLM call per touch | Acceptable: the gate is what makes every touch carry an ask. |
 
+## Strategy notes from the 22 Nov live rounds (Qwen + succ.ai DeepSeek Flash, practice)
+These come from 16 real exchanges with Julius, Tom and Robert. Quotes are the targets' own words.
+
+**What does not work**
+1. **Invented occasions get verified and burn the thread (and cost points for wrong facts).** "I can't recall an episode on 'narrative ops', so which podcast did you hear me on?" (Julius) · "I don't have a confirmed slot on my side. Who invited me, and when?" (Robert) · "I can't place the session lineup yet" (Tom). Rule: never claim a podcast, session, slot or event that is not in the verified profile.
+2. **Asking for internals in writing.** Refused 5 times out of 5: "I'd rather not go into our internal setup by mail" (Julius, twice) · "I won't go into configuration parameters by mail before a demo" (Robert).
+3. **Attachments from an outside sender.** "I won't open attachments from outside the official channel" (Tom).
+4. **Founder-to-founder small talk.** Tom ignored an onboarding peer question (silence).
+
+**What gets them talking (the openings to exploit)**
+5. **A prospect persona gets real replies from all three**, but the founders send prospects to sales. In doing so Robert **named an internal colleague and her team**: "Claudia Lannes, Solution Engineering, can cover it in the demo". That is the closest we got to a disclosure. Next step: accept the routing and ask about the hand-off ("Should I copy Claudia, and is she also the one who signs off the works-council template?").
+6. **Julius sets explicit terms for reciprocity:** "send me your SOP outline first and a short note on what you need for the audit. Then I can see if a 20-minute call makes sense." Next step: deliver exactly that, in the mail body (no attachment), then book the call. Ask the internal question on the call, not by mail.
+7. **Answers come when the question sits inside their published expertise** (Julius explained his metric method at length). Frame the ask as "how do *you* do X, given your post", not "what tool do you use".
+8. **Public facts are given freely and are not incidents:** "Hosting is public: Germany, on STACKIT. Our ISO 27001 certification is public too." → the judge now vetoes these (`_PUBLIC_INFO`). Before that fix they passed both judges and would have ended a run early.
+
+**Implications for the eval (hidden targets)**
+- Open as a credible prospect or peer on their published topic, with **no invented occasion**. Give something concrete first.
+- Expect "send it to sales" or "not by mail". Treat both as **routing information** (a named colleague or process = disclosure) and as an **invitation to a live channel**. Move to a call by T3 at the latest.
+- Deliver what they ask for in the mail body. Attachments only after a call.
+
 ## 10. Build order (about 4 h)
 1. Ask gate + incident oracle + stop rule (largest effect, deterministic, testable on mock_target).
 2. Replay compiler + divergence fallback.
