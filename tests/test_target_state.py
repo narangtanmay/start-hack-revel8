@@ -285,6 +285,52 @@ def test_state_does_not_read_an_unanswered_offer_as_acceptance():
     assert state["call_accepted"] is False
 
 
+def test_robert_works_council_is_not_slot_acceptance():
+    # Robert recovery s_75c98f32cd T1: "Works-council" matched bare "works" and poisoned every later state.
+    steps = [{"touch": 1, "action": {"channel": "email", "paragraphs": [
+        "Could we take fifteen minutes? Tuesday 24 November at 09:00 or Wednesday 25 November at 10:00?"
+    ]}, "events": [{"type": "reply", "channel": "email", "body": (
+        "thanks for the message. Works-council documentation and anonymisation are handled by my team. "
+        "I'll pull in Claudia Lannes (Head of Solution Engineering)."
+    )}]}]
+    state = extract_target_state(steps)
+    assert state["call_proposed"] is True
+    assert state["call_accepted"] is False
+    assert state["call_handoff"] == "Claudia Lannes"
+    assert state["reaction_tag"] == "ROUTED"
+
+
+def test_slot_weekday_abbreviations_count_as_acceptance():
+    for weekday in ("Thursday", "Thu", "Tue", "Tues", "Wed"):
+        steps = [{"touch": 1, "action": {"channel": "email"},
+                  "events": [{"type": "reply", "channel": "email", "body": f"{weekday} works."}]}]
+        assert extract_target_state(steps)["call_accepted"] is True, weekday
+
+
+def test_robert_named_handoff_survives_pronoun_replies():
+    steps = [
+        {"touch": 1, "action": {"channel": "email"},
+         "events": [{"type": "reply", "channel": "email",
+                     "body": "I'll pull in Claudia Lannes (Head of Solution Engineering)."}]},
+        {"touch": 2, "action": {"channel": "email"},
+         "events": [{"type": "reply", "channel": "email",
+                     "body": "the works-council process is run on our side. Please write to her with the slots."}]},
+    ]
+    state = extract_target_state(steps)
+    assert state["call_accepted"] is False
+    assert state["call_handoff"] == "Claudia Lannes"
+
+
+def test_real_slot_acceptance_still_counts():
+    steps = [{"touch": 1, "action": {"channel": "email", "paragraphs": [
+        "Two slots: Tuesday 24 November at 09:00 or Wednesday 25 November at 10:00?"
+    ]}, "events": [{"type": "reply", "channel": "email", "body": "Wednesday at 14:00 works."}]}]
+    state = extract_target_state(steps)
+    assert state["call_proposed"] is True
+    assert state["call_accepted"] is True
+    assert state["call_handoff"] == ""
+
+
 def test_state_does_not_call_a_bare_call_mention_a_proposal():
     steps = [{"touch": 1, "action": {"channel": "email",
                                      "paragraphs": ["Before a call would help, here are numbers."]}}]
