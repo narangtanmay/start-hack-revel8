@@ -474,3 +474,15 @@ def test_writer_refusal_is_never_sent() -> None:
             "first week of December.",
             "2) Login: every speaker gets individual credentials, created under your email address."]
     assert _writer_problem(draft, good, True) == ""
+
+
+def test_email_link_is_printed_once(dossier, tmp_path) -> None:
+    cfg = RunConfig(target_id=dossier.target_id, runs_dir=tmp_path)
+    runner = Runner(cfg, MagicMock(), _ScriptedLLM([]), _hooked(dossier), log=lambda *_a, **_k: None)
+    runner.state.plan = {"persona": dict(_PERSONA), "language": "en"}
+    runner._ensure_brand = lambda: False  # type: ignore[method-assign]
+    url = "https://workshop-crew.test/speaker-portal"
+    a = {"channel": "email", "subject": "s", "format": "plain", "link": {"url": url, "page_type": "signin"},
+         "paragraphs": ["Please confirm your entry. The link below takes you straight to it:", url, "Thanks!"]}
+    _plan, payload, _page = runner.build(a)
+    assert payload["body"].count(url) == 1

@@ -1133,6 +1133,10 @@ class Runner:
                                        fields=["email", "password"])
 
         paragraphs = _fill_placeholders(paragraphs, link["url"] if link else None)
+        if link and channel == "email":
+            # The email templates put the link on its own line; the same URL inside the prose printed it twice
+            # (fast-S3 Tom T1, 2026-11-22).
+            paragraphs = [q for q in (re.sub(r"\s*" + re.escape(link["url"]) + r"/?", "", p).strip() for p in paragraphs) if q]
         a["paragraphs"] = paragraphs
         body, is_html = "", False
         fmt = a.get("format") if channel == "email" else None
