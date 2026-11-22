@@ -1,0 +1,116 @@
+Automatic transcript. Complete through 1139.6s.
+
+[00:00] Okay. So I mean this uh I just already uh presented to you guys right so it's uh you first have to research the persona so you will get uh three different practice personas who are our three founders.
+
+[00:20] Yeah these three guys you have to kind of uh practice with you get their you get like an API uh key where you can kind of reach them. It's not the real people but it's uh very close impersonation. Um and you kind of get events back on what uh they did with
+
+[00:40] with the content you sent to them. Um you have to create the content yourself um in our in the um uh with your solution for the for the problem so it has to kind of find all the information create the the content and then send it out to um to that API
+
+[01:00] any point. So the third part this is what Fabi told me at least is kind of the most difficult. You will have to really try to think around the corner to um to get the AI models to do these these this persistent hacking.
+
+[01:20] We do kind of invite you to look beyond like OpenAI and Tropics for like to like power it. You can maybe look towards China or something with some nice models that don't have as many guard rails. For this also the AMD kind of computing power that you can use is very useful. So definitely check that out.
+
+[01:40] and make sure to kind of build some uh something around that. Um then yeah the scoring is also maybe important for you guys. Um so it's kind of forty five percent judged by like automatically and then fifty five percent judged by the jury, which is I don't know, are you on the jury? Yes, Fabian
+
+[02:00] and some other guys. Um twenty five percent is the results, so what kind of events do you get from uh from the back from the API? Like how much information do you get? Do you get like a password breach or something something like that? Then uh ten percent is the targeting, so the USIN profile you build
+
+[02:20] from kind of the open source uh intelligence ten percent is also the crafting of it so there is obviously ways to go around uh using prompt engineering and this kind of uh prompt uh injection these kind of tactics we don't want you to do that it's kind of supposed to be a simulation of a real attack of a real person
+
+[02:40] So if you use prompt uh injection to get the get the AI to do something it's not supposed to do, this will kind of take away from these uh ten points. And probably points as well. Uh then biggest chunk is the architecture and persistence, um which is yeah kind of the
+
+[03:00] the the tough part to to get right. So this will be judged by Favi and uh some other people. Um and then fifteen percent is like the pitch and demo which you do in the end, so you kind of show us what you did. Um show show us what um what your what your uh solution can do. And uh that will also go into
+
+[03:20] into the into the final um points yeah you have the prices maybe I can add um one or two things regarding the points first regarding the craft the craft really means that um how well your mails for example or WhatsApp SMS whatever are formatted because that um
+
+[03:40] would would give it away in a real scenario obviously if you get a um formatted email or whatever. Um this will not be taken into account with the um practice persona set that you get because these these are just API endpoints and we don't want to go through all the stress of rendering your mails and your um requests, but we will render
+
+[04:00] these um touch points for the final scoring runs that you will do. So there we will um yeah manually render um your message history with um these personas to then also evaluate how well these touch points were crafted. So I highly recommend you to also build some kind of internal rendering system
+
+[04:20] system so you can double double check how it actually looks um on your own. Um also the UI would be nice to so that we can actually understand um what the what your Swarm agents actually decided to do, when and how and why. This is uh super important in the face entry architecture part which brings me to which uh brings me
+
+[04:40] to my next point, which is the architectural is as you can see the by far largest chunk that um is not without reason. Um I think everyone can get very far in this challenge in the first couple of hours uh with like the basic things. But the basic things you will probably end up in some kind of dead end at some point. So the
+
+[05:00] persistence to have this kind of level of persistent swarms of agents like they could be seen in the OpenAI Hugging Face incident is really something that is not that straightforward and that's the reason why OpenAI have its research by doing it because it's not that easy. So I would really recommend you to invest some time into really thinking outside of the box in terms
+
+[05:20] in terms of architecture, how you can really um build this kind of system in a generalisable way that is not over overfitting on these three personas that we will give to you because on the scoring runs we will give you m new personas um on which your architecture also has to work, basically. So yeah, um don't underestimate
+
+[05:40] that I think as I said the first eighty percent are very straightforward and can be achieved very quickly but the last twenty is where the real money is I think so yeah there's a question yeah um I think it was already answered half one but I still want to be more so why we are building the one that you asked for why we are building
+
+[06:00] can we create our own test before. Sure. Obviously we would ask you not to uh send out stuff to read people. That would be a bit of a problem. Um but you can we we will provide you with an extensive uh FI
+
+[06:20] And you can also create your own personas to test on by yourself. What about the ficiency? Are there like any load tests or something like that? Should we like uh focus also on like efficiency comments? Not that much. Um we will see honestly
+
+[06:40] honestly because we also don't know how quickly and if you all will manage to um break the personas. If that is the case, then it will also be taken into account as to how many turns it took you. Like how much how much back and back a forth it took you to lead to an um or to get to an incident event. Yeah and load wise that's not
+
+[07:00] the main cruise right now. Yeah. So I had a few questions. So basically if I understood the challenge correctly, holistically you want that we uh create a small agents that hack these personas, right? In a simulator way. But um so these personas we will be able to test them the the
+
+[07:20] We will we will provide you with endpoints for our three founders. Yeah. These are they basically have a persona prompt who they are. Um so they really and with like a very extensive context prompt on them, which is based on everything that you can find on the public web. So um this uh is also part of the top of the targeting um part that
+
+[07:40] you really um leverage like open source information. Um what you can find about them on LinkedIn on their master thesis or whatever and what their current role might imply that they are very um excited about. So this is really something um so do we assume all of the information is given or should we do our own also.
+
+[08:00] So like we need to scrape these websites and everything. Yeah, LinkedIn is the most straightforward thing, but there is um this is again eighty, eighty, eighty twenty. LinkedIn is probably eighty. Maybe the twenty is the most important. So we need so we need the LinkedIn account?
+
+[08:20] Yeah. Can only interact with them to text messages or all kinds of channels, also live interactions, but uh these these won't be like real voice calls but it's just counted in the endpoint as a live interaction, so you can just run back and forth.
+
+[08:40] I'm not sure I understood the in the persona prompt or all the information about the persona or do we have to look beyond that? We set it up, um which is like the very like the very maximum that you can find about them on the open web.
+
+[09:00] maybe you find more than we do, that would be also amazing. Um Yeah, but the Sonop is just uh fast from the agent that you will be interacting with so they know the the the context. Okay.
+
+[09:20] just raising text? What would be nice is to use like spoofed domains for example.com because that's just not the domain that you would have access to. But you can also incorporate like
+
+[09:40] like the type of spotted domains, look like domains, that will also play into the part of craft and results eventually.
+
+[10:00] our weeks on this? Yeah. For example, um you will get events back, for example, link opened, password entered, um attachment opened, whatever. But these are also um these are our questions, but we also ask you to be again uh creative what other success criteria there might
+
+[10:20] be. We have some defined, but if you in the end uh can argue why the thing that you accomplished with your run is also an incident that we haven't counted as an incident, we will also look at it.
+
+[10:40] So that it's visualized somehow. But we have like logs, so what kind of things you go back. And the uh how do we communicate with this persona? Like is there a chat chat. That you can then simply call and and we will provide you with um different keys.
+
+[11:00] like one for email, et cetera? Um email is um like channel is one one key of the trace. And then the UI should probably show the trace of the entire thing.
+
+[11:20] system chose the next step as its next step, what other options there might have been and it discarded. So that's that's also about per uh per assistance and and and architecture to have some kind of well at least that's what I'm suggesting again, I I'm happy to hear new approaches, but to have some kind of reevaluation for the agent, um to say,
+
+[11:40] say um well this this kind of attack channel is now burned, it doesn't need anywhere, let's try another thing, and that should be visualized somehow. Okay, so uh
+
+[12:00] um also at all some time for the answer to the mention five minutes. Yeah, I don't know. Yep. And um you have to uh make the remaining uh aging uh what's
+
+[12:20] Yeah. Um the results it's mainly the incidents that you collect, but again if if you think that that that you have found a way to uh to an incident that
+
+[12:40] that we don't count as an incident and you can make a case for it, we will also incorporate that in the you you um you you configure but we uh can also uh incident, but can also win
+
+[13:00] Yeah, if you can make a case for it, yeah. Um and then the rationale part will probably be um partially under architecture and persistence, pitch maybe and targeting of it. Yeah, but like it will it will play play play into it. And we're supposed to like
+
+[13:20] like retrieve passwords and that kind of information or is there further information about the type of information that we're supposed to be. Yeah, I think that can, I think, because these are personals they don't know the real passwords. Oh, they shouldn't know. Yeah, I see. Happy happy to adjust if there are real passwords, but I hope
+
+[13:40] Yeah. So we're testing and training of pre testified with our and finished scoring once again in Upazona for our agent has to do a research over three nucleoson and then run some attack and hopefully have some result. And again, um results is like twenty five percent.
+
+[14:00] and it would be a nice thing to have, but the architecture is the most exciting part for us. How you want to how you want this entire system to be called configured basically. Yeah. No, I
+
+[14:20] I hope not because I define like a wide um variety of channels in the endpoint. If you have some that you're missing I can I'm I'm I'm happy to add them. But no you're not limited. Yeah. And again part of the challenge is also what Tom already mentioned you will probably at some point run into issues with
+
+[14:40] We have uh GPUs from AMD provided you can try to um run local models, um self host them on your laptop. Uh it's all called the general. Any other questions?
+
+[15:00] Uh the air behind the requirements and we need to basically uh get information out. Yeah, it's it's it's super hard um to have one system of agents social engineer another agent because the agent is not a human and that's what that's what what what social
+
+[15:20] social engineering is about, right? So I try to configure the personas in a way that they're not as strict as a real agent would have been. If they are too easy to crack or too difficult to crack, I will adjust the function accordingly. And one more thing maybe just to kind of clarify it again. These agents that are the personas,
+
+[15:40] they are not supposed to be seen as agents, right? They are supposed to be seen as real people. So we are kind of simulating the tech system that you're building. Um just with agents, because we don't want to have a followers sitting there competing. So don't focus on trying to
+
+[16:00] to get information from the agent or trying to kind of um have some work around so the agent does what you want. Really try to see them as an actual person who responds for the content that you're sending to them. And then maybe generate the the uh events or not. So that's like the whole part
+
+[16:20] It's not really about taking the agent to act the person. So if uh if you will indulge me, like for example it's a problem statement that uh in the agents we simulate the uh accessing personal email for that be reasonable is that
+
+[16:40] So you want to kind of infiltrate that person's space in some way. So if you say you get credentials to an email account, this is a breach. So then you breach this agent. That's that's the goal. If you don't type in the password, then it's a fail.
+
+[17:00] and we define these these breaches or have some suggestions for them. But as I said, there might there's pretty I'm I'm pretty sure that there are other breaches that we haven't defined. I don't know, for example making the agent setting up a forwarding rule in their email inbox would also be a a breach technically. But these are things that we like I just figured uh I just
+
+[17:20] just came up with that. But uh these are things that we haven't yet defined, but uh so there might be runs that you do where you think you actually managed to reach an incident, but it isn't counted as an incident, then let us know and we will add it in our scoring system. Yeah.
+
+[17:40] the people who will then be used are also like supposedly from Revel 8 or is this just some random person could be some from the street then or it should generalize. They will be probably real people so we so you're so we can
+
+[18:00] compare the ozone part. Um don't like rely on them being part of representation. Yeah, I think personas have information. Yeah. So you can find that. Do the personas have access or do they know or time in the simulated universe? So that's a
+
+[18:20] That's a nice thought to show how to work, but just uh
+
+[18:40] So we have included.
+

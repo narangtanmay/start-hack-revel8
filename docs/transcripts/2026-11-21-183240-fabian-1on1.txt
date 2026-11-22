@@ -1,0 +1,90 @@
+Automatic transcript. Complete through 867.4s.
+
+[00:00] Can I ask questions? Right. Um So I came up to you after the pitch. Sorry? I came up to you after the pitch and you talked about how you guys find it very easy to get like
+
+[00:20] Um what would you say makes that last 20% difficult? Like are you in a challenge or what's super difficult is that I mean here in this case I'm not too sure how difficult it it is because you're not interacting with uh real
+
+[00:40] real humans. We are we are doing it with uh real humans and it's it's uh that's that's a a different story, right? With real humans the last thirty uh twenty percent is so difficult because you need to orchestrate your system in a way that it has a good gut feeling of what is appropriate, when and why. Or why things are not appropriate.
+
+[01:00] For example, it's not appropriate that the agent thinks just because it got a reply back by a C level ex ex executive from a customer that can call them on WhatsApp. This simply doesn't work. And implementing this kind of like um soft skills
+
+[01:20] knowledge, I would say. It's super difficult first. That's the first point. Second point is it's very easy to like hard code an intent or a goal in general in this kind of architecture. But it's also then very difficult to like really make it sophisticated.
+
+[01:40] sophisticated and not have it uh stick to its goal too strictly or too leniently. Like having meeting this very thin threshold there between being too strict on your um plan or uh too lenient on your plan is something that just puts it off in the real world.
+
+[02:00] and so that's what we are currently s struggling with. So this is also something you'd appreciate in the pitches. So are you looking for something that can attack smarter? Or something that can sort of mimic an attacker in real life to a degree where you can prove safety from external? Is that
+
+[02:20] you're doing? With the second fallen? Um so there's a way to again hyper optimized it to like obviously when we're dealing with agents to just get results and stuff, you know? It's either that or like making it focusing much more on being able to follow the steps it took and why like we were thinking about researching uh because I
+
+[02:40] I think this must be public. I'm not sure. But normal strategies that are taken by pat patterns, right? Especially with vulnerability finding there are like certain patterns. So I was thinking like would you rather see something like that in the pitch where an agent pen testing
+
+[03:00] can give you the surety that were it to be an actual real attack, you've covered all of your bases of the most common crack patterns or would you rather that we focus on getting the actual agents on the server to crack? Not the second one, definitely.
+
+[03:20] So it's not about optimizing on the incidents and the events that you can get. Because this is really I think this is very skewed by our setup that we have this persona prompt that's really that's as good as it gets for us currently because we can't have someone sitting here re applying to you in real time all the time. So don't focus
+
+[03:40] focus too much on the events that you can get. It's obviously part of it. But what would be really cool is to have the system that acts as you said in the first point, act like a real attacker, but then also can judge whether the classic attacks don't work. Then it should pivot. And should um should conclude how
+
+[04:00] how else he should approach that target in the next trial. Uh-huh. Does that make sense? Also one more thing, like since like the purpose of this um problem that you gave us is it to see how can we make agents smarter? Or is it to see how those agents
+
+[04:20] So like what's the purpose? You don't see the understanding of the agents, how they uh like that. I think the second one comes with the first one. I think the second one is a pure visualization problem, honestly.
+
+[04:40] and see the reasoning stuff from your um calls. So that's a pure visualization topic that is uh very important for like the pitch for example to to like visualize it in like a nice way. Um and also I feel like this is very important for you to do to like troubleshoot. If you have runs where you simply don't understand why it took this path on
+
+[05:00] on this branch and not the and not the other one. Why did it do that? And there's um that's I feel like a good way to figure out what's so wrong with your current system. So the second part is not the main target, but it's a very uh um helpful tool I would say. Oh for pitching into
+
+[05:20] Also like you told about like your agent not making a call to a C suit executive on WhatsApp, right? Who did? Like they would respond to this as a strategy and like reject it all. Like if a reply to an email
+
+[05:40] Yeah it can I think you would get the event back of something like stalled or ignored or something. You said something about not being being too lenient or not being it being too strict, right? So like when you bring when you build harnesses for your agents. So like are you
+
+[06:00] not specific in it like you can't do this, you can do this. Like how do you make the harnesses to not being too lenient or too strict? Yeah, how do you build the harnesses for the agents to be either not too strict or too too lenient? That's a challenge. That's what we are also struggling with, and what we would like to creative approaches about. So is it
+
+[06:20] the part of craft? Yeah I mean this kind of not being too harsh and not being too strict is the is the it's like the uh feeling of what is appropriate. And to uh set up an Asian or form of agents to really have that like human instinct of a of a guy that is a very very of soft
+
+[06:40] This is the entire difficulty of it. This is the is the last twenty percent as I said earlier. So also like I can give you my approach, but it won't help you because that's the reason we're having this challenge, but it's not good yet. It'd be nice to hear your approach. Sure. Yeah, sure if you can.
+
+[07:00] engineering. For me I did punk engineering, I did countless iterations on it. And it's fine, but it's not very good. And what we're here for is I mean you can know that that path as well if you feel like that's the most effective. But what I would be super interested in is hearing other approaches as to how to find that threshold of the proper understanding
+
+[07:20] of the situation and the context. What if you like make an orchestrator and as a decision agent and you train the decent agent, you fine-tune it basically on your own data set, you give it examples and your own decision. I mean that is an approach 100%. But that's also very familiar again, right? It's ox center.
+
+[07:40] what we did as well. An orchestrator and then having planning age and a strategist age or whatever. And it works of course. This is the AC twenty three that I told you. Yeah. But I hope and I think that other teams will have a completely different approach. And that's the fun part of it. I don't know whether whether there is one that is better. I have no idea, honestly.
+
+[08:00] But if there is one, that's where the money is. And it might also be that every team goes the same if there's outfit the agent and fine tuning and and whatever. And that's also fine. Maybe I was just not good enough at doing it. That's also a very plausible explanation.
+
+[08:20] yeah, that's what I think about it. Also I have a question. So when you're in the industry working, so what's the usual size of agents you deal with? Like what's the their parameter size usually? Uh we have uh we use mutals. From cloud. Okay and what would you say is the biggest
+
+[08:40] gap so to say right now? 'Cause like right now we're dealing with agents. But when you actually have humans as a client, like what would you say is missing here that is something like you heavily need to take into account with actually um I mean our setup versus the real setup? Essentially like
+
+[09:00] I want you to get an uh idea of the actual like problem space. You know, the actual implementation of solutions in the uh general. Yeah. Obviously it won't be hundred percent perfect, whatever we have right now. Like the twins. And honestly in the real world I think many of them eighty percent solution
+
+[09:20] Many many people fall for a single fishing email. Yeah. There is no like fancy architecture behind it or system behind it or whatever. So many people fail there as well. What it's simply like yeah, I'm just repeating myself at this cut feeling.
+
+[09:40] For these agentic systems that are super persistent and like this like agentic basically. They they just tend to be too sticky with prompts and instructions I feel like and they don't I at least have managed to orchestrate it in a way that is truly human like. I
+
+[10:00] think of the most social guy you know who has always best knowledge about people. So far my system has not come to come to the point where it's as smart as this guy and making decisions what to do next or why and how. Yeah. Some well you you're just saying that like agents are trying
+
+[10:20] to always be inside the harness, they're not trying like sometimes you should take uh risky step when you feel like maybe it will work, right? So you're trying to understand like how can you make agent decide for itself when it can be a bit risky, when it can't. Exactly. Okay, that's understood by me.
+
+[10:40] Also one more time. Like I know it's not part of much of a hackathon, but like when you build the digital twin. Sorry? When you build the digital twin of your founders, so like would it be biased towards the data you use it with? Yes.
+
+[11:00] it's it's an M V file, in my opinion. Um I try to make it asn't as possible. Um obviously you can't hack an agent with social engineering attacks built as some human, so I put some hooks in it that it is most um prone to to fail to. And you can
+
+[11:20] find them through and and through uh interpreting interpreting and including the context of the person. Is he a CTO? Is he a cleaning lady? Is he a hopper player? Yeah. Like the personal interest or maybe the fun like musical media knowledge about
+
+[11:40] Just like think of what they are most prone to actually. What what you think? Yeah. Yeah. So what would happen if you actually were able to get some new information that is technically correct to me? Another uh guy has had also asked this. Um it will probably be unsuccessful in our score. But if you can make a case for but if you can make a case
+
+[12:00] for it in your pitch and architecture thingy then we will um adjust it accordingly. Okay. Also can you like explain a bit on auto scope questions? Sorry? Like there was there were a few things like what was it? Your own um uh like your own angle of questions.
+
+[12:20] Your own like susceptible points. Right. So there's not in the hook. But like you think uh a different angle to uh asking some uh try to fish someone. We were just a bit c confused with the scoring rubric, 'cause there's like um points that you guys have hard coded whatever that you have listed as these are
+
+[12:40] what the twins are susceptible to. And then there was another thing called your own and we'll do something like that. Yeah. Let's see put like hook A B C D for a f co founder, right? But we have our own angle to maybe. Yeah, that's what we get some new information. Exactly, exactly and you
+
+[13:00] said like if that would show up as like unsuccessful, but if you can you know say it in your page like just if you're not going to be like what if the buyers you to buy some data which you use the creating digital twin for it they still are unsuccessful. Yeah, if you can like make a case then we'll make it there are there are also o's and parts that you will that are true and I have them through in the prompt
+
+[13:20] he will just simply not fall for it. Yeah. So it's just about the circles and parts he is more suspicious to probably. Others he isn't. I see. Yeah. And that's also I really like I know all of these three very well and I try to make it as like
+
+[13:40] like realistic as possible what they're approaching. And that's then a question of how sophisticated is is yours and and your and the system to decide what is most relevant for not. I see. So when we talk about the evil drones, like the held out cases, are you expecting that most agents will have to use all
+
+[14:00] ten of the wrong? Um, that's my question. I don't know. Some some might succeed earlier, some might not at all. Um I will see how like successful people are tomorrow morning. Yeah with the testing on us and then I will adjust the difficulty accordingly.
+
+[14:20] Thank you. Thank you. Thank you.
+
