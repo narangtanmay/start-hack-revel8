@@ -1414,9 +1414,6 @@ class Runner:
             st.status = "running"
             self.save()
             self.log(f"session {st.session_id} opened")
-            prior_refused = self.tmemory.refused_mechanisms()
-            if prior_refused:
-                st.plan["prior_blocked"] = prior_refused
             failures = 0
             draft_failures = 0
             while st.touches_used < self.cfg.max_touches:
@@ -1450,11 +1447,8 @@ class Runner:
                 if policy_move and policy_move.get("target_state"):
                     step["target_state"] = policy_move["target_state"]
                 feedback = ""
-                forbidden = set((policy_move or {}).get("forbidden_artifacts") or [])
-                strip_link = "login_wall" in forbidden and not (
-                    policy_move and policy_move.get("link_page_type") == "meeting"
-                )
-                strip_attachment = bool(forbidden & {"attachments", "weekend_files"})
+                strip_link = False
+                strip_attachment = False
                 t0 = time.monotonic()
                 for n_try in range(3):
                     a = self.decide(touch, feedback, policy_move=policy_move)

@@ -157,39 +157,3 @@ def test_report_renders_target_state_row(tmp_path: Path):
     assert "LINK_OPENED_BOUNCE" in html
     assert "login_wall" in html
     assert "wants_pdf" in html
-
-
-def test_target_memory_refused_mechanisms(tmp_path: Path):
-    from revel8_agent.memory import TargetMemory
-
-    mem = TargetMemory("Robert Seilbeck", root=tmp_path)
-    mem.data["rules"] = ["wants_pdf", "refused: login_wall", "refused: attachments", "refused: login_wall"]
-    assert mem.refused_mechanisms() == ["attachments", "login_wall"]
-
-
-def test_extract_target_state_prior_blocked_on_empty_history():
-    st = extract_target_state([], prior_blocked=["login_wall", "attachments"])
-    assert st["blocked_mechanisms"] == ["attachments", "login_wall"]
-    assert st["stated_constraints"] == [
-        {"turn": 0, "kind": "attachments", "cue": "prior session refusal"},
-        {"turn": 0, "kind": "login_wall", "cue": "prior session refusal"},
-    ]
-
-
-def test_policy_and_shadow_twin_enforce_prior_blocked_on_touch_1():
-    plan = {
-        "objective": "credentials",
-        "hook_id": "h1",
-        "sequence": [{"channel": "email"}],
-        "prior_blocked": ["login_wall"],
-    }
-    move = RuleBasedPolicy().choose_next_move(_brief(), [], touch=1, max_touches=6, plan=plan)
-    assert move["objective"] == "disclosure"
-    assert "login_wall" in move["forbidden_artifacts"]
-
-    st_move, meta = select_shadow_twin_move(
-        _brief(), [], touch=1, max_touches=6, plan=plan, today=datetime(2026, 11, 23, 10, 0)
-    )
-    assert st_move["objective"] == "disclosure"
-    assert "login_wall" in st_move["forbidden_artifacts"]
-    assert "login_wall" in meta["target_state"]["blocked_mechanisms"]

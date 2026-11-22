@@ -206,15 +206,6 @@ class TargetMemory:
         keep = {id(x) for x in wins + rest[-max(0, 20 - len(wins)):]}
         self.data["sessions"] = [x for x in self.data["sessions"] if id(x) in keep]
 
-    def refused_mechanisms(self) -> list[str]:
-        out: list[str] = []
-        for rule in self.data.get("rules") or []:
-            if isinstance(rule, str) and rule.startswith("refused:"):
-                mech = rule.split(":", 1)[1].strip()
-                if mech and mech not in out:
-                    out.append(mech)
-        return sorted(out)
-
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.data, indent=1, ensure_ascii=False), encoding="utf-8")
