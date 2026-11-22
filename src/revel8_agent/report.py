@@ -315,7 +315,41 @@ def _fmt_metric(value: object) -> str:
     return _e(value)
 
 
-def _shadow_twin_html(shadow_twin: object) -> str:
+_REACTIONS = {
+    "engaged": "engage", "questioning": "question", "hesitant": "stall",
+    "silent": "ignore", "suspicious": "suspicious", "refusing": "refuse",
+}
+_COMPARABLE_REACTIONS = frozenset(_REACTIONS.values()) | {"incident"}
+
+
+def _actual_reaction(step: dict, incidents: list[dict]) -> str:
+    if incidents:
+        return "incident"
+    if step.get("error"):
+        return ""
+    sentiment = (step.get("judge") or {}).get("sentiment")
+    if sentiment in _REACTIONS:
+        return _REACTIONS[sentiment]
+    if any(e.get("type") == "reply" for e in step.get("events") or []) or any(
+        t.get("who") == "target" for t in step.get("transcript") or []
+    ):
+        return "response recorded"
+    if step.get("events"):
+        return "event recorded"
+    return "ignore" if "events" in step or "transcript" in step else ""
+
+
+def _prediction_html(predicted: str, actual: str, *, comparable: bool = True) -> str:
+    comparison = f"{_e(predicted)} → {_e(actual)}"
+    if comparable:
+        match = predicted.strip().casefold() == actual.strip().casefold()
+        comparison += " <span class='badge b-good' title='Match'>✓</span>" if match else (
+            " <span class='badge b-warn' title='Mismatch'>✗</span>"
+        )
+    return comparison
+
+
+def _shadow_twin_html(shadow_twin: object, actual: str = "") -> str:
     if not isinstance(shadow_twin, dict):
         return ""
     candidates = shadow_twin.get("candidates")
@@ -339,6 +373,10 @@ def _shadow_twin_html(shadow_twin: object) -> str:
         )
         react = fc.get("predicted_reaction")
         rat = fc.get("rationale")
+        prediction = _e(react)
+        if react and selected and actual:
+            comparable = react in _COMPARABLE_REACTIONS and actual in _COMPARABLE_REACTIONS
+            prediction = _prediction_html(react, actual, comparable=comparable)
         cards.append(
             f"<div class='twin-card{' selected' if selected else ''}'>"
             f"<div class='twin-head'>"
@@ -349,7 +387,7 @@ def _shadow_twin_html(shadow_twin: object) -> str:
             f"</div>"
             + (f"<div class='twin-summary'>{_e(cand.get('summary'))}</div>" if cand.get("summary") else "")
             + f"<div class='twin-metrics'>{metrics}</div>"
-            + (f"<div class='twin-react'><b>Predicted:</b> {_e(react)}</div>" if react else "")
+            + (f"<div class='twin-react'><b>Predicted:</b> {prediction}</div>" if react else "")
             + (f"<div class='twin-rat'>{_e(rat)}</div>" if rat else "")
             + "</div>"
         )
@@ -386,7 +424,7 @@ def _ledger_badges_html(ledger: object) -> str:
     return f"<div class='ledger'><span class='ledger-lbl'>Ledger:</span>{''.join(pills)}</div>"
 
 
-def _policy_html(policy: object) -> str:
+def _policy_html(policy: object, actual_move: str = "") -> str:
     if not isinstance(policy, dict) or not policy:
         return ""
     move_type = str(policy.get("move_type") or "")
@@ -403,6 +441,8 @@ def _policy_html(policy: object) -> str:
         head_parts.append(f"<span class='mono'>hook {_e(policy.get('hook_id'))}</span>")
 
     rows: list[str] = []
+    if move_type and actual_move:
+        rows.append(f"<dt>Predicted → actual</dt><dd>{_prediction_html(move_type, actual_move)}</dd>")
     if policy.get("ask"):
         rows.append(f"<dt>Ask</dt><dd>{_e(policy.get('ask'))}</dd>")
     if policy.get("rationale"):
@@ -518,6 +558,25 @@ def _details(step: dict, a: dict, target_id: str, hooks: dict) -> str:
         rows.append(("Gate", "".join(items)))
     else:
         rows.append(("Gate", "<span class='mono'>passed (draft attempts were not recorded for runs before this dashboard)</span>"))
+    lookups = [
+        f"<li><b>{_e(note.get('query'))}</b><ul>"
+        + "".join(f"<li>{_e(result)}</li>" for result in note.get("found") or [])
+        + "</ul></li>"
+        for note in step.get("live_lookup") or [] if isinstance(note, dict)
+    ]
+    if lookups:
+        rows.append(("Live lookup", f"<ul class='policy-alts'>{''.join(lookups)}</ul>"))
+    tstate = step.get("target_state") or (step.get("policy") or {}).get("target_state")
+    if isinstance(tstate, dict) and tstate.get("reaction_tag"):
+        ts_bits = [
+            f"<span class='tag'>{_e(tstate.get('reaction_tag'))}</span>",
+            f"stage: <b>{_e(tstate.get('engagement_stage'))}</b>",
+        ]
+        if tstate.get("blocked_mechanisms"):
+            ts_bits.append(f"blocked: <span class='mono'>{_e(', '.join(tstate['blocked_mechanisms']))}</span>")
+        if tstate.get("open_doors"):
+            ts_bits.append(f"open doors: <span class='mono'>{_e(', '.join(tstate['open_doors']))}</span>")
+        rows.append(("Target state", " · ".join(ts_bits)))
     j = step.get("judge") or {}
     if j:
         flags = []
@@ -553,7 +612,7 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     snd = a.get("sender") or {}
     out = [f"<div class='touch {cls}'><div class='tn'>{'✓' if hit else _e(n)}</div>"]
     if a.get("decision") == "STOP" or step.get("decision") == "STOP":
-        pol_html = _policy_html(step.get("policy"))
+        pol_html = _policy_html(step.get("policy"), "STOP")
         out.append(f"<div class='thead'><span class='badge'>STOP</span></div><div class='why'>{_e(a.get('rationale'))}</div>{pol_html}</div>")
         return "".join(out)
     icon = "📞" if a.get("kind") == "call" else ("✉️" if a.get("channel") == "email" else "💬")
@@ -562,12 +621,20 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     tm_html = f"<span class='timing mono'>{_secs(round(total, 1))}</span>" if tm else ""
     out.append(f"<div class='thead'><span class='chan'>{icon} {_e(a.get('channel'))}</span><span class='badge'>{_e(a.get('decision'))}</span>"
                f"<span class='badge'>{_e(a.get('objective'))}</span><span class='mono'>hook {_e(a.get('hook_id'))}</span>{tm_html}</div>")
-    out.append(f"<div class='why'><b>Read:</b> {_e(a.get('assessment'))}<br><b>Move:</b> {_e(a.get('rationale'))}</div>")
-    pol_html = _policy_html(step.get("policy"))
+    actor = step.get("actor")
+    monologue = str(actor.get("inner_monologue") or "").strip() if isinstance(actor, dict) else ""
+    reasoning = [
+        f"<b>{label}:</b> {_e(value)}"
+        for label, value in (("Read", a.get("assessment")), ("Move", a.get("rationale")))
+        if value and str(value).strip() != monologue
+    ]
+    if reasoning:
+        out.append(f"<div class='why'>{'<br>'.join(reasoning)}</div>")
+    pol_html = _policy_html(step.get("policy"), a.get("decision") or "")
     if pol_html:
         out.append(pol_html)
-    out.append(_actor_html(step.get("actor"), step.get("attempts")))
-    twin_html = _shadow_twin_html(step.get("shadow_twin"))
+    out.append(_actor_html(actor, step.get("attempts")))
+    twin_html = _shadow_twin_html(step.get("shadow_twin"), _actual_reaction(step, hit))
     if twin_html:
         out.append(twin_html)
     if a.get("kind") == "call" and step.get("transcript") is not None:

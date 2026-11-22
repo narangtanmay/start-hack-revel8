@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Literal, Protocol, runtime_checkable
 
+from .target_state import extract_target_state
+
 MoveType = Literal["STAY", "PIVOT_CHANNEL", "PIVOT_HOOK", "ESCALATE_CALL", "STOP"]
 
 _DEFAULT_MESSAGE_CHANNELS = ("email", "linkedin_message", "slack", "teams_chat", "sms")
@@ -169,6 +171,8 @@ def _executed_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for s in steps:
         if not isinstance(s, dict):
             continue
+        if s.get("error"):
+            continue
         action = s.get("action") if isinstance(s.get("action"), dict) else {}
         if s.get("decision") == "STOP" or action.get("decision") == "STOP":
             continue
@@ -228,27 +232,29 @@ class RuleBasedPolicy:
         used_channels = [_step_channel(s) for s in history if _step_channel(s)]
         used_hooks = [_step_hook(s) for s in history if _step_hook(s)]
         sentiments = [_step_sentiment(s) for s in history]
+        target_state = extract_target_state(history)
+        blocked = set(target_state["blocked_mechanisms"])
+        open_doors = set(target_state["open_doors"])
+        attachments_blocked = bool(blocked & {"attachments", "weekend_files"})
+        login_blocked = "login_wall" in blocked
 
-        attachment_blocked = False
-        for s in history:
-            reply_text = " ".join(
-                str(e.get("body") or "")
-                for e in (s.get("events") or [])
-                if isinstance(e, dict) and e.get("type") == "reply"
-            ).casefold()
-            sent_text = str(((s.get("payload") or {}).get("body") or "")).casefold()
-            if any(cue in reply_text or cue in sent_text for cue in _ATTACHMENT_DECLINE_CUES):
-                attachment_blocked = True
-                break
-        if objective == "action" and attachment_blocked:
+        if objective == "action" and attachments_blocked:
             objective = "disclosure"
+        elif objective == "credentials" and login_blocked:
+            objective = "action" if ("wants_pdf" in open_doors and not attachments_blocked) else "disclosure"
 
         replies = [
             " ".join(str(e.get("body") or "") for e in (s.get("events") or [])
                      if isinstance(e, dict) and e.get("type") == "reply")
             for s in history
         ]
-        login_declined = any(_LOGIN_DECLINE.search(r) for r in replies)
+        login_declined = login_blocked or any(_LOGIN_DECLINE.search(r) for r in replies)
+        # link opened without a submit, per touch (a first bounce still converted on T3 in fast-S5)
+        link_bounces = sum(
+            1 for s in history
+            if any(isinstance(e, dict) and e.get("type") == "link.opened" for e in (s.get("events") or []))
+            and not any(isinstance(e, dict) and e.get("type") == "page.submitted" for e in (s.get("events") or []))
+        )
         last_reply = next((r for r in reversed(replies) if r.strip()), "")
         link_requested = bool(_LINK_REQUEST.search(last_reply))
         # Disclosure never shows up as an API event and the twins only volunteer public facts (26 judged
@@ -312,22 +318,45 @@ class RuleBasedPolicy:
         ) -> dict[str, Any]:
             hook_obj = hooks_by_id.get(hook_id)
             # The ask is the incident: a credentials campaign carries its registered sign-in link on every message
-            # (the winning run linked on T1, T2 and T3), and any request for a link/invite gets one at once.
+            # (both Tom wins linked on T1-T3; fast-S5 opened on T1 without submitting and submitted on T3), and any
+            # request for a link/invite gets one at once. Tanmay's target state takes over after a second bounce,
+            # an explicit login wall, or a PDF request on an action objective (julius s_9b5feb22bc).
             require_link = (
                 channel not in _LIVE_CHANNELS
                 and not login_declined
                 and (objective == "credentials" or link_requested)
+                and link_bounces < 2
+                and not (objective == "action" and "wants_pdf" in open_doors and not attachments_blocked)
             )
             page_type = "meeting" if link_requested and _MEETING_REQUEST.search(last_reply) else "signin"
+            effective_ask = ask
             if require_link:
-                ask = (f"{ask} Include your registered link (page_type \"{page_type}\") as the natural next step of "
-                       "your own story: the place where they confirm or join what you are talking about. The portal is "
-                       "the only place this can be done: do not offer to take it by email or reply instead.")
+                effective_ask = (f"{ask} Include your registered link (page_type \"{page_type}\") as the natural next "
+                                 "step of your own story: the place where they confirm or join what you are talking "
+                                 "about. The portal is the only place this can be done: do not offer to take it by "
+                                 "email or reply instead.")
                 if _DEFERRAL.search(last_reply):
-                    ask += (" They are putting it off. Give your own hard, near deadline with a concrete reason only you "
-                            "can know (e.g. the printer needs the final files tomorrow at 9:00), thank them for what they "
-                            "already confirmed, and ask them to confirm in the portal today. Short, friendly, no pressure "
-                            "words.")
+                    effective_ask += (" They are putting it off. Give your own hard, near deadline with a concrete reason "
+                                      "only you can know (e.g. the printer needs the final files tomorrow at 9:00), thank "
+                                      "them for what they already confirmed, and ask them to confirm in the portal today. "
+                                      "Short, friendly, no pressure words.")
+            elif move_type != "STOP":
+                if target_state["reaction_tag"] == "LINK_OPENED_BOUNCE" or link_bounces >= 2:
+                    if attachments_blocked:
+                        effective_ask = (
+                            "Target opened the link without submitting; avoid login links and attachments "
+                            "and continue in the email body with one concrete question."
+                        )
+                    else:
+                        effective_ask = (
+                            "Target opened the link without submitting; do not repeat a login wall—"
+                            "deliver a concise .pdf or plain-email details instead."
+                        )
+                elif "wants_pdf" in open_doors and not attachments_blocked:
+                    effective_ask = (
+                        "Deliver the requested information directly as a concise .pdf attachment "
+                        "in-thread without requiring a login."
+                    )
             return {
                 "move_type": move_type,
                 "hook_id": hook_id,
@@ -335,11 +364,13 @@ class RuleBasedPolicy:
                 "objective": objective,
                 "require_link": require_link,
                 "link_page_type": page_type if require_link else None,
-                "ask": ask,
+                "ask": effective_ask,
                 "cited_fact_ids": _cited_facts_for_hook(brief, hook_obj),
                 "promises": promises,
                 "rationale": rationale,
                 "alternatives_considered": alternatives,
+                "target_state": target_state,
+                "forbidden_artifacts": list(target_state["blocked_mechanisms"]),
             }
 
         def deescalate(why: str) -> dict[str, Any]:

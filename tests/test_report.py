@@ -54,6 +54,8 @@ def test_render_run_with_shadow_twin_and_ledger_after(tmp_path: Path) -> None:
         "payload": {"subject": "Agenda PDF", "body": "Hi Julius, please see the agenda."},
         "events": [{"type": "reply", "channel": "email", "body": "Please send PDF, no login."}],
         "judge": {"sentiment": "questioning", "reason": "Requested PDF format."},
+        "policy": {"move_type": "PIVOT_CHANNEL"},
+        "live_lookup": [{"query": "conference <schedule>", "found": ["<script>lookup()</script>"]}],
         "shadow_twin": {
             "candidates": [
                 {
@@ -79,7 +81,7 @@ def test_render_run_with_shadow_twin_and_ledger_after(tmp_path: Path) -> None:
                     "ev_score": 0.78,
                     "selected": True,
                     "forecast": {
-                        "predicted_reaction": "Opens <b>PDF</b> attachment",
+                        "predicted_reaction": "question",
                         "progress_prob": 0.81,
                         "suspicion_risk": 0.14,
                         "social_norm_violation": 0.05,
@@ -126,11 +128,17 @@ def test_render_run_with_shadow_twin_and_ledger_after(tmp_path: Path) -> None:
     assert "susp 0.14" in html
     assert "norm 0.05" in html
     assert "Matches requested format directly" in html
+    assert "question → question <span class='badge b-good' title='Match'>✓</span>" in html
+    assert "PIVOT_CHANNEL → STAY <span class='badge b-warn' title='Mismatch'>✗</span>" in html
+    assert html.count("→ question") == 1
+    assert "Live lookup" in html
+    assert "conference &lt;schedule&gt;" in html
+    assert "&lt;script&gt;lookup()&lt;/script&gt;" in html
+    assert "<script>lookup()</script>" not in html
 
     # HTML escaping checks
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
-    assert "Opens &lt;b&gt;PDF&lt;/b&gt; attachment" in html
     assert "requested format: pdf&lt;script&gt;x&lt;/script&gt;" in html
 
     # Ledger pill checks (active rendered, inactive skipped)
@@ -182,7 +190,8 @@ def test_actor_html_renders_and_escapes() -> None:
 
 
 def test_render_run_shows_actor_and_casting(tmp_path: Path) -> None:
-    step = {"touch": 1, "action": {"channel": "email", "decision": "DELIVER", "kind": "message"},
+    step = {"touch": 1, "action": {"channel": "email", "decision": "DELIVER", "kind": "message",
+                                  "assessment": "Mono-logue-xyz", "rationale": "Mono-logue-xyz"},
             "actor": {"inner_monologue": "Mono-logue-xyz", "notebook_added": ["note-abc"]}}
     state = _base_state([step])
     state["casting"] = {"persona": {"name": "Lena Fischer", "role": "Lead", "organisation": "Crew"},
@@ -190,4 +199,5 @@ def test_render_run_shows_actor_and_casting(tmp_path: Path) -> None:
     f = tmp_path / "run.json"
     f.write_text(json.dumps(state), encoding="utf-8")
     html = render_run(f).read_text(encoding="utf-8")
-    assert "Mono-logue-xyz" in html and "note-abc" in html and "needs-agenda-123" in html
+    assert html.count("Mono-logue-xyz") == 1
+    assert "note-abc" in html and "needs-agenda-123" in html

@@ -13,8 +13,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from .policy import (
-    _ATTACHMENT_DECLINE_CUES,
     _LIVE_CHANNELS,
+    _NEGATIVE_SENTIMENTS,
     _channel_ladder,
     _cited_facts_for_hook,
     _executed_steps,
@@ -24,8 +24,8 @@ from .policy import (
     _step_channel,
     _step_hook,
     _step_sentiment,
-    _NEGATIVE_SENTIMENTS,
 )
+from .target_state import extract_target_state
 
 Tier = Literal["safe", "balanced", "bold"]
 Reaction = Literal["engage", "question", "stall", "ignore", "suspicious", "incident"]
@@ -62,6 +62,11 @@ def _replies(step: dict[str, Any]) -> list[str]:
 def _forecast(tier: Tier, c: dict[str, Any], channel: str, hook: dict[str, Any] | None, objective: str) -> ShadowForecast:
     is_call = channel in _LIVE_CHANNELS
     weekend = c["today"].weekday() >= 5
+    ts = c["target_state"]
+    blocked = set(ts["blocked_mechanisms"])
+    open_doors = set(ts["open_doors"])
+    attachments_blocked = bool(blocked & {"attachments", "weekend_files"})
+    login_blocked = "login_wall" in blocked
     notes: list[str] = []
 
     progress = _BASE_PROGRESS[tier]
@@ -71,10 +76,26 @@ def _forecast(tier: Tier, c: dict[str, Any], channel: str, hook: dict[str, Any] 
     if hook and not _is_past_hook(hook) and not _is_uncertain_hook(hook):
         progress += 0.10
         notes.append("hook is current/upcoming")
-    if c["attachment_blocked"] and objective in ("credentials", "disclosure"):
+    if attachments_blocked and objective in ("credentials", "disclosure"):
         progress += 0.15
         notes.append(f"{objective} avoids declined attachments")
-    if is_call and not weekend and c["silent_message_touches"] >= 3:
+    if login_blocked and objective in ("action", "disclosure"):
+        progress += 0.10
+        notes.append(f"{objective} avoids blocked login wall")
+    if objective == "action" and "wants_pdf" in open_doors and not attachments_blocked:
+        progress += 0.20
+        notes.append("matches target request for PDF attachment")
+    if objective == "disclosure" and (open_doors & {"wants_email_body", "wants_details"}):
+        progress += 0.10
+        notes.append("matches target pull for details in email body")
+    if ts["reaction_tag"] == "LINK_OPENED_BOUNCE" and objective in ("action", "disclosure"):
+        progress += 0.15
+        notes.append("pivots away from login wall after link-open bounce")
+    call_invited = "wants_call" in open_doors and not ts.get("call_completed") and "phone_switch" not in blocked
+    if is_call and call_invited:
+        progress += 0.45
+        notes.append("target explicitly invited a call before reviewing files")
+    elif is_call and not weekend and c["silent_message_touches"] >= 3:
         progress += 0.30
         notes.append(f"weekday call after {c['silent_message_touches']} silent message touches")
 
@@ -82,15 +103,24 @@ def _forecast(tier: Tier, c: dict[str, Any], channel: str, hook: dict[str, Any] 
     if c["consecutive_negative"] >= 1 and (tier == "bold" or is_call):
         suspicion += 0.45
         notes.append("aggressive escalation after a negative verdict")
-    if objective == "action" and c["attachment_blocked"]:
+    if objective == "action" and attachments_blocked:
         suspicion += 0.45
-        notes.append("attachment ask after attachments were declined")
+        notes.append("attachment ask after attachments/weekend files were declined")
+    if objective == "credentials" and login_blocked:
+        suspicion += 0.45
+        notes.append("credential ask after login wall was blocked")
+    if objective == "credentials" and ts["reaction_tag"] == "LINK_OPENED_BOUNCE":
+        suspicion += 0.35
+        notes.append("repeats credential link after link-open bounce")
 
     norm = 0.0
-    if is_call and weekend:
+    if is_call and weekend and not call_invited:
         norm += 0.65
         notes.append("call on a weekend")
-    if c["last_replied_channel"] == "email" and channel in _PHONE_SWITCH and not c["phone_offered"]:
+    if channel in _PHONE_SWITCH and "phone_switch" in blocked:
+        norm += 0.65
+        notes.append(f"switches to {channel} after target requested email-only")
+    elif c["last_replied_channel"] == "email" and channel in _PHONE_SWITCH and not c["phone_offered"] and not (is_call and call_invited):
         norm += 0.65
         notes.append(f"switches to {channel} although target replied on email and offered no number")
     if channel == "sms" and c["last_channel"] == "sms":
@@ -127,8 +157,8 @@ def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str,
     channels = [_step_channel(s) for s in history if _step_channel(s)]
     sentiments = [_step_sentiment(s) for s in history]
     reply_text = " ".join(t for s in history for t in _replies(s))
-    sent_text = " ".join(str(((s.get("payload") or {}).get("body") or "")) for s in history)
-    blob = f"{reply_text} {sent_text}".casefold()
+    target_state = extract_target_state(history)
+    blocked = set(target_state["blocked_mechanisms"])
 
     silent_msgs = 0
     for s, sent in zip(reversed(history), reversed(sentiments)):
@@ -148,11 +178,12 @@ def _context(brief: dict[str, Any], steps: list[dict[str, Any]], plan: dict[str,
         "used_channels": channels,
         "used_hooks": [_step_hook(s) for s in history if _step_hook(s)],
         "last_channel": channels[-1] if channels else "",
-        "last_replied_channel": next((_step_channel(s) for s in reversed(history) if _step_channel(s) and _replies(s)), None),
-        "attachment_blocked": any(cue in blob for cue in _ATTACHMENT_DECLINE_CUES),
-        "phone_offered": bool(_PHONE_NUMBER.search(reply_text)),
+        "last_replied_channel": target_state["last_replied_channel"],
+        "attachment_blocked": bool(blocked & {"attachments", "weekend_files"}),
+        "phone_offered": bool(_PHONE_NUMBER.search(reply_text)) or bool(target_state["phone_offered"]),
         "silent_message_touches": silent_msgs,
         "consecutive_negative": negative,
+        "target_state": target_state,
     }
 
 
@@ -169,32 +200,54 @@ def select_shadow_twin_move(
     ranked = _rank_hooks(list(brief.get("hooks") or []), preferred_id=str(plan.get("hook_id") or "") or None)
     non_past = [h for h in ranked if not _is_past_hook(h)]
     top = (non_past or ranked or [None])[0]
+    last_hook_id = c["used_hooks"][-1] if c["used_hooks"] else None
+    current_hook = next((h for h in ranked if str(h["id"]) == last_hook_id), top)
     unused_hook = next((h for h in non_past if str(h["id"]) not in c["used_hooks"]), top)
+    routed = c["target_state"]["reaction_tag"] == "ROUTED"
+    balanced_hook = unused_hook if (routed or not c["last_replied_channel"]) else current_hook
     message_channels, live_channels = _channel_ladder(plan)
     primary = "email" if "email" in message_channels or not message_channels else message_channels[0]
-    active = c["last_replied_channel"] or c["last_channel"] or primary
+    replied_msg_channel = next(
+        (_step_channel(s) for s in reversed(c["history"])
+         if _step_channel(s) and _step_channel(s) not in _LIVE_CHANNELS
+         and _step_channel(s) != "linkedin_connection_request" and _replies(s)),
+        None,
+    )
+    active = replied_msg_channel or (c["last_channel"] if c["last_channel"] not in _LIVE_CHANNELS else None) or primary
+
+    target_state = c["target_state"]
+    blocked = set(target_state["blocked_mechanisms"])
+    open_doors = set(target_state["open_doors"])
+    attachments_blocked = bool(blocked & {"attachments", "weekend_files"})
+    login_blocked = "login_wall" in blocked
 
     plan_objective = str(plan.get("objective") or "disclosure")
-    if c["attachment_blocked"] and plan_objective == "action":
-        plan_objective = "credentials"
+    if plan_objective == "action" and attachments_blocked:
+        plan_objective = "disclosure" if login_blocked else "credentials"
+    elif plan_objective == "credentials" and login_blocked:
+        plan_objective = "action" if ("wants_pdf" in open_doors and not attachments_blocked) else "disclosure"
+    elif plan_objective == "credentials" and target_state["reaction_tag"] == "LINK_OPENED_BOUNCE":
+        plan_objective = "action" if not attachments_blocked else "disclosure"
 
-    safe_channel = c["last_replied_channel"] or primary
+    safe_channel = replied_msg_channel or primary
     balanced_channel = active
-    if active == "sms" == c["last_channel"]:  # never repeat sms back-to-back
-        balanced_channel = next((m for m in message_channels if m != "sms"), "email")
-    unused = [m for m in message_channels if m not in c["used_channels"] and m != c["last_channel"]]
+    if active in ("sms", "linkedin_connection_request") and active == c["last_channel"]:
+        balanced_channel = next((m for m in message_channels if m not in ("sms", "linkedin_connection_request")), "email")
+    unused = [m for m in message_channels if m not in c["used_channels"] and m != c["last_channel"] and m != "linkedin_connection_request"]
     call_channel = live_channels[0] if live_channels else "phone_call"
-    bold_channel = call_channel if (c["silent_message_touches"] >= 3 or not unused) else unused[0]
+    call_invited = "wants_call" in open_doors and not target_state.get("call_completed") and "phone_switch" not in blocked
+    bold_channel = call_channel if (call_invited or c["silent_message_touches"] >= 3 or not unused) else unused[0]
 
     specs: dict[Tier, tuple[str, dict[str, Any] | None, str, str, str]] = {
-        "safe": (safe_channel, top, plan_objective,
+        "safe": (safe_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
                  "Stay in-thread with one low-friction clarifying question.",
-                 f"stay on {safe_channel} with the top current hook"),
-        "balanced": (balanced_channel, unused_hook, plan_objective,
+                 f"stay on {safe_channel} with the active hook"),
+        "balanced": (balanced_channel, balanced_hook, plan_objective,
                      "Advance the objective directly with one concrete, single-purpose request.",
                      f"advance {plan_objective} on {balanced_channel}"),
-        "bold": (bold_channel, top, plan_objective,
-                 "Escalate to a live call or an unused channel with a higher-commitment ask.",
+        "bold": (bold_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
+                 "Place the brief call the target asked for so they can review the document right after."
+                 if call_invited else "Escalate to a live call or an unused channel with a higher-commitment ask.",
                  f"escalate to {bold_channel}"),
     }
 
@@ -235,5 +288,7 @@ def select_shadow_twin_move(
         "promises": ["Keep persona and prior details consistent", "Keep the ask concrete and single-purpose"],
         "rationale": f"Shadow twin picked {tier} (EV {winner['ev_score']}): {winner['forecast']['rationale']}.",
         "alternatives_considered": alternatives,
+        "forbidden_artifacts": list(c["target_state"]["blocked_mechanisms"]),
+        "target_state": c["target_state"],
     }
-    return selected_move, {"selected_tier": tier, "candidates": candidates}
+    return selected_move, {"selected_tier": tier, "candidates": candidates, "target_state": c["target_state"]}

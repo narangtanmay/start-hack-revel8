@@ -721,3 +721,21 @@ def test_portal_refusal_counts_as_login_decline() -> None:
     from revel8_agent.policy import _LOGIN_DECLINE
 
     assert _LOGIN_DECLINE.search("I'll send you a revised abstract by reply. I won't use the portal for now.")
+
+
+def test_first_bounce_keeps_link_second_bounce_switches_route() -> None:
+    # fast-S5 (Tom, 2026-11-22): opened on T1 without submitting, submitted on T3 because the link stayed.
+    plan = _sample_plan(hook_id="theme")
+    plan["objective"] = "credentials"
+
+    def bounced(touch: int) -> dict:
+        st = _step(touch, "email", "event", "engaged")
+        st["events"] = [{"type": "link.opened", "url": "https://x.test/p"},
+                        {"type": "reply", "body": "Thanks, I've looked at the portal. Two quick questions first."}]
+        return st
+
+    one = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [bounced(1)], touch=2, max_touches=10, plan=plan)
+    assert one["require_link"] is True
+    two = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [bounced(1), bounced(2)], touch=3, max_touches=10,
+                                             plan=plan)
+    assert two["require_link"] is False

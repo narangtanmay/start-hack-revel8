@@ -10,18 +10,22 @@ MESSAGES: list[ChatMessage] = [{"role": "user", "content": "Summarize workshop c
 
 
 @pytest.mark.parametrize("suffix", ["", "/v1/"])
+@pytest.mark.parametrize("json_mode_env", [None, "0"], ids=["default", "disabled"])
 @respx.mock
-def test_chat_json_mode(suffix: str) -> None:
+def test_chat_json_mode(suffix: str, json_mode_env: str | None, monkeypatch: pytest.MonkeyPatch) -> None:
+    if json_mode_env is None:
+        monkeypatch.delenv("LLM_JSON_MODE", raising=False)
+    else:
+        monkeypatch.setenv("LLM_JSON_MODE", json_mode_env)
     route = respx.post(f"{BASE}/v1/chat/completions").respond(
         json={"choices": [{"message": {"content": '{"check_in": "09:00"}'}}]}
     )
     with LocalLLMClient(BASE + suffix, "workshop-model") as client:
         assert client.chat(MESSAGES, json_mode=True) == {"check_in": "09:00"}
-    assert json.loads(route.calls.last.request.content) == {
-        "model": "workshop-model",
-        "messages": MESSAGES,
-        "response_format": {"type": "json_object"},
-    }
+    expected = {"model": "workshop-model", "messages": MESSAGES}
+    if json_mode_env is None:
+        expected["response_format"] = {"type": "json_object"}
+    assert json.loads(route.calls.last.request.content) == expected
 
 
 @respx.mock

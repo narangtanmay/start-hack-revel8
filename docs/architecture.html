@@ -144,7 +144,7 @@
     </div>
     <div class="badges">
       <span class="badge">Non-Orchestrator Design</span>
-      <span class="badge green">242/242 Offline Unit Tests</span>
+      <span class="badge green">Offline Regression Tests</span>
       <span class="badge amber">Zero Human-in-the-Loop</span>
     </div>
   </header>
@@ -156,7 +156,7 @@
     </div>
     <div class="thesis-box ours">
       <div class="thesis-label hi">Our Last-20% Approach (What We Built)</div>
-      <p><strong>Separate social intuition from hard invariants.</strong> A cast character (<code>--actor</code>) acts from a real motive, deadline, and personal notebook; a <strong>deterministic code shell</strong> enforces grounding, cross-turn consistency, and replayable norm regression tests.</p>
+      <p>The decision core uses either deterministic rules or a persona with a running notebook. A shared <strong>pre-send gate</strong> checks drafts for factual grounding and consistency with earlier messages.</p>
     </div>
   </section>
 
@@ -166,10 +166,9 @@
       <h2>Verified Dossier &amp; Temporal Hygiene</h2>
       <div class="file">research.py · snowball.py · engine.timing()</div>
       <ul>
-        <li><strong>5-lane parallel search</strong> + snowball query expansion within hard time budget.</li>
+        <li><strong>Parallel search</strong> with follow-up queries within a fixed time budget.</li>
         <li><strong>Numeric conflict filter</strong> strips contradictory facts (protects −5 wrong-fact penalty).</li>
         <li><strong>Strict date parser</strong> (<code>DD/MM/YYYY</code>, ranges, quarters) stamps past events <code>PAST</code> so only fresh/upcoming hooks lead.</li>
-        <li><strong>Cross-session memory</strong> (<code>memory.py</code>) persists learned channel/tone preferences across sequential eval runs.</li>
       </ul>
     </div>
 
@@ -177,13 +176,12 @@
 
     <div class="stage core">
       <div class="stage-num">2 · Decision Core (No Orchestrator)</div>
-      <h2>Method Actor + Pluggable Policy Seam</h2>
-      <div class="file">actor.py (--actor) · policy.py (--policy)</div>
+      <h2>Rule-Based Policy &amp; Method Actor</h2>
+      <div class="file">policy.py (--policy) · actor.py (--actor)</div>
       <ul>
-        <li><strong>Casting:</strong> casts ONE ordinary persona with a concrete deadline &amp; genuine need only the target can unblock.</li>
-        <li><strong>Live Notebook:</strong> every promise, date, and detail sent is read back each turn—no brittle strategist prompt tree.</li>
+        <li><strong><code>--policy</code></strong> uses rules to select the next move from the conversation history.</li>
+        <li><strong><code>--actor</code></strong> is a persona-driven alternative under evaluation. It uses a motive, deadline, and running notebook to choose the next move.</li>
         <li><strong>Live-Call Pre-Registration:</strong> registers landing pages before dialling so spoken URLs resolve cleanly.</li>
-        <li><strong>Ablation-ready seam:</strong> <code>--actor</code> vs <code>--policy</code> vs baseline run on the exact same Runner &amp; Gate.</li>
       </ul>
     </div>
 
@@ -204,13 +202,14 @@
     <div class="arrow">→</div>
 
     <div class="stage">
-      <div class="stage-num">4 · Execution &amp; Audit</div>
-      <h2>API-Only Stop &amp; Turn Replay</h2>
-      <div class="file">engine.py · report.py · benchmark.py</div>
+      <div class="stage-num">4 · Execution, Audit &amp; Memory</div>
+      <h2>API Confirmation &amp; Post-Run Records</h2>
+      <div class="file">engine.py · report.py · benchmark.py · memory.py</div>
       <ul>
         <li><strong>Dynamic EN/DE craft:</strong> offline-rendered HTML mails, brand logos, &amp; landing pages matching target language.</li>
         <li><strong>API-confirmed stop rule:</strong> stops early <em>only</em> on real API events (<code>page.submitted</code>, <code>attachment.opened</code>)—never LLM-judge guesses.</li>
         <li><strong>Full turn replay:</strong> logs actor notebook / policy decision, rejected alternatives, gate checks, and raw API events per touch.</li>
+        <li><strong>Cross-run memory:</strong> saves target preferences and corrections after a run for use in later sessions.</li>
       </ul>
     </div>
   </section>
@@ -225,36 +224,29 @@
         </div>
         <div class="loop-step">
           <div class="k">2. Encode Invariant</div>
-          <p><strong>Deterministic rule:</strong> Stay in-thread on first objection reply; never repeat SMS; cross-turn ledger rejects broken promises before send.</p>
+          <p>Policy stays in-thread on the first objection and avoids consecutive SMS on fallback. The gate checks prior promises before sending.</p>
         </div>
         <div class="loop-step">
           <div class="k">3. Lock Regression</div>
-          <p><strong>Offline proof:</strong> Every caught failure becomes a zero-network unit test (<code>242/242</code> green) before the next live run.</p>
+          <p>Offline tests cover channel switching after an email reply, consecutive SMS on fallback, and broken attachment promises.</p>
         </div>
       </div>
     </div>
 
     <div class="panel proof">
-      <h3>Empirical Proof (Practice API · Strictly API-Confirmed)</h3>
+      <h3>Practice API Evidence</h3>
       <table>
         <thead>
-          <tr><th>Milestone</th><th>Build</th><th>API-Confirmed Result</th></tr>
+          <tr><th>Decision mode</th><th>Evidence</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>Baseline</td>
-            <td class="mono">DeepSeek-V4-Flash</td>
-            <td>0/3 incidents · past Jan 2026 hooks pitched as current</td>
+            <td class="mono">--policy</td>
+            <td class="ok">1 API-confirmed incident on <code>tom</code>. <code>page.submitted</code> at T3 in <code>s_1cb26ff20b</code>.</td>
           </tr>
           <tr>
-            <td>Cross-Turn Catch</td>
-            <td class="mono">succ-zero + --policy v1</td>
-            <td>10/10 replies on <code>tom</code> · caught T9 <em>"kein Anhang"</em> bug</td>
-          </tr>
-          <tr>
-            <td>Verified Win</td>
-            <td class="mono">succ-zero + timing/gate</td>
-            <td class="ok">tom · T3 page.submitted (email+password) · s_1cb26ff20b</td>
+            <td class="mono">--actor</td>
+            <td>Persona-driven alternative under evaluation.</td>
           </tr>
         </tbody>
       </table>
@@ -262,7 +254,7 @@
   </section>
 
   <footer>
-    <span>Repository: narangtanmay/start-hack-revel8 · Branch: feat/shadow-twin-engine (merged main 482af78 + feat/method-actor a15e312)</span>
+    <span>Team Clooless · START Hack Munich</span>
     <span>Print to PDF in A4 Landscape (Ctrl+P · Background graphics ON)</span>
   </footer>
 </div>

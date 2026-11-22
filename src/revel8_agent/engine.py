@@ -1153,7 +1153,7 @@ class Runner:
                                         lang=lang)
                 elif ptype == "document":
                     page = document_gate_page(self.brand, url=link["url"], logo_asset=self.logo_asset,
-                                              document_name=str(link.get("document_name") or "Dokument"), lang=lang)
+                                              document_name=str(link.get("document_name") or ("Dokument" if lang == "de" else "Document")), lang=lang)
                 else:
                     page = signin_page(self.brand, url=link["url"], logo_asset=self.logo_asset, lang=lang)
             else:
@@ -1172,7 +1172,7 @@ class Runner:
             is_html = True
             if fmt == "shared_doc":
                 body = shared_doc_notice(self.brand, logo_asset=self.logo_asset, sharer_name=name,
-                                         sharer_email=address, document_name=str(link.get("document_name") or "Dokument"),
+                                         sharer_email=address, document_name=str(link.get("document_name") or ("Dokument" if lang == "de" else "Document")),
                                          doc_url=link["url"], note=" ".join(paragraphs) or None, lang=lang)
             else:
                 body = vendor_notice(self.brand, logo_asset=self.logo_asset, recipient_name=first_name,
@@ -1281,7 +1281,10 @@ class Runner:
                     ctx = (f"PERSONA: {json.dumps(persona, ensure_ascii=False)}\nCALL GOAL: {a.get('call_goal')}\n"
                            f"EARLIER IN THIS SESSION:\n{_history_text(self.state, 4000)}\n\nTHIS CALL SO FAR:\n"
                            + "\n".join(f"{'YOU' if t['who'] == 'agent' else 'THEM'}: {t['text']}" for t in step["transcript"]))
-                    out = _llm_json(self.llm, self.state, system, ctx, temperature=0.6, reasoning="none")
+                    try:
+                        out = _llm_json(self.llm, self.state, system, ctx, temperature=0.6, reasoning="none")
+                    except RuntimeError:
+                        break
                     line = out.get("say")
                     if out.get("end") and not line:
                         break
@@ -1434,12 +1437,20 @@ class Runner:
                         st.brief, st.steps, touch, self.cfg.max_touches, st.plan, base_move=policy_move
                     )
                     step["policy"] = policy_move
+                if policy_move and policy_move.get("target_state"):
+                    step["target_state"] = policy_move["target_state"]
                 feedback = ""
+                strip_link = False
+                strip_attachment = False
                 t0 = time.monotonic()
                 for n_try in range(3):
                     a = self.decide(touch, feedback, policy_move=policy_move)
                     if policy_move and a.get("decision") != "STOP":
                         self._bind_policy(a, policy_move)
+                    if strip_link:
+                        a["link"] = None
+                    if strip_attachment:
+                        a["attachment_filename"] = None
                     attempt ={"try": n_try + 1, "decision": a.get("decision"), "kind": a.get("kind"),
                                "channel": a.get("channel"), "subject": a.get("subject"),
                                "feedback_given": feedback or None, "errors": []}
@@ -1478,6 +1489,11 @@ class Runner:
                     if not errors:
                         break
                     attempt["raw"] = getattr(self, "_last_raw", None)
+                    for err in errors:
+                        if "Cross-turn contradiction" in err and "credential form" in err:
+                            strip_link = True
+                        if "Cross-turn contradiction" in err and "attaches a file" in err:
+                            strip_attachment = True
                     feedback = "; ".join(errors)
                     self.log(f"touch {touch}: draft rejected by gate: {feedback}")
                 else:
