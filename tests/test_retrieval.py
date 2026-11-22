@@ -25,6 +25,8 @@ def test_retrieval_finds_the_fact_matching_their_reply():
 
 
 def test_ground_truth_trims_a_theme_instead_of_dropping_everything_after_it():
-    d = _d([f"Fact number {i} about a distinct project called Project{i} with details." for i in range(40)])
+    words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo",
+             "lima", "mike", "november", "oscar", "papa", "quebec", "romeo", "sierra", "tango"]
+    d = _d([f"{a} {b} initiative launched {a}-{b} workstream" for a in words[:8] for b in words[8:13]])
     g = ground_truth(d, max_chars=1500, per_theme=40)
     assert 5 <= len(g["fact_ids"]) < 40 and len(g["text"]) <= 1500
