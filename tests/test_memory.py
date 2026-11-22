@@ -39,9 +39,9 @@ def test_ground_truth_is_bounded_and_prefers_own_voice():
     assert all(int(i[1:]) % 2 == 1 for i in gt["fact_ids"][:6])   # social (own voice) first
 
 
-def _session_state(run_id, replies, incident_source=None, blocked=None):
+def _session_state(run_id, replies, incident_source=None, blocked=None, reply="Thanks, noted."):
     steps = [{"touch": i + 1, "action": {"channel": "email"},
-              "events": [{"type": "reply", "body": "Thanks, noted."}] if i < replies else [],
+              "events": [{"type": "reply", "body": reply}] if i < replies else [],
               "target_state": {"blocked_mechanisms": blocked or []}} for i in range(3)]
     incidents = [{"type": "action", "touch": 2, "source": incident_source}] if incident_source else []
     return {"run_id": run_id, "plan": {"hook_id": run_id, "persona": {}}, "steps": steps, "incidents": incidents}
@@ -61,6 +61,14 @@ def test_memory_ranks_api_wins_first_and_never_forgets_them(tmp_path):
 def test_memory_carries_refusals_across_runs(tmp_path):
     # Tom refused the PDF; the next session must not plan attachments again.
     m = TargetMemory("Tom Müller", root=tmp_path)
-    m.learn_from_run(_session_state("r1", replies=2, blocked=["attachments"]))
+    m.learn_from_run(_session_state("r1", replies=2, blocked=["attachments"], reply="I don't open attachments from outside."))
     m.save()
     assert "attachments" in TargetMemory("Tom Müller", root=tmp_path).prompt()
+
+
+def test_memory_ignores_blocks_inferred_from_our_own_messages(tmp_path):
+    # target_state also blocks login_wall when OUR draft said "no login"; that is not the target refusing,
+    # and since e3a3dcd refusals are hard rules in session 2, it would ban links for the whole eval.
+    m = TargetMemory("Tom Müller", root=tmp_path)
+    m.learn_from_run(_session_state("r1", replies=2, blocked=["login_wall"], reply="Thanks, noted."))
+    assert "refused: login_wall" not in m.data["rules"]

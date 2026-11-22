@@ -23,6 +23,20 @@ import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+
+from .target_state import (
+    _ATTACHMENT_BLOCK_RE,
+    _LOGIN_BLOCK_RE,
+    _PHONE_SWITCH_BLOCK_RE,
+    _WEEKEND_FILES_RE,
+)
+
+_REFUSAL_MATCHERS = {
+    "login_wall": _LOGIN_BLOCK_RE,
+    "attachments": _ATTACHMENT_BLOCK_RE,
+    "weekend_files": _WEEKEND_FILES_RE,
+    "phone_switch": _PHONE_SWITCH_BLOCK_RE,
+}
 from typing import Any
 
 MEMORY_DIR = Path("memory")
@@ -159,8 +173,12 @@ class TargetMemory:
             for pref in ((s.get("belief") or {}).get("preferences") or []):
                 if pref not in self.data["rules"]:
                     self.data["rules"].append(pref)
-            # Refusals target_state saw (scored config has no "belief"): carry them so the next session avoids them.
+            # Refusals target_state saw: carry only those the target explicitly stated in their own words
+            # (never blocks inferred from our own sent text, which would poison Session 2+).
             for blocked in ((s.get("target_state") or {}).get("blocked_mechanisms") or []):
+                matcher = _REFUSAL_MATCHERS.get(blocked)
+                if matcher is not None and not matcher.search(said):
+                    continue
                 rule = f"refused: {blocked}"
                 if rule not in self.data["rules"]:
                     self.data["rules"].append(rule)
