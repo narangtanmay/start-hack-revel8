@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>revel8 Agentic Social Engineer — One-Page Architecture (Team Clooless)</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  :root {
+    --bg: #0b0f17;
+    --card: #121826;
+    --card-alt: #172033;
+    --border: #26324a;
+    --text: #eef2f9;
+    --muted: #9aa7bd;
+    --accent: #38bdf8;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px 26px;
+    line-height: 1.38;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page { max-width: 1220px; margin: 0 auto; }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .title h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+  .title p { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--card); color: var(--accent);
+  }
+  .badge.green { color: var(--green); border-color: rgba(52,211,153,.35); }
+  .badge.amber { color: var(--amber); border-color: rgba(251,191,36,.35); }
+
+  .thesis {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;
+  }
+  .thesis-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+  }
+  .thesis-box.ours { border-color: rgba(56,189,248,.45); background: linear-gradient(135deg, #121826, #132238); }
+  .thesis-label {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px;
+  }
+  .thesis-label.dim { color: var(--rose); }
+  .thesis-label.hi { color: var(--accent); }
+  .thesis-box p { font-size: 12px; color: var(--text); }
+  .thesis-box span { color: var(--muted); }
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1fr 22px 1.25fr 22px 1.25fr 22px 1fr;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 14px;
+  }
+  .arrow {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-size: 18px; font-weight: 700;
+  }
+  .stage {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stage.core { border-color: rgba(56,189,248,.5); }
+  .stage.shell { border-color: rgba(52,211,153,.45); }
+  .stage-num {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent);
+  }
+  .stage.shell .stage-num { color: var(--green); }
+  .stage h2 { font-size: 13.5px; font-weight: 700; }
+  .file {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px; color: var(--amber);
+  }
+  .stage ul { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+  .stage li { font-size: 11.3px; color: var(--muted); padding-left: 11px; position: relative; }
+  .stage li::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
+  .stage.shell li::before { color: var(--green); }
+  .stage li strong { color: var(--text); font-weight: 600; }
+
+  .bottom {
+    display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px;
+  }
+  .panel {
+    background: var(--card-alt); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px;
+  }
+  .panel h3 {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--accent); margin-bottom: 7px;
+  }
+  .panel.proof h3 { color: var(--green); }
+  .loop-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .loop-step {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 9px;
+  }
+  .loop-step .k { font-size: 10px; font-weight: 700; color: var(--amber); text-transform: uppercase; }
+  .loop-step p { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .loop-step strong { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11.2px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; }
+  td.ok { color: var(--green); font-weight: 700; }
+  td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+
+  footer {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="title">
+      <h1>Method Actor Inside a Deterministic Guardrail Shell</h1>
+      <p>Team Clooless · START Hack Munich · revel8 Agentic Social Engineer — One-Page System Architecture</p>
+    </div>
+    <div class="badges">
+      <span class="badge">Non-Orchestrator Design</span>
+      <span class="badge green">242/242 Offline Unit Tests</span>
+      <span class="badge amber">Zero Human-in-the-Loop</span>
+    </div>
+  </header>
+
+  <section class="thesis">
+    <div class="thesis-box">
+      <div class="thesis-label dim">The 80% Trap (What Breaks in Production)</div>
+      <p><strong>Orchestrator + Planner + Strategist prompt loops</strong> are too rigid on instructions and break cover on real humans: pitching past events as upcoming, contradicting earlier promises, or spamming C-levels across SMS/WhatsApp.</p>
+    </div>
+    <div class="thesis-box ours">
+      <div class="thesis-label hi">Our Last-20% Approach (What We Built)</div>
+      <p><strong>Separate social intuition from hard invariants.</strong> A cast character (<code>--actor</code>) acts from a real motive, deadline, and personal notebook; a <strong>deterministic code shell</strong> enforces grounding, cross-turn consistency, and replayable norm regression tests.</p>
+    </div>
+  </section>
+
+  <section class="pipeline">
+    <div class="stage">
+      <div class="stage-num">1 · Grounded OSINT</div>
+      <h2>Verified Dossier &amp; Temporal Hygiene</h2>
+      <div class="file">research.py · snowball.py · engine.timing()</div>
+      <ul>
+        <li><strong>5-lane parallel search</strong> + snowball query expansion within hard time budget.</li>
+        <li><strong>Numeric conflict filter</strong> strips contradictory facts (protects −5 wrong-fact penalty).</li>
+        <li><strong>Strict date parser</strong> (<code>DD/MM/YYYY</code>, ranges, quarters) stamps past events <code>PAST</code> so only fresh/upcoming hooks lead.</li>
+        <li><strong>Cross-session memory</strong> (<code>memory.py</code>) persists learned channel/tone preferences across sequential eval runs.</li>
+      </ul>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="stage core">
+      <div class="stage-num">2 · Decision Core (No Orchestrator)</div>
+      <h2>Method Actor + Pluggable Policy Seam</h2>
+      <div class="file">actor.py (--actor) · policy.py (--policy)</div>
+      <ul>
+        <li><strong>Casting:</strong> casts ONE ordinary persona with a concrete deadline &amp; genuine need only the target can unblock.</li>
+        <li><strong>Live Notebook:</strong> every promise, date, and detail sent is read back each turn—no brittle strategist prompt tree.</li>
+        <li><strong>Live-Call Pre-Registration:</strong> registers landing pages before dialling so spoken URLs resolve cleanly.</li>
+        <li><strong>Ablation-ready seam:</strong> <code>--actor</code> vs <code>--policy</code> vs baseline run on the exact same Runner &amp; Gate.</li>
+      </ul>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="stage shell">
+      <div class="stage-num">3 · Deterministic Shell (Outside Actor)</div>
+      <h2>Pre-Send &amp; Cross-Turn Verification Gate</h2>
+      <div class="file">gate.py · schemas.py · templates/</div>
+      <ul>
+        <li><strong>Rule-void shield:</strong> blocks target/real-org domains, simulator meta-text, scripts, non-<code>asset://</code> images.</li>
+        <li><strong>Same-turn consistency:</strong> rejects <em>"public / no login"</em> claims paired with credential fields.</li>
+        <li><strong>Cross-turn commitment ledger:</strong> rejects attaching a file after promising <em>"no attachment"</em> / <em>"kein Anhang"</em>.</li>
+        <li><strong>Entity &amp; date grounding:</strong> rejects ungrounded colleague names &amp; past hooks pitched as upcoming; retries with exact feedback.</li>
+      </ul>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="stage">
+      <div class="stage-num">4 · Execution &amp; Audit</div>
+      <h2>API-Only Stop &amp; Turn Replay</h2>
+      <div class="file">engine.py · report.py · benchmark.py</div>
+      <ul>
+        <li><strong>Dynamic EN/DE craft:</strong> offline-rendered HTML mails, brand logos, &amp; landing pages matching target language.</li>
+        <li><strong>API-confirmed stop rule:</strong> stops early <em>only</em> on real API events (<code>page.submitted</code>, <code>attachment.opened</code>)—never LLM-judge guesses.</li>
+        <li><strong>Full turn replay:</strong> logs actor notebook / policy decision, rejected alternatives, gate checks, and raw API events per touch.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="bottom">
+    <div class="panel">
+      <h3>Replay-Driven Social-Norm Hardening Loop (How We Tune the Last 20%)</h3>
+      <div class="loop-row">
+        <div class="loop-step">
+          <div class="k">1. Catch in Replay</div>
+          <p><strong>Observed failure:</strong> Agent dropped a live email reply and sent 6× SMS, or promised <em>"kein Anhang"</em> then attached a PDF at T9.</p>
+        </div>
+        <div class="loop-step">
+          <div class="k">2. Encode Invariant</div>
+          <p><strong>Deterministic rule:</strong> Stay in-thread on first objection reply; never repeat SMS; cross-turn ledger rejects broken promises before send.</p>
+        </div>
+        <div class="loop-step">
+          <div class="k">3. Lock Regression</div>
+          <p><strong>Offline proof:</strong> Every caught failure becomes a zero-network unit test (<code>242/242</code> green) before the next live run.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel proof">
+      <h3>Empirical Proof (Practice API · Strictly API-Confirmed)</h3>
+      <table>
+        <thead>
+          <tr><th>Milestone</th><th>Build</th><th>API-Confirmed Result</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Baseline</td>
+            <td class="mono">DeepSeek-V4-Flash</td>
+            <td>0/3 incidents · past Jan 2026 hooks pitched as current</td>
+          </tr>
+          <tr>
+            <td>Cross-Turn Catch</td>
+            <td class="mono">succ-zero + --policy v1</td>
+            <td>10/10 replies on <code>tom</code> · caught T9 <em>"kein Anhang"</em> bug</td>
+          </tr>
+          <tr>
+            <td>Verified Win</td>
+            <td class="mono">succ-zero + timing/gate</td>
+            <td class="ok">tom · T3 page.submitted (email+password) · s_1cb26ff20b</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>Repository: narangtanmay/start-hack-revel8 · Branch: feat/shadow-twin-engine (merged main 482af78 + feat/method-actor a15e312)</span>
+    <span>Print to PDF in A4 Landscape (Ctrl+P · Background graphics ON)</span>
+  </footer>
+</div>
+</body>
+</html>
