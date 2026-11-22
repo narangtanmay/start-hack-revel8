@@ -252,3 +252,36 @@ def test_refusal_wordings_from_the_blind_judge_are_recognised():
     # and the opposite must still pass
     assert not _LOGIN_BLOCK_RE.search("Thanks, I registered and the page is done.")
     assert not _ATTACHMENT_BLOCK_RE.search("I opened the PDF and it answers my question.")
+
+
+def _reply_step(text: str) -> list[dict]:
+    return [{"touch": 1, "action": {"channel": "email"}, "events": [{"type": "reply", "body": text}]}]
+
+
+def test_a_bare_send_verb_without_a_person_is_not_a_handoff() -> None:
+    # loop8-robert T1, live: "send the details you plan to use in" captured "use in the" and the
+    # after-call letter went out addressed to that. It is just an after-call delivery.
+    state = extract_target_state(_reply_step(
+        "I won't sign in to an external page to confirm anything. "
+        "If you want to quote us, send the details you plan to use in writing."))
+    assert state["call_handoff"] == ""
+
+
+def test_a_capitalised_name_is_still_a_handoff() -> None:
+    state = extract_target_state(_reply_step(
+        "Not my area, write to Claudia, she'll set it up."))
+    assert "Claudia" in state["call_handoff"]
+
+
+def test_an_invite_to_the_address_already_in_the_thread_is_not_a_handoff() -> None:
+    steps = [
+        {"touch": 1, "action": {"channel": "email", "body": "Hello Tom <tom@revel8.ai>"},
+         "events": [{"type": "reply", "body": "Please send the invite to tom@revel8.ai."}]},
+    ]
+    assert extract_target_state(steps)["call_handoff"] == ""
+
+
+def test_an_unnamed_colleague_forward_does_not_invent_an_addressee() -> None:
+    state = extract_target_state(_reply_step(
+        "Send the PDF after the call and I'll forward it to the colleague drafting the note."))
+    assert state["call_handoff"] == ""

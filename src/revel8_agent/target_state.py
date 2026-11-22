@@ -296,6 +296,9 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     last_reply_open_door = False
     last_sentiment = ""
 
+    sent_mails = {m.casefold() for step in history
+                  for m in _EMAIL_RE.findall(_sent_blob(step))}
+
     for idx, step in enumerate(history, start=1):
         turn = int(step.get("touch") or idx)
         step_chan = _step_channel(step)
@@ -363,7 +366,16 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
             mail = _EMAIL_RE.search(combined)
             desk = bool(mail) and mail.group(0).split("@")[0].casefold() in _DESK_LOCAL
             desk = desk or (bool(names) and names[0].split()[0].casefold() in _DESK_LOCAL)
-            if (names or mail) and (desk or _HANDOFF_CUE_RE.search(combined)):
+            cue = bool(_HANDOFF_CUE_RE.search(combined))
+            # An address we have already mailed is the thread's own address: "send the invite to
+            # tom@..." is a booking, not a handoff to somebody else.
+            own_mail = bool(mail) and mail.group(0).casefold() in sent_mails
+            # A routing verb alone is not a handoff: robert's "send the details you plan to use in"
+            # captured "use in the" and the letter was addressed to that. Keep the capture only for
+            # a desk, a routing cue, or a written proper name; otherwise use the after-call close.
+            credible = (desk or cue or (bool(names) and names[0][:1].isupper()))
+            credible = credible and not (own_mail and not cue and not desk)
+            if (names or mail) and credible:
                 who = re.split(r"\s+(?:or|oder|and|und|bzw\.?|at|bei|to|with|mit|please|via|per|mail|telefon|phone)\b",
                                names[0].strip(" .,;"), maxsplit=1)[0] if names else ""
                 who = re.sub(r"^(?:the|a|an|our|your)\s+", "", who, flags=re.IGNORECASE).strip(" .,;")
