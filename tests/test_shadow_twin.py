@@ -239,3 +239,14 @@ def test_routed_pivots_once_not_on_every_silent_touch() -> None:
     silent = {"touch": 2, "action": {"channel": "email", "hook_id": "h2"}, "events": []}
     move, _ = _select([routed, silent], WEEKDAY, brief=THREE_HOOKS)
     assert move["hook_id"] == "h2"
+
+
+def test_silence_after_a_deflection_counts_toward_the_stall() -> None:
+    # Robert final (5ade40d): deflected at T2, then 4 silent touches all on h4 with the same portal link.
+    steps = [
+        _step(1, "email", reply="Hi Andreas, thanks for writing. Both topics are relevant to us."),
+        _step(2, "email", reply="Please send the one-pager and the portal request to Claudia Lannes and the sales desk."),
+        {"touch": 3, "action": {"channel": "email", "hook_id": "h1"}, "events": []},
+    ]
+    move, _ = _select(steps, WEEKDAY, brief=TWO_HOOKS)
+    assert move["hook_id"] == "h2"

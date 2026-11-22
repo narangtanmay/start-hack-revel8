@@ -37,3 +37,30 @@ def test_ground_truth_is_bounded_and_prefers_own_voice():
     gt = ground_truth(d, max_chars=2000, per_theme=6)
     assert len(gt["text"]) <= 2000 and gt["fact_ids"]
     assert all(int(i[1:]) % 2 == 1 for i in gt["fact_ids"][:6])   # social (own voice) first
+
+
+def _session_state(run_id, replies, incident_source=None, blocked=None):
+    steps = [{"touch": i + 1, "action": {"channel": "email"},
+              "events": [{"type": "reply", "body": "Thanks, noted."}] if i < replies else [],
+              "target_state": {"blocked_mechanisms": blocked or []}} for i in range(3)]
+    incidents = [{"type": "action", "touch": 2, "source": incident_source}] if incident_source else []
+    return {"run_id": run_id, "plan": {"hook_id": run_id, "persona": {}}, "steps": steps, "incidents": incidents}
+
+
+def test_memory_ranks_api_wins_first_and_never_forgets_them(tmp_path):
+    # Tom's only API win (s_1cb26ff20b) was pushed out by 20 chatty practice runs and ranked below them.
+    m = TargetMemory("Tom Müller", root=tmp_path)
+    m.learn_from_run(_session_state("win", replies=1, incident_source="api event"))
+    for i in range(25):
+        m.learn_from_run(_session_state(f"chatty{i}", replies=3))
+    assert any(s["run"] == "win" for s in m.data["sessions"])
+    first = m.prompt().splitlines()[1]
+    assert "hook win" in first
+
+
+def test_memory_carries_refusals_across_runs(tmp_path):
+    # Tom refused the PDF; the next session must not plan attachments again.
+    m = TargetMemory("Tom Müller", root=tmp_path)
+    m.learn_from_run(_session_state("r1", replies=2, blocked=["attachments"]))
+    m.save()
+    assert "attachments" in TargetMemory("Tom Müller", root=tmp_path).prompt()

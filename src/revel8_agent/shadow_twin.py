@@ -173,6 +173,11 @@ def _unproductive_replies_on_hook(history: list[dict[str, Any]]) -> int:
                           or set(cur["open_doors"]) - set(prev["open_doors"])
                           or cur["reaction_tag"] in ("INCIDENT_CONFIRMED", "LINK_OPENED_BOUNCE"))
             count = 0 if prev["engagement_stage"] == "cold" else count + (not progressed)
+        elif hook and _step_hook(s) == hook and prev["engagement_stage"] != "cold":
+            # Silence after they engaged counts too (Robert final: deflected at T2, then 4 silent touches on h4).
+            # Cold-open silence stays with the channel ladder.
+            pending_ask = ("wants_call" in cur["open_doors"] and not cur["call_completed"]) or "wants_pdf" in cur["open_doors"]
+            count += not pending_ask
         elif _step_hook(s) != hook:
             count = 0
         prev = cur

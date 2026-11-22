@@ -118,6 +118,10 @@ class SessionLedger:
 # --------------------------------------------------------------------------- 3. target memory
 
 
+def _api_win(session: dict) -> bool:
+    return any("api event" in str(i) for i in session.get("incidents") or [])
+
+
 class TargetMemory:
     """What we learned about one person across sessions. Stored at memory/targets/<name>.json."""
 
@@ -149,6 +153,11 @@ class TargetMemory:
             for pref in ((s.get("belief") or {}).get("preferences") or []):
                 if pref not in self.data["rules"]:
                     self.data["rules"].append(pref)
+            # Refusals target_state saw (scored config has no "belief"): carry them so the next session avoids them.
+            for blocked in ((s.get("target_state") or {}).get("blocked_mechanisms") or []):
+                rule = f"refused: {blocked}"
+                if rule not in self.data["rules"]:
+                    self.data["rules"].append(rule)
             j = s.get("judge") or {}
             if j.get("disclosure") and j.get("evidence_verified"):
                 self.data["disclosed"].append({"run": state.get("run_id"), "touch": s.get("touch"), "text": j.get("evidence", "")[:300]})
@@ -162,7 +171,11 @@ class TargetMemory:
         })
         for k in ("corrections", "disclosed"):
             self.data[k] = self.data[k][-20:]
-        self.data["sessions"] = self.data["sessions"][-20:]
+        # Never forget an API-confirmed win (Tom's only one was evicted by 20 chatty practice runs).
+        wins = [x for x in self.data["sessions"] if _api_win(x)]
+        rest = [x for x in self.data["sessions"] if not _api_win(x)]
+        keep = {id(x) for x in wins + rest[-max(0, 20 - len(wins)):]}
+        self.data["sessions"] = [x for x in self.data["sessions"] if id(x) in keep]
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -171,7 +184,8 @@ class TargetMemory:
     def prompt(self) -> str:
         if not self.data["sessions"]:
             return ""
-        best = sorted(self.data["sessions"], key=lambda s: (s["reply_rate"], -s["brushoffs"]), reverse=True)
+        # Results first: replies without an API event are what Tom gave us 20 times without converting.
+        best = sorted(self.data["sessions"], key=lambda s: (_api_win(s), s["reply_rate"], -s["brushoffs"]), reverse=True)
         lines = [f"- {s['persona'] or '?'} / hook {s['hook_id']}: reply rate {s['reply_rate']}, silence {s['silence']}, "
                  f"brush-offs {s['brushoffs']}, incidents {s['incidents'] or 'none'} | {s['pretext'][:120]}" for s in best[:6]]
         out = ["WHAT WE LEARNED ABOUT THIS PERSON IN EARLIER SESSIONS (new session = clean slate for them, not for us):",
