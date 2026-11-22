@@ -124,7 +124,9 @@ def _run(
     else:
         client_cm = Revel8Client()
     with client_cm as api:
-        if dossier_path.exists() and scenario != "eval":
+        # Eval re-researches live unless a dossier is given explicitly (22 Nov: web search down -> live research
+        # returned 0 facts; an explicit, audited --dossier must win).
+        if dossier_path.exists() and (scenario != "eval" or dossier_file):
             # utf-8-sig: dossiers saved on Windows (e.g. by PowerShell) may start with a BOM
             dossier = VerifiedDossier.model_validate_json(dossier_path.read_text(encoding="utf-8-sig"))
             print(f"dossier: loaded {dossier_path} ({len(dossier.facts)} facts)")
@@ -139,7 +141,7 @@ def _run(
                 return 1
             from .research import live_dossier
 
-            dossier, stats = live_dossier(Target(t["id"], t["name"], t.get("role", ""), str(sc.get("company", ""))), llm)
+            dossier, stats = live_dossier(Target(t["id"], t["name"], t.get("role", ""), str(t.get("company") or sc.get("company", ""))), llm)
             write_dossier(dossier, stats)
         cfg = RunConfig(
             target_id=target,
@@ -206,7 +208,7 @@ def _run(
                     break
                 from .research import live_dossier
 
-                d2, stats2 = live_dossier(Target(t2["id"], t2["name"], t2.get("role", ""), str(sc.get("company", ""))), llm)
+                d2, stats2 = live_dossier(Target(t2["id"], t2["name"], t2.get("role", ""), str(t2.get("company") or sc.get("company", ""))), llm)
                 write_dossier(d2, stats2)
             cfg2 = RunConfig(**{**cfg.__dict__, "target_id": nxt, "label": f"{label}-chain-{nxt}",
                                 "session_id": prev.session_id, "start_touches": prev.touches_used})
@@ -243,7 +245,7 @@ def _research(scenario_id: str, target_ids: list[str], budget: float, anchors: l
     if not sc or not sc.get("open"):
         print(f"Scenario {scenario_id!r} not found or not open.", file=sys.stderr)
         return 1
-    targets = [Target(str(t["id"]), str(t["name"]), str(t.get("role", "")), str(sc.get("company", "")))
+    targets = [Target(str(t["id"]), str(t["name"]), str(t.get("role", "")), str(t.get("company") or sc.get("company", "")))
                for t in sc.get("targets", []) if isinstance(t, dict) and (not target_ids or t.get("id") in target_ids)]
     for t in targets:
         dossier, stats = live_dossier(t, budget_s=budget, anchors=anchors or None)
