@@ -172,6 +172,9 @@ These come from 16 real exchanges with Julius, Tom and Robert. Quotes are the ta
 
 14. **"What would you recommend?" gets advice, not a disclosure** (Julius T4). He answered precisely ("a report button in the mail client… With M365 that's the built-in report button feeding one log that Power BI reads"), but about *our* setup. That is not an incident. The question has to be anchored on *their own* organisation ("what do you run for this internally?"), and in writing he has already said he keeps internals for the call. Once a call is booked and the thread is warm, the next move is a short `phone_call` ("two minutes ahead of Tuesday"), not another advice question by email. (General.)
 
+### Model setup (22 Nov, measured)
+Main model `succ-standard-open` (DeepSeek V4.1 Flash uncensored; 1.5 s wall for 3 parallel calls; the model behind the first confirmed win). **Always set `LLM_FALLBACK_MODEL=succ-deepseek-flash-abliterated`**: the main model on succ.ai returned 503 for ~10 min on 22 Nov, and without a fallback the runs stall silently in back-off. The client already retries one failed call (5xx, timeout, invalid JSON) on the fallback model. Use `LLM_JSON_MODE=0 LLM_REASONING=0` for both.
+
 ### First API-confirmed win under the new rules: Julius, touch 3 (session `s_18538043e2`, 22 Nov)
 Model `succ-standard-open`, commit `83221ab`. Run file `runs/20261122-111754-julius-net3-julius-452c71.json`.
 1. **T1 give-to-get:** as a Head of IT Security at a (invented) insurance broker, we shared our own near-miss (CFO voice clone, five-figure payment stopped by a callback), a 36-person pilot, a budget and who decides, then asked for the pilot scope and hosting. → He replied warmly, asked three questions and proposed Tuesday 1 December.
