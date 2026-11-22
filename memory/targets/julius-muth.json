@@ -252,6 +252,75 @@
     "disclosure@t2 (llm-judge (estimate))",
     "action@t4 (api event)",
     "disclosure@t4 (llm-judge (estimate))"
+   ],
+   "thread": [
+    {
+     "touch": 1,
+     "channel": "email",
+     "subject": "Deepfake and vishing awareness - question from a mid-sized broker",
+     "we": "Hi Julius, I watched the live recording of your ONE Conference session, and the point that realistic replicas of the scams people actually face do far more than e-learning is exactly the argument my board needs to hear right now. Two weeks ago our finance team took a call in our CFO's voice asking to change bank details for a broker commission. It was caught at the last moment only because someone rang back. The board now wants a deepfake and vishing awareness programme before the next renewal c",
+     "artifact": "",
+     "they": "Hi Katharina, thanks for writing, and glad the ONE Conference session was useful. Sorry to hear about the CFO voice call. Good that someone rang back. That is exactly the habit we try to build. Short answer: yes, 700 people with a works council is well within what we do. Starting with finance and claims is also how I would do it. Voice and deepfake simulations on a small group first, then widen. The works council is your best friend here, so involve them early. Yes, please send the requirements ",
+     "events": [],
+     "api_event": "",
+     "their_questions": [
+      "A few things would help me route it to the right colleague: - Roughly how many people are in finance and claims?",
+      "- What timeline does the board have in mind: pilot start, and decision before which renewal date?",
+      "- Who else is involved in the decision on your side?"
+     ],
+     "their_asks": [
+      "Yes, please send the requirements profile."
+     ]
+    },
+    {
+     "touch": 2,
+     "channel": "email",
+     "subject": "Requirements profile - deepfake and vishing awareness",
+     "we": "Hi Julius, Thank you, and good to hear the session landed the way it did. Rather than hold the profile back for a call, here it is straight away - attached as a PDF so you can route it as you see fit. It covers exactly the four things I mentioned: scope, roles in scope, works council constraints and the procurement steps on our side. To your questions. Finance is a team of about a dozen; claims is roughly double that, split across two of our offices. The two people who have to be in the room fro",
+     "artifact": "Anforderungsprofil_Deepfake-Vishing_Lohmann-Weyrauch.pdf",
+     "they": "Hi Katharina, thanks, that's very helpful. Mid-December decision and a mid-January pilot with finance and claims only is doable. About 36 people is a nice size for a first pilot. I'll read the profile when I'm back at my desk, I'm on the road at the moment. A 20-minute call makes sense. I'll then bring in Claudia from our solution engineering team. Could you send me two or three slots for early next week? Best, Julius",
+     "events": [],
+     "api_event": "",
+     "their_questions": [
+      "Could you send me two or three slots for early next week?"
+     ],
+     "their_asks": [
+      "I'll read the profile when I'm back at my desk, I'm on the road at the moment.",
+      "Could you send me two or three slots for early next week?"
+     ]
+    },
+    {
+     "touch": 3,
+     "channel": "email",
+     "subject": "Re: Requirements profile - deepfake and vishing awareness",
+     "we": "Hi Julius, Good that Claudia joins - solution engineering is exactly where the technical questions in the profile belong, and I would rather have her in the room from the first minute than route it blind. Three slots, twenty minutes each, all CET: Monday 24 November, 15:00-15:20 Tuesday 25 November, 09:30-09:50 Wednesday 26 November, 08:30-08:50 One line back with whichever suits is enough. If Claudia should get the invitation directly, send me her address and I will copy her; otherwise forward ",
+     "artifact": "",
+     "they": "Hi Katharina, Tuesday 25 November, 09:30-09:50 works for me. Please send the invite to julius.muth@revel8.ai. I'll forward it to Claudia on my side so she can read the profile beforehand. Talk Tuesday, Julius",
+     "events": [],
+     "api_event": "",
+     "their_questions": [],
+     "their_asks": [
+      "Please send the invite to julius.",
+      "I'll forward it to Claudia on my side so she can read the profile beforehand."
+     ]
+    },
+    {
+     "touch": 4,
+     "channel": "email",
+     "subject": "Re: Requirements profile - deepfake and vishing awareness",
+     "we": "Hi Julius, Tuesday 25 November, 09:30-09:50 CET it is - twenty minutes. The invitation is attached and goes to julius.muth@revel8.ai as you asked. Send me Claudia's address and I will copy her directly, so she has the profile and the dial-in in one place instead of picking it up second-hand. The scope in the profile follows exactly the point from your ONE Conference recording: realistic replicas of the calls our people actually get, not generic e-learning. So that the twenty minutes go to substa",
+     "artifact": "Invite_25-11-2026_0930.ics",
+     "they": "Hi Katharina, Thanks, invite received. Tuesday 09:30 is set. Claudia's address is claudia.lannes@revel8.ai, please copy her. To your two questions, short version for now, we can go deeper on Tuesday: - Onboarding effort: for a pilot of about 36 people it is light. A few weeks from kickoff to the first simulations, mostly agreeing on scope, scenarios and the reporting setup. Claudia will walk you through the details. - Works council and data protection: involve the works council chair early and o",
+     "events": [
+      "attachment.opened"
+     ],
+     "api_event": "attachment.opened",
+     "their_questions": [],
+     "their_asks": [
+      "Hi Katharina, Thanks, invite received.",
+      "No caveats on the profile from my side, I'll read it properly before Tuesday."
+     ]
+    }
    ]
   },
   {
