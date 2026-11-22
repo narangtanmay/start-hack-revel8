@@ -1,32 +1,49 @@
 {
- "built_at": "2026-11-22T08:20:16",
+ "built_at": "2026-11-22T08:47:54",
  "archetypes": {
-  "other": {
-   "runs": 4,
-   "touches": 22,
-   "replies": 15,
-   "brushoffs": 0,
-   "incidents_api": 0,
-   "reply_rate": 0.68,
-   "brushoff_rate": 0.0
-  },
   "researcher/student": {
-   "runs": 7,
-   "touches": 59,
-   "replies": 18,
+   "runs": 8,
+   "touches": 65,
+   "replies": 22,
    "brushoffs": 3,
    "incidents_api": 1,
-   "reply_rate": 0.31,
-   "brushoff_rate": 0.17
+   "reply_rate": 0.34,
+   "brushoff_rate": 0.14,
+   "runs_won": 1,
+   "win_rate": 0.094
   },
   "event organiser": {
-   "runs": 7,
-   "touches": 57,
-   "replies": 28,
+   "runs": 13,
+   "touches": 93,
+   "replies": 45,
+   "brushoffs": 8,
+   "incidents_api": 1,
+   "reply_rate": 0.48,
+   "brushoff_rate": 0.18,
+   "runs_won": 1,
+   "win_rate": 0.074
+  },
+  "customer/prospect": {
+   "runs": 8,
+   "touches": 42,
+   "replies": 38,
    "brushoffs": 3,
    "incidents_api": 1,
-   "reply_rate": 0.49,
-   "brushoff_rate": 0.11
+   "reply_rate": 0.9,
+   "brushoff_rate": 0.08,
+   "runs_won": 1,
+   "win_rate": 0.094
+  },
+  "other": {
+   "runs": 8,
+   "touches": 43,
+   "replies": 36,
+   "brushoffs": 1,
+   "incidents_api": 0,
+   "reply_rate": 0.84,
+   "brushoff_rate": 0.03,
+   "runs_won": 0,
+   "win_rate": 0.039
   },
   "journalist/media": {
    "runs": 1,
@@ -34,8 +51,56 @@
    "replies": 2,
    "brushoffs": 0,
    "incidents_api": 0,
+   "runs_won": 0,
    "reply_rate": 0.2,
-   "brushoff_rate": 0.0
+   "brushoff_rate": 0.0,
+   "win_rate": 0.064
+  },
+  "partner/vendor": {
+   "runs": 1,
+   "touches": 6,
+   "replies": 2,
+   "brushoffs": 0,
+   "incidents_api": 0,
+   "reply_rate": 0.33,
+   "brushoff_rate": 0.0,
+   "runs_won": 0,
+   "win_rate": 0.064
+  },
+  "recruiter": {
+   "runs": 3,
+   "touches": 30,
+   "replies": 6,
+   "brushoffs": 3,
+   "incidents_api": 0,
+   "runs_won": 0,
+   "reply_rate": 0.2,
+   "brushoff_rate": 0.5,
+   "win_rate": 0.054
   }
- }
+ },
+ "mechanisms": [
+  {
+   "run": "20261122-053136-julius-adaptive-ds-julius-v2",
+   "target": "julius",
+   "sender": "customer/prospect",
+   "target_family": "sales/bd",
+   "artifact": "calendar invite (.ics)",
+   "touch": 4,
+   "objective": "action",
+   "they_asked_first": true,
+   "story": "A Head of IT Security at a mid-sized Hamburg insurance broker writes to Julius as a prospective customer: after a near-miss deepfake voice call in her finance t"
+  },
+  {
+   "run": "20261121-234816-tom-ab-kimi-v2",
+   "target": "tom",
+   "sender": "researcher/student",
+   "target_family": "product/marketing",
+   "artifact": "link to registered page",
+   "touch": 3,
+   "objective": "credentials",
+   "they_asked_first": false,
+   "story": "Mara Lenzen kontaktiert Tom als Speaker-Koordinatorin f\u00fcr seine bevorstehende Session \u201eVon der Idee zum Takeoff \u2013 Start-ups & Gr\u00fcndungen\u201c. Sie bittet um einen k"
+  }
+ ]
 }

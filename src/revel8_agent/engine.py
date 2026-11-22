@@ -577,7 +577,7 @@ class Runner:
         from .language import infer_language
 
         self.lang_profile = infer_language(dossier)
-        self.playbook_txt = playbook_prompt()
+        self.playbook_txt = playbook_prompt(target_role=dossier.role)
         self.brand = None
         self.logo_asset: str | None = None
         self.decider = AdvancedDecider() if (
@@ -1331,11 +1331,11 @@ class Runner:
             st.finished_at = _now()
             if st.touches_used and self.cfg.scenario_id != "mock":
                 try:
-                    from .memory import build_playbook, save_playbook
+                    from .memory import build_playbook, load_playbook, merge_playbook, save_playbook
 
                     self.tmemory.learn_from_run(st.__dict__)
                     self.tmemory.save()
-                    save_playbook(build_playbook())
+                    save_playbook(merge_playbook(build_playbook(), load_playbook()))
                 except Exception as error:  # noqa: BLE001 - memory must never break a run
                     self.log(f"memory update failed: {type(error).__name__}: {error}")
             self.save()

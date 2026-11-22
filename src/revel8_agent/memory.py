@@ -277,19 +277,58 @@ _ARCHETYPES = {
     "journalist/media": r"journalist|editor|media|magazine|blog|press|reporter|podcast",
     "researcher/student": r"research|student|thesis|university|study|phd",
     "event organiser": r"event|organi[sz]er|conference|meetup|roundtable|summit|speaker",
-    "customer/prospect": r"ciso|it manager|head of security|security manager|buyer|evaluat|prospect|customer",
+    "customer/prospect": r"ciso|\bcio\b|it manager|head of (?:it )?security|it security|security (?:manager|lead|officer)|procurement|buyer|evaluat|prospect|customer",
     "partner/vendor": r"partner|vendor|consult|agency|reseller|channel",
 }
 
 
 def archetype(persona_role: str, pretext: str) -> str:
-    blob = f"{persona_role} {pretext}"
-    return next((name for name, rx in _ARCHETYPES.items() if re.search(rx, blob, re.I)), "other")
+    """Who the sender IS (their role) decides; the story text only breaks ties. A security head whose pretext
+    mentions a conference is a customer, not an event organiser."""
+    for blob in (persona_role, f"{persona_role} {pretext}"):
+        hit = next((name for name, rx in _ARCHETYPES.items() if re.search(rx, blob, re.I)), None)
+        if hit:
+            return hit
+    return "other"
+
+
+_ROLE_FAMILIES = {
+    "finance": r"financ|cfo|account|controll|treasur|payroll|buchhalt",
+    "hr/people": r"\bhr\b|people|talent|recruit|personal",
+    "sales/bd": r"sales|business|go-to-market|gtm|account exec|partnership|vertrieb|commercial",
+    "engineering/it": r"cto|engineer|developer|\bit\b|infrastructure|devops|security|admin|tech",
+    "product/marketing": r"product|marketing|growth|brand|design|cpo|cmo",
+    "operations/assistant": r"operation|office|assistant|coordinator|event|logistic|coo",
+    "executive": r"ceo|founder|managing director|gesch[aä]ftsf|president|owner",
+}
+
+
+def role_family(role: str) -> str:
+    """Coarse family of the TARGET's role; lessons transfer between people of the same family, not by name."""
+    return next((k for k, rx in _ROLE_FAMILIES.items() if re.search(rx, role or "", re.I)), "other")
+
+
+def _artifact_kind(name: str) -> str:
+    n = (name or "").lower()
+    if not n:
+        return "none (reply only)"
+    if n.endswith(".ics") or "invite" in n:
+        return "calendar invite (.ics)"
+    if n.startswith("http"):
+        return "link to registered page"
+    if n.endswith(".pdf"):
+        return "pdf"
+    return "file " + n.rsplit(".", 1)[-1][:6]
 
 
 def build_playbook(runs_glob: str = "runs/**/*.json", min_touches: int = 3) -> dict:
-    """Reply/brush-off rates per pretext archetype across real practice runs (mock runs excluded)."""
-    agg: dict[str, dict] = defaultdict(lambda: {"runs": 0, "touches": 0, "replies": 0, "brushoffs": 0, "incidents_api": 0})
+    """Across real practice runs (mock/test excluded): per sender archetype the runs, replies and API-confirmed
+    wins; plus every API-confirmed MECHANISM (sender archetype x target role family x artifact x touch). Ranking
+    is by smoothed API-win rate, because reply rate is a proxy the scorer never pays for."""
+    agg: dict[str, dict] = defaultdict(lambda: {"runs": 0, "touches": 0, "replies": 0, "brushoffs": 0, "incidents_api": 0,
+                                                "runs_won": 0})
+    mechanisms: list[dict] = []
+    seen: set[str] = set()
     for p in Path(".").glob(runs_glob):
         if "/bench/models/" in str(p) or "mock" in p.name:
             continue
@@ -297,12 +336,30 @@ def build_playbook(runs_glob: str = "runs/**/*.json", min_touches: int = 3) -> d
             st = json.loads(p.read_text(encoding="utf-8"))
         except (ValueError, OSError):
             continue
-        if not isinstance(st, dict) or "steps" not in st or (st.get("touches_used") or 0) < min_touches:
+        if not isinstance(st, dict) or "steps" not in st or (st.get("touches_used") or 0) < 1:
             continue
+        rid = st.get("run_id") or p.name
+        if rid in seen or (st.get("config") or {}).get("scenario_id") == "mock":
+            continue
+        seen.add(rid)
         plan = st.get("plan") or {}
         persona = plan.get("persona") or {}
-        a = agg[archetype(f"{persona.get('role', '')} {persona.get('organisation', '')}", plan.get("pretext") or "")]
+        arch = archetype(f"{persona.get('role', '')} {persona.get('organisation', '')}", plan.get("pretext") or "")
+        api = [i for i in st.get("incidents") or [] if i.get("source") == "api event"]
+        if api:
+            thread = extract_thread(st)
+            k = min(int(i.get("touch") or 99) for i in api)
+            conv = next((t for t in thread if t["touch"] == k), {})
+            before = [a for t in thread if (t["touch"] or 0) < k for a in t.get("their_asks", [])]
+            mechanisms.append({"run": rid, "target": (st.get("target") or {}).get("id", ""), "sender": arch, "target_family": role_family((st.get("target") or {}).get("role", "")),
+                               "artifact": _artifact_kind(conv.get("artifact", "")), "touch": k,
+                               "objective": api[0].get("type"), "they_asked_first": bool(before),
+                               "story": (plan.get("pretext") or "")[:160]})
+        if (st.get("touches_used") or 0) < min_touches and not api:
+            continue
+        a = agg[arch]
         a["runs"] += 1
+        a["runs_won"] += bool(api)
         for s in st["steps"]:
             if not s.get("action"):
                 continue
@@ -312,20 +369,54 @@ def build_playbook(runs_glob: str = "runs/**/*.json", min_touches: int = 3) -> d
             if said.strip():
                 a["replies"] += 1
                 a["brushoffs"] += bool(_BRUSHOFF.search(said))
-        a["incidents_api"] += sum(1 for i in st.get("incidents") or [] if i.get("source") == "api event")
-    out = {k: {**v, "reply_rate": round(v["replies"] / v["touches"], 2) if v["touches"] else 0.0,
-               "brushoff_rate": round(v["brushoffs"] / max(1, v["replies"]), 2)} for k, v in agg.items()}
-    return {"built_at": datetime.now().isoformat(timespec="seconds"), "archetypes": out}
+        a["incidents_api"] += len(api)
+    out = {k: _rates(v) for k, v in agg.items()}
+    return {"built_at": datetime.now().isoformat(timespec="seconds"), "archetypes": out, "mechanisms": mechanisms}
 
 
-def playbook_prompt(pb: dict | None = None) -> str:
+def _rates(v: dict) -> dict:
+    v = dict(v)
+    v.setdefault("runs_won", 1 if v.get("incidents_api") else 0)
+    v["reply_rate"] = round(v["replies"] / v["touches"], 2) if v.get("touches") else 0.0
+    v["brushoff_rate"] = round(v["brushoffs"] / max(1, v["replies"]), 2)
+    # Empirical-Bayes prior at the practice base rate (~3 API wins / 42 runs = 0.07, strength 10 runs): an archetype
+    # tried once without a win must not outrank one that converted, and one lucky win must not dominate.
+    v["win_rate"] = round((v["runs_won"] + 0.7) / (v["runs"] + 10), 3)
+    return v
+
+
+def merge_playbook(new: dict, old: dict) -> dict:
+    """Never lose evidence: per archetype keep whichever side saw more touches; mechanisms are unioned by run.
+    (Machines hold different run archives; a rebuild on a thin one used to overwrite the team's history.)"""
+    arch = {k: _rates(v) for k, v in (old.get("archetypes") or {}).items()}
+    for k, v in (new.get("archetypes") or {}).items():
+        if v.get("touches", 0) >= arch.get(k, {}).get("touches", 0):
+            arch[k] = v
+    mech = {m["run"]: m for m in (old.get("mechanisms") or []) + (new.get("mechanisms") or [])}
+    return {"built_at": new.get("built_at"), "archetypes": arch, "mechanisms": list(mech.values())}
+
+
+def playbook_prompt(pb: dict | None = None, target_role: str = "") -> str:
     pb = pb or load_playbook()
-    rows = sorted((pb.get("archetypes") or {}).items(), key=lambda kv: kv[1].get("reply_rate", 0), reverse=True)
-    rows = [(k, v) for k, v in rows if v.get("touches", 0) >= 5]
+    rows = [(k, _rates(v)) for k, v in (pb.get("archetypes") or {}).items() if v.get("touches", 0) >= 5]
     if not rows:
         return ""
-    return ("WHAT WORKED ACROSS PRACTICE TARGETS (sender archetype: reply rate, brush-off rate among replies, runs): " +
-            "; ".join(f"{k}: {v['reply_rate']:.0%} replies, {v['brushoff_rate']:.0%} brush-offs, {v['runs']} runs" for k, v in rows))
+    rows.sort(key=lambda kv: (kv[1]["win_rate"], kv[1]["reply_rate"]), reverse=True)
+    out = ["WHAT CONVERTED ACROSS OTHER TARGETS (priors, not scripts; ranked by API-confirmed win rate, since a reply "
+           "scores nothing): " + "; ".join(
+               f"{k}: won {v['runs_won']}/{v['runs']} runs, {v['reply_rate']:.0%} replies, {v['brushoff_rate']:.0%} brush-offs"
+               for k, v in rows)]
+    mech = pb.get("mechanisms") or []
+    if mech:
+        fam = role_family(target_role)
+        mech = sorted(mech, key=lambda m: (m["target_family"] != fam, m["touch"]))
+        out.append(f"MECHANISMS THAT PRODUCED AN API-CONFIRMED INCIDENT (this target's role family: {fam}; same-family "
+                   "first). Reuse the mechanism, never the facts - every fact must come from THIS person's verified profile:")
+        out += [f"- {m['sender']} -> {m['target_family']} target -> {m['artifact']} at touch {m['touch']} "
+                f"({m['objective']}{', after they asked for it' if m['they_asked_first'] else ''})" for m in mech[:6]]
+        out.append("Common thread: the artifact was something the target had asked for or expected next. Make them "
+                   "want the file/link/invite, then deliver exactly that.")
+    return "\n".join(out)
 
 
 def load_playbook(root: Path | None = None) -> dict:
