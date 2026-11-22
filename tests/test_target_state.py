@@ -157,3 +157,12 @@ def test_report_renders_target_state_row(tmp_path: Path):
     assert "LINK_OPENED_BOUNCE" in html
     assert "login_wall" in html
     assert "wants_pdf" in html
+
+
+def test_opened_attachment_is_not_an_incident_under_the_new_scoring_rule():
+    # Organiser update 2026-11-22: link.opened / attachment.opened are logged but are no longer incidents;
+    # an incident needs something given or done (form secret, internal information, an action).
+    steps = [{"touch": 1, "action": {"channel": "email"}, "events": [{"type": "attachment.opened", "filename": "a.pdf"}]}]
+    state = extract_target_state(steps)
+    assert state["reaction_tag"] != "INCIDENT_CONFIRMED"
+    assert state["engagement_stage"] != "converted"

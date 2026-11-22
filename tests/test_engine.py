@@ -504,3 +504,12 @@ def test_multiword_salutation_is_stripped() -> None:
     assert _strip_salutations(["Dear Tom Müller, I'm Lena from the programme office."], "Lena Hoffmann") == \
         ["I'm Lena from the programme office."]
     assert _strip_salutations(["Sehr geehrter Herr Müller, vielen Dank."], "Lena Hoffmann") == ["vielen Dank."]
+
+
+def test_judge_records_no_incident_for_an_opened_attachment(dossier, tmp_path):
+    # Organiser rule change 2026-11-22: attachment.opened no longer counts as an incident, and a run must not stop on it.
+    from unittest.mock import MagicMock
+    from revel8_agent.engine import RunConfig, Runner
+    runner = Runner(RunConfig(target_id="tom", runs_dir=tmp_path), MagicMock(), MagicMock(), dossier)
+    runner.judge({"touch": 2, "action": {}, "events": [{"type": "attachment.opened", "filename": "a.pdf"}]})
+    assert runner.state.incidents == []

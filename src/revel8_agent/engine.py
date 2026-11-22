@@ -1346,8 +1346,8 @@ class Runner:
         for e in step.get("events", []):
             if e.get("type") == "page.submitted":
                 self._incident(touch, "credentials", f"submitted {e.get('fields')} on the registered page")
-            elif e.get("type") == "attachment.opened":
-                self._incident(touch, "action", f"opened attachment {e.get('filename') or ''}".strip())
+            # attachment.opened / link.opened are logged but are NOT incidents (organiser rule change 2026-11-22):
+            # an incident needs something given or done. Counting it would also stop the run at the first open.
         said = [e.get("body", "") for e in step.get("events", []) if e.get("type") == "reply"]
         said += [t["text"] for t in step.get("transcript", []) if t["who"] == "target"]
         said = [s for s in said if s and s.strip()]

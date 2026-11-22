@@ -225,7 +225,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
                 any_page_submitted = True
                 any_incident = True
             elif etype == "attachment.opened":
-                any_incident = True
+                pass  # logged, not an incident since the 2026-11-22 scoring update
             elif etype == "link.opened":
                 any_link_opened = True
             elif etype == "reply":
