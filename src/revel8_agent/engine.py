@@ -53,7 +53,7 @@ from .templates import (
 )
 
 LADDER_ON = os.environ.get("REVEL8_LADDER", "1") != "0"  # commitment ladder (A/B switch)
-STOP_ON_JUDGED = os.environ.get("REVEL8_STOP_ON_JUDGED", "1") != "0"  # v3 stop rule (A/B switch)
+STOP_ON_JUDGED = os.environ.get("REVEL8_STOP_ON_JUDGED", "0") == "1"  # off: 3 live false-positive stops on 22 Nov
 
 MESSAGE_CHANNELS = [
     "email", "calendar_invite", "shared_document", "voicemail", "sms", "whatsapp", "signal", "telegram",
@@ -388,6 +388,19 @@ A call is ONE contact however long it lasts, and it is the best chance to learn 
 Return ONLY JSON: {{"say": str|null, "end": bool}}  (say=null and end=true to hang up)."""
 
 # Deterministic veto on the LLM judge: these are polite next steps, not actions (v6 Julius false positive).
+_SPECIFIC = re.compile(r"\b(?:[A-Z][A-Za-z0-9]*[A-Z0-9][A-Za-z0-9]*|[A-Z][a-z]{2,}|\d[\d.,]*\d|\d)\b")
+_COMMON_CAPS = {"the", "we", "our", "you", "your", "it", "this", "that", "please", "thanks", "hi", "best", "on", "in",
+                "for", "and", "but", "so", "if", "my", "they", "there", "then", "monday", "tuesday", "wednesday",
+                "thursday", "friday", "saturday", "sunday"}
+
+
+def _already_public(evidence: str, public: str) -> bool:
+    """True when the evidence has specific terms (names, acronyms, numbers) and ALL of them are in the public research.
+    Evidence without any specific term is left to the judge."""
+    terms = {t for t in _SPECIFIC.findall(evidence) if t.lower() not in _COMMON_CAPS}
+    return bool(terms) and all(t.lower() in public for t in terms)
+
+
 _PUBLIC_INFO = re.compile(
     r"\b(?:is|are|it's|that's) (?:all )?public\b|\bpublicly\b|\bon our (?:website|site|homepage|blog)\b|"
     r"\b(?:hello|info|sales|contact)@|\bour sales (?:team)?\b|\bin (?:our|the) (?:magazine|docs|documentation|trust center)\b",
@@ -1266,6 +1279,12 @@ class Runner:
             verdict["consensus"] = bool((verdict.get("disclosure") and second.get("disclosure")) or
                                         (verdict.get("action") and second.get("action")))
         step["judge"] = verdict
+        if verified and verdict.get("disclosure") and not _PUBLIC_INFO.search(evidence) and \
+                _already_public(evidence, self._public_text()):
+            # Live 22 Nov: "the platform runs in Germany on STACKIT ... ISO 27001 certified" was judged a disclosure;
+            # every specific term in it is in the public research, so it is public.
+            verdict["disclosure"] = False
+            verdict["veto"] = "every specific term is already in the public research: not a disclosure"
         if verified and verdict.get("disclosure") and _PUBLIC_INFO.search(evidence):
             # Live 22 Nov: "Hosting is public: Germany, on STACKIT" passed both judges and would have ended the run.
             verdict["disclosure"] = False
@@ -1277,6 +1296,11 @@ class Runner:
             verdict["veto"] = "scheduling / asking for an invite or details is not an action"
         if verified and verdict.get("action"):
             self._incident(touch, "action", evidence, judged=True, consensus=verdict.get("consensus", False))
+
+    def _public_text(self) -> str:
+        if not hasattr(self, "_public_cache"):
+            self._public_cache = " ".join(f"{f.fact} {f.verbatim_quote}" for f in self.dossier.facts).lower()
+        return self._public_cache
 
     def _incident(self, touch: int, kind: str, detail: str, judged: bool = False, consensus: bool = False) -> None:
         self.state.incidents.append({"touch": touch, "type": kind, "detail": detail,

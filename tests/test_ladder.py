@@ -67,3 +67,12 @@ def test_pre_call_move_after_booked_call_and_invite():
     called = steps + [{"touch": 4, "action": {"channel": "phone_call"}, "transcript": [{"who": "target", "text": "Hi"}]}]
     assert not pre_call(called)
     assert not pre_call(steps[:1])                                 # booked but no invite yet: send the invite first
+
+
+def test_already_public_vetoes_research_terms_only():
+    from revel8_agent.engine import _already_public
+
+    public = "revel8 runs on stackit in germany and is iso 27001 certified. claudia lannes works in sales."
+    assert _already_public("the platform runs in Germany on STACKIT, so it stays in the EU. We are ISO 27001 certified.",
+                           public + " eu")
+    assert not _already_public("Our pilot price is 38,000 EUR and Jonas Klein owns the Salesforce instance.", public)
