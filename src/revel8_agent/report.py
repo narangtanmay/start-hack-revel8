@@ -11,170 +11,75 @@ separation in both modes); incidents use the reserved status green with an icon 
 from __future__ import annotations
 
 import json
+import re
 from html import escape
 from pathlib import Path
 
 from .engine import estimate_score
 
-_CSS = """
-:root{color-scheme:light;
---bg:#f6f6f4;--surface:#fcfcfb;--surface-2:#f0efec;--border:#e4e3df;--text:#0b0b0b;--text-2:#52514e;--muted:#8a8984;
---s1:#2a78d6;--s2:#eb6834;--s3:#6250d6;--good:#0ca30c;--good-bg:#e7f6e7;--good-text:#006300;--crit:#d03b3b;--crit-bg:#fbeaea;
---warn-bg:#fff4dc;--warn-text:#7a5300;--accent-bg:#eaf2fc;--radius:12px;--shadow:0 1px 2px rgba(16,16,15,.04),0 1px 1px rgba(16,16,15,.03)}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;
---bg:#111110;--surface:#1a1a19;--surface-2:#232321;--border:#2e2e2b;--text:#f0efec;--text-2:#c3c2b7;--muted:#8d8c85;
---s1:#3987e5;--s2:#d95926;--s3:#9085e9;--good:#0ca30c;--good-bg:#12301a;--good-text:#7fe09a;--crit:#d03b3b;--crit-bg:#3a1b1b;
---warn-bg:#3a2f12;--warn-text:#ffd27a;--accent-bg:#17263a;--shadow:none}}
-*{box-sizing:border-box}html,body{margin:0}
-body{font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);
--webkit-font-smoothing:antialiased}
-a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
-.nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(8px);
-border-bottom:1px solid var(--border)}
-.nav-in{max-width:1240px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;gap:14px}
-.logo{width:26px;height:26px;border-radius:7px;background:var(--text);color:var(--surface);display:grid;place-items:center;font-weight:700;font-size:13px}
-.brand{font-weight:650;letter-spacing:-.01em}.crumb{color:var(--muted)}.spacer{flex:1}
-.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--s1);box-shadow:0 0 0 3px color-mix(in srgb,var(--s1) 25%,transparent)}
-.page{max-width:1240px;margin:0 auto;padding:28px}
-h1{font-size:24px;letter-spacing:-.02em;margin:0 0 4px;font-weight:650}
-h2{font-size:13px;font-weight:600;margin:0 0 14px;color:var(--text-2)}
-.sub{color:var(--text-2);margin:0 0 24px}
-.grid{display:grid;gap:16px}.k4{grid-template-columns:repeat(4,1fr)}.split{grid-template-columns:minmax(0,1fr) 380px}
-.side{grid-template-columns:340px minmax(0,1fr);align-items:start}
-@media(max-width:960px){.k4{grid-template-columns:repeat(2,1fr)}.split,.side{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
-.tile .label{font-size:12px;color:var(--text-2);font-weight:500}
-.tile .value{font-size:32px;font-weight:650;letter-spacing:-.02em;margin-top:6px;line-height:1.1}
-.tile .value small{font-size:15px;color:var(--muted);font-weight:500}
-.tile .foot{font-size:12px;color:var(--muted);margin-top:6px}
-.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;
-background:var(--surface-2);color:var(--text-2)}
-.b-good{background:var(--good-bg);color:var(--good-text)}.b-crit{background:var(--crit-bg);color:var(--crit)}
-.b-live{background:var(--accent-bg);color:var(--s1)}.b-warn{background:var(--warn-bg);color:var(--warn-text)}
-table{width:100%;border-collapse:collapse}
-th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:0 12px 10px;border-bottom:1px solid var(--border)}
-td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle}
-tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--surface-2)}
-.num{text-align:right;font-variant-numeric:tabular-nums}
-.strip{display:flex;gap:2px;align-items:center}
-.cell{position:relative;width:14px;height:14px;border-radius:4px;border:1.5px solid var(--border);background:transparent}
-.cell.c-reply{background:var(--s1);border-color:var(--s1)}.cell.c-event{background:var(--s2);border-color:var(--s2)}
-.cell.c-call{background:var(--s3);border-color:var(--s3)}
-.cell.c-hit{background:var(--good);border-color:var(--good);color:#fff;font-size:10px;line-height:11px;text-align:center;font-weight:800}
-.cell.empty{border-style:dashed;opacity:.45}
-[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
-background:var(--text);color:var(--surface);padding:6px 9px;border-radius:7px;font-size:12px;font-weight:500;white-space:pre;z-index:9;
-pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-top:14px}
-.legend span{display:inline-flex;align-items:center;gap:6px}
-.legend .cell{width:12px;height:12px;display:inline-block}
-.bars{display:flex;flex-direction:column;gap:14px}
-.bar-row{display:grid;grid-template-columns:110px 1fr 54px;align-items:center;gap:12px}
-.bar-name{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.track{position:relative;height:22px}
-.fill{position:absolute;left:0;top:3px;height:16px;border-radius:0 4px 4px 0;background:var(--s1);min-width:2px}
-.track:hover .fill{filter:brightness(1.08)}
-.bar-val{font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
-.axis{height:1px;background:var(--border);margin:4px 0 0 122px}
-.kv{display:grid;grid-template-columns:96px 1fr;gap:8px 12px;font-size:13px}.kv dt{color:var(--muted)}.kv dd{margin:0}
-.hooks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-.hooks li{display:flex;gap:10px;align-items:flex-start;font-size:13px}
-.hid{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);padding-top:2px;min-width:30px}
-.hooks li.chosen{background:var(--accent-bg);margin:0 -10px;padding:6px 10px;border-radius:8px}
-.facts{font-size:12.5px;color:var(--text-2);padding-left:18px;margin:8px 0 0}
-details summary{cursor:pointer;font-size:13px;color:var(--text-2);list-style:none}details summary::before{content:"▸ ";color:var(--muted)}
-details[open] summary::before{content:"▾ "}
-.tl{position:relative;padding-left:44px}
-.tl::before{content:"";position:absolute;left:15px;top:6px;bottom:6px;width:2px;background:var(--border);border-radius:2px}
-.touch{position:relative;margin-bottom:22px}
-.tn{position:absolute;left:-44px;top:0;width:32px;height:32px;border-radius:50%;background:var(--surface);border:2px solid var(--border);
-display:grid;place-items:center;font-size:12px;font-weight:650;color:var(--text-2)}
-.touch.hit .tn{background:var(--good);border-color:var(--good);color:#fff}
-.touch.replied .tn{border-color:var(--s1);color:var(--s1)}
-.thead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;min-height:32px}
-.chan{font-weight:600}.why{font-size:13px;color:var(--text-2);background:var(--surface-2);border-radius:10px;padding:10px 12px;margin-bottom:10px}
-.why b{color:var(--text);font-weight:600}
-.msg{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)}
-.msg-h{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text-2);display:flex;gap:6px;flex-wrap:wrap}
-.msg-h b{color:var(--text);font-weight:600}
-.msg-b{padding:14px;white-space:pre-wrap;word-wrap:break-word;font-size:13.5px}
-.reply{margin:10px 0 0 28px;border:1px solid color-mix(in srgb,var(--s1) 35%,var(--border));background:var(--accent-bg);border-radius:12px;padding:12px 14px;
-white-space:pre-wrap;font-size:13.5px}
-.reply .who{font-size:12px;color:var(--s1);font-weight:600;margin-bottom:4px;white-space:normal}
-.call{display:flex;flex-direction:column;gap:8px;padding:12px}
-.line{max-width:82%;padding:9px 12px;border-radius:12px;font-size:13.5px}
-.line.agent{align-self:flex-end;background:var(--surface-2)}.line.target{align-self:flex-start;background:var(--accent-bg)}
-.line .who{font-size:11px;color:var(--muted);font-weight:600}
-.evt{display:inline-flex;gap:6px;align-items:center;margin:10px 8px 0 28px;font-size:12px;padding:3px 10px;border-radius:999px;
-background:color-mix(in srgb,var(--s2) 15%,transparent);color:var(--text)}
-.evt::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--s2)}
-.silent{margin:8px 0 0 28px;font-size:12.5px;color:var(--muted)}
-.incident{margin:10px 0 0 28px;display:flex;gap:10px;align-items:flex-start;background:var(--good-bg);color:var(--good-text);
-border-radius:12px;padding:10px 14px;font-size:13px;font-weight:550}
-.err{margin:10px 0 0 28px;background:var(--crit-bg);color:var(--crit);border-radius:12px;padding:10px 14px;font-size:13px}
-.read{margin:8px 0 0 28px;font-size:12px;color:var(--muted)}
-iframe{width:100%;border:0;display:block;background:#fff}
-.frame{border-top:1px solid var(--border)}
-.empty-state{padding:48px;text-align:center;color:var(--muted)}
-.tabs{display:flex;gap:4px;margin-left:18px}.tabs a{padding:6px 10px;border-radius:8px;color:var(--text-2);font-size:13px}
-.tabs a:hover{background:var(--surface-2);text-decoration:none}.tabs a.on{background:var(--surface-2);color:var(--text);font-weight:600}
-.steps{margin:0;padding-left:20px;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
-.hook{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
-.hook-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.muted-p{color:var(--text-2);font-size:13px;margin:6px 0}
-.evidence,.facts-list,.rejected,.hits{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-direction:column;gap:10px;font-size:13px}
-.facts-list li{display:flex;gap:10px}
-blockquote{margin:6px 0 4px;padding:6px 10px;border-left:3px solid var(--s1);background:var(--surface-2);border-radius:0 8px 8px 0;
-font-size:12.5px;color:var(--text-2)}
-.q{border-top:1px solid var(--border);padding:10px 0}.q:first-of-type{border-top:0}.snip{font-size:12.5px;color:var(--text-2);margin-top:2px}
-.hits a{font-weight:550}
-.pipeline{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.loop{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
-@media(max-width:1100px){.pipeline{grid-template-columns:1fr 1fr}.loop{grid-template-columns:1fr 1fr}}
-.stage,.loop-step{position:relative;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:13px;display:flex;gap:10px}
-.loop-step{flex-direction:column;gap:4px}.stage p,.loop-step p{margin:4px 0;color:var(--text-2)}
-.stage-n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent-bg);color:var(--s1);display:grid;place-items:center;
-font-weight:700;font-size:12px}
-.det{margin:10px 0 0 28px;font-size:12.5px}.det summary{font-size:12.5px}
-.det table td,.det table th{padding:6px 8px;font-size:12.5px}
-.attempt{border-left:3px solid var(--crit);padding:4px 10px;margin:6px 0;background:var(--crit-bg);border-radius:0 8px 8px 0;color:var(--text)}
-.attempt.ok{border-left-color:var(--good);background:var(--good-bg)}
-.timing{display:inline-flex;gap:10px;margin-left:auto}
-.toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);cursor:pointer}
-#why-toggle:not(:checked) ~ .tl .why,#why-toggle:not(:checked) ~ .tl .det{display:none}
-.activity{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;max-height:520px;
-overflow:auto;background:var(--surface-2);border-radius:10px;padding:12px}
-.activity .t{color:var(--muted)}
-.wf{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px}
-.wf li{display:flex;gap:10px;align-items:flex-start}.wf .stage-n{width:20px;height:20px;font-size:11px}
-.struck{text-decoration:line-through;opacity:.6}
-.runid{white-space:nowrap}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
-.twins{margin:10px 0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
-.twins-title{font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.03em}
-.twin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
-.twin-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:12.5px;display:flex;flex-direction:column;gap:6px}
-.twin-card.selected{border-color:var(--good);background:color-mix(in srgb,var(--good-bg) 42%,var(--surface))}
-.twin-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.twin-ev{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;font-weight:600;color:var(--text)}
-.twin-summary{color:var(--text);font-weight:500}
-.twin-metrics{display:flex;flex-wrap:wrap;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--text-2)}
-.twin-metrics span{background:var(--surface-2);padding:1px 6px;border-radius:5px}
-.twin-react{font-size:12px;color:var(--text-2)}
-.twin-rat{font-size:11.5px;color:var(--muted)}
-.ledger{margin:8px 0 0 28px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.ledger-lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-right:2px}
-.policy{margin:10px 0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px}
-.policy-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px}
-.policy-title{font-size:11.5px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em;margin-right:4px}
-.policy-grid{display:grid;grid-template-columns:92px 1fr;gap:4px 10px;margin:0}
-.policy-grid dt{color:var(--muted);font-size:12px}.policy-grid dd{margin:0;color:var(--text)}
-.policy-alts{margin:6px 0 0;padding-left:18px;color:var(--text-2);font-size:12px}
-"""
+from .report_style import CSS as _CSS  # noqa: E402  (the one visual world, shared by every page)
 
-_STATUS = {"done": ("b-good", "Done"), "error": ("b-crit", "Error"), "running": ("b-live", "Live"), "starting": ("b-live", "Starting")}
+_STATUS = {"done": ("b-good", "Done"), "error": ("b-warn", "Stopped early"), "running": ("b-live", "Live"),
+           "starting": ("b-live", "Starting")}
 
 
 def _e(x: object) -> str:
     return escape("" if x is None else str(x))
+
+
+def plain_error(error: object) -> str:
+    """What stopped a run, in words a reader understands; the raw exception goes under 'Technical details'."""
+    e = str(error or "")
+    if re.search(r"valid draft", e, re.I):
+        return ("The agent could not write a message that passed its own checks in three tries, so it stopped "
+                "instead of sending something broken")
+    if re.search(r"Revel8APIError|HTTP|\b429\b|\b5\d\d\b", e):
+        return "The target API kept returning errors"
+    if re.search(r"LLM|timed? ?out", e, re.I):
+        return "The language model stopped responding"
+    return "An unexpected error stopped the run"
+
+
+def _flag(value: object) -> bool:
+    return str(value).strip().lower() in ("1", "true", "yes", "on")  # run JSONs store config booleans as strings
+
+
+def decision_path(state: dict) -> str:
+    """Which decision path made the moves in this run (the A/B story the overview compares)."""
+    plan, cfg = state.get("plan") or {}, state.get("config") or {}
+    if plan.get("architecture") == "method-actor" or cfg.get("policy") == "actor":
+        return "Method actor"
+    if _flag(cfg.get("use_shadow_twin")):
+        return "Shadow twin"
+    if _flag(cfg.get("use_policy")):
+        return "Rule policy"
+    if cfg.get("policy") == "controller":
+        return "Escalation controller"
+    return "LLM planner"
+
+
+def _live_incidents(state: dict) -> list[dict]:
+    return [i for i in state.get("incidents", []) if not i.get("superseded")]
+
+
+def _confirmed(i: dict) -> bool:
+    return i.get("source") == "api event"
+
+
+def _uncounted_note(states: list[dict]) -> str:
+    """Incidents in runs the counting rule leaves out (stopped early, live), so a ≈/✓ badge in the runs table never
+    contradicts a 0 in the tiles without an explanation."""
+    n = sum(1 for st in states if _live_incidents(st)
+            and not (st.get("status") == "done" and int(st.get("touches_used") or 0) > 0))
+    return f" · {n} more in a run that is not counted" if n == 1 else f" · {n} more in runs that are not counted" if n else ""
+
+
+def _incident_badge(sc: dict) -> str:
+    types, n = ", ".join(sc["incident_types"]), sc["first_incident_touch"]
+    if sc["confirmed_by_api_event"]:
+        return f"<span class='badge b-good' title='Confirmed by an API event'>✓ {_e(types)} @{_e(n)}</span>"
+    return (f"<span class='badge b-est' title=\"Our judge's read of the target's reply; the API has not confirmed it\">"
+            f"≈ {_e(types)} @{_e(n)} · estimate</span>")
 
 
 _TARGETS: list[str] = []  # research pages that exist, for the nav
@@ -183,10 +88,13 @@ _TARGETS: list[str] = []  # research pages that exist, for the nav
 def _page(title: str, crumbs: str, body: str, live: bool, active: str = "") -> str:
     refresh = '<meta http-equiv="refresh" content="4">' if live else ""
     live_html = '<span class="live"><span class="dot"></span>Live · auto-refresh</span>' if live else ""
-    tabs = [("index.html", "Overview"), ("score.html", "Score"), ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
+    tabs = [("index.html", "Overview"), ("runs.html", "Runs"), ("replay.html", "Replay"), ("score.html", "Score"),
+            ("how.html", "How it works")] + [(f"research-{t}.html", f"Research · {t}") for t in _TARGETS]
     nav = "".join(f"<a href='{h}'{' class=on' if h == active else ''}>{_e(lbl)}</a>" for h, lbl in tabs)
+    # Fonts are self-hosted (report_style.FONT_FACES points at fonts/ next to the page; render_index copies them).
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-            f"{refresh}<title>{_e(title)}</title><style>{_CSS}</style></head><body>"
+            f"{refresh}<title>{_e(title)}</title>"
+            f"<style>{_CSS}</style></head><body>"
             f"<div class='nav'><div class='nav-in'><div class='logo'>r8</div><a class='brand' href='index.html'>revel8 agent</a>"
             f"<nav class='tabs'>{nav}</nav>{crumbs}<div class='spacer'></div>{live_html}</div></div><div class='page'>{body}</div></body></html>")
 
@@ -198,7 +106,9 @@ def _badge(status: str) -> str:
 
 def _touch_outcomes(state: dict) -> list[tuple[str, str]]:
     """One (class, tooltip) per touch, used by the strip on both pages."""
-    hits = {i["touch"] for i in state.get("incidents", [])}
+    live = _live_incidents(state)  # withdrawn incidents are not hits
+    confirmed = {i["touch"] for i in live if _confirmed(i)}
+    estimated = {i["touch"] for i in live} - confirmed
     out = []
     for s in state.get("steps", []):
         a = s.get("action") or {}
@@ -207,8 +117,10 @@ def _touch_outcomes(state: dict) -> list[tuple[str, str]]:
         evs = s.get("events") or []
         n = s.get("touch")
         chan = a.get("channel", "")
-        if n in hits:
-            out.append(("c-hit", f"Touch {n} · {chan}\nIncident"))
+        if n in confirmed:
+            out.append(("c-hit", f"Touch {n} · {chan}\nIncident, confirmed by the API"))
+        elif n in estimated:
+            out.append(("c-est", f"Touch {n} · {chan}\nIncident, our judge's estimate (not an API event)"))
         elif any(e.get("type") == "reply" for e in evs):
             out.append(("c-reply", f"Touch {n} · {chan}\nReplied"))
         elif a.get("kind") == "call" and s.get("transcript"):
@@ -225,7 +137,7 @@ def _touch_outcomes(state: dict) -> list[tuple[str, str]]:
 def _strip(state: dict, slots: int) -> str:
     cells = []
     for cls, tip in _touch_outcomes(state):
-        mark = "✓" if cls == "c-hit" else ""
+        mark = {"c-hit": "✓", "c-est": "≈"}.get(cls, "")
         cells.append(f"<span class='cell {cls}' data-tip='{_e(tip)}'>{mark}</span>")
     cells += ["<span class='cell empty'></span>"] * max(0, slots - len(cells))
     return f"<div class='strip' role='img' aria-label='touch outcomes'>{''.join(cells)}</div>"
@@ -233,7 +145,8 @@ def _strip(state: dict, slots: int) -> str:
 
 _LEGEND = ("<div class='legend'><span><i class='cell c-reply'></i>Replied</span><span><i class='cell c-call'></i>Call answered</span>"
            "<span><i class='cell c-event'></i>Link / file / page event</span><span><i class='cell'></i>No reaction</span>"
-           "<span><i class='cell c-hit'>✓</i>Incident</span></div>")
+           "<span><i class='cell c-hit'>✓</i>Incident, confirmed by the API</span>"
+           "<span><i class='cell c-est'>≈</i>Incident, our estimate</span></div>")
 
 
 # --------------------------------------------------------------------------- run page
@@ -247,16 +160,25 @@ def _run_tiles(state: dict) -> str:
     sc = estimate_score(state)
     steps = [s for s in state.get("steps", []) if (s.get("action") or {}).get("decision") != "STOP"]
     replies = sum(1 for s in steps if any(e.get("type") == "reply" for e in s.get("events") or []))
-    if sc["incident"]:
+    if sc["incident"] and sc["confirmed_by_api_event"]:
         outcome = (f"<span style='color:var(--good-text)'>✓ {_e(', '.join(sc['incident_types']))}</span>",
-                   f"first at touch {sc['first_incident_touch']}" + ("" if sc["confirmed_by_api_event"] else " · judged"))
+                   f"first at touch {sc['first_incident_touch']} · confirmed by the API")
+    elif sc["incident"]:
+        outcome = (f"<span style='color:var(--warn-text)'>≈ {_e(', '.join(sc['incident_types']))}</span>",
+                   f"touch {sc['first_incident_touch']} · our judge's estimate, not an API event")
     elif state.get("status") in ("running", "starting"):
-        outcome = ("<span style='color:var(--s1)'>Running</span>", "waiting for the target")
+        outcome = ("<span style='color:var(--accent-text)'>Running</span>", "waiting for the target")
     else:
         outcome = ("<span style='color:var(--muted)'>None</span>", "no incident in this run")
+    counted = state.get("status") == "done" and int(state.get("touches_used") or 0) > 0  # scorecard.finished()
+    pts_foot = "incident 20 + speed 5, this run only"
+    if sc["incident"] and not sc["confirmed_by_api_event"]:
+        pts_foot = "only if the API confirms the incident"
+    if not counted and state.get("status") not in ("running", "starting"):
+        pts_foot += " · not counted on Score (stopped early)"
     return ("<div class='grid k4' style='margin-bottom:20px'>"
             + _tile("Incident", outcome[0], outcome[1])
-            + _tile("Est. results points", f"{sc['results_points']:g}<small> / 25</small>", "incident 20 + speed 5, this run only")
+            + _tile("Est. results points", f"{sc['results_points']:g}<small> / 25</small>", pts_foot)
             + _tile("Touches", f"{state.get('touches_used', 0)}<small> / {_e(state.get('config', {}).get('max_touches'))}</small>",
                     f"{replies} with a reply")
             + _tile("LLM calls", _e(state.get("llm_calls", 0)), "planning, decisions, judging")
@@ -601,6 +523,53 @@ def _details(step: dict, a: dict, target_id: str, hooks: dict) -> str:
     return f"<details class='det'><summary>Full decision record · touch {_e(step.get('touch'))}</summary><table>{table}</table></details>"
 
 
+# One drawn icon family (24px grid, 1.8 stroke, currentColor) instead of emoji; replay.py uses the same paths.
+ICON_PATHS = {
+    "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    "phone": '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+    "chat": '<path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.2A8 8 0 1 1 21 12z"/>',
+    "clip": '<path d="m21 11-8.6 8.6a5 5 0 0 1-7-7l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9"/>',
+    "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "lock": '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+}
+
+
+def icon(name: str, size: int = 14) -> str:
+    return (f"<svg class='svgi' viewBox='0 0 24 24' width='{size}' height='{size}' fill='none' stroke='currentColor' "
+            f"stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>{ICON_PATHS[name]}</svg>")
+
+
+def _sentence(text: str, limit: int = 170) -> str:
+    m = re.match(r"(.{20,}?[.!?])\s", text)
+    s = m.group(1) if m else text
+    return s if len(s) <= limit else s[: limit - 1].rstrip() + "…"
+
+
+def _why(a: dict) -> str:
+    """The reasoning behind one touch, once. Actor runs store the same monologue as 'assessment' and 'rationale';
+    printing both doubled every touch. Long reasoning folds to its first sentence."""
+    read, move = str(a.get("assessment") or "").strip(), str(a.get("rationale") or "").strip()
+    if not read or not move or " ".join(read.split()) == " ".join(move.split()):
+        parts = [("Reasoning", read or move)]
+    else:
+        parts = [("Read", read), ("Move", move)]
+    parts = [(k, v) for k, v in parts if v]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        full = _e(parts[0][1])
+    else:
+        full = "<br>".join(f"<b>{k}:</b> {_e(v)}" for k, v in parts)
+    lead = _sentence(parts[0][1])
+    if sum(len(v) for _, v in parts) <= len(lead) + 40:
+        return f"<div class='why'><b>{parts[0][0]}:</b> {_e(parts[0][1])}" + (
+            f"<br><b>{parts[1][0]}:</b> {_e(parts[1][1])}" if len(parts) > 1 else "") + "</div>"
+    label = "Reasoning" if len(parts) == 1 else "Read and move"
+    return (f"<details class='why'><summary><b>{label}</b><span class='lead'> · {_e(lead)}</span></summary>"
+            f"<div class='full'>{full}</div></details>")
+
+
 def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict | None = None) -> str:
     a = step.get("action") or {}
     n = step.get("touch")
@@ -608,28 +577,25 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     old = [i for i in incidents if i["touch"] == n and i.get("superseded")]
     evs = step.get("events") or []
     replied = any(e.get("type") == "reply" for e in evs)
-    cls = "hit" if hit else ("replied" if replied else "")
+    confirmed_hit = any(_confirmed(i) for i in hit)
+    cls = "hit" if confirmed_hit else ("est" if hit else ("replied" if replied else ""))
     snd = a.get("sender") or {}
-    out = [f"<div class='touch {cls}'><div class='tn'>{'✓' if hit else _e(n)}</div>"]
+    out = [f"<div class='touch {cls}' id='touch-{_e(n)}'><div class='tn'>{'✓' if confirmed_hit else '≈' if hit else _e(n)}</div>"]
     if a.get("decision") == "STOP" or step.get("decision") == "STOP":
         pol_html = _policy_html(step.get("policy"), "STOP")
         out.append(f"<div class='thead'><span class='badge'>STOP</span></div><div class='why'>{_e(a.get('rationale'))}</div>{pol_html}</div>")
         return "".join(out)
-    icon = "📞" if a.get("kind") == "call" else ("✉️" if a.get("channel") == "email" else "💬")
+    chan_icon = icon("phone" if a.get("kind") == "call" else "mail" if a.get("channel") == "email" else "chat")
     tm = step.get("timing") or {}
     total = sum(v for v in tm.values() if isinstance(v, (int, float)))
     tm_html = f"<span class='timing mono'>{_secs(round(total, 1))}</span>" if tm else ""
-    out.append(f"<div class='thead'><span class='chan'>{icon} {_e(a.get('channel'))}</span><span class='badge'>{_e(a.get('decision'))}</span>"
+    out.append(f"<div class='thead'><span class='chan'>{chan_icon} {_e(a.get('channel'))}</span><span class='badge'>{_e(a.get('decision'))}</span>"
                f"<span class='badge'>{_e(a.get('objective'))}</span><span class='mono'>hook {_e(a.get('hook_id'))}</span>{tm_html}</div>")
     actor = step.get("actor")
     monologue = str(actor.get("inner_monologue") or "").strip() if isinstance(actor, dict) else ""
-    reasoning = [
-        f"<b>{label}:</b> {_e(value)}"
-        for label, value in (("Read", a.get("assessment")), ("Move", a.get("rationale")))
-        if value and str(value).strip() != monologue
-    ]
-    if reasoning:
-        out.append(f"<div class='why'>{'<br>'.join(reasoning)}</div>")
+    # actor runs store the monologue as assessment/rationale too; the actor panel already shows it
+    if not monologue or {str(a.get("assessment") or "").strip(), str(a.get("rationale") or "").strip()} - {monologue, ""}:
+        out.append(_why(a))
     pol_html = _policy_html(step.get("policy"), a.get("decision") or "")
     if pol_html:
         out.append(pol_html)
@@ -648,7 +614,7 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
         if payload.get("subject"):
             head.append(f"· <b>{_e(payload['subject'])}</b>")
         if a.get("attachment_filename"):
-            head.append(f"· 📎 {_e(a['attachment_filename'])}")
+            head.append(f"· {icon('clip')} {_e(a['attachment_filename'])}")
         body = str(payload.get("body") or "")
         content = (f"<div class='frame'><iframe sandbox='' style='height:480px' srcdoc='{_e(body)}'></iframe></div>"
                    if _is_html(body) else f"<div class='msg-b'>{_e(body)}</div>")
@@ -681,8 +647,12 @@ def _touch(step: dict, incidents: list[dict], target_id: str = "", hooks: dict |
     if ledger_html:
         out.append(ledger_html)
     for i in hit:
-        out.append(f"<div class='incident'>✓ Incident · {_e(i['type'])}<span style='font-weight:400'>{_e(i['detail'])} "
-                   f"({_e(i['source'])})</span></div>")
+        if _confirmed(i):
+            out.append(f"<div class='incident'>✓ Incident · {_e(i['type'])}<span style='font-weight:400'>{_e(i['detail'])} "
+                       f"(confirmed by an API event)</span></div>")
+        else:
+            out.append(f"<div class='incident est'>≈ Estimated incident · {_e(i['type'])}<span style='font-weight:400'>"
+                       f"{_e(i['detail'])} (our judge's read of their reply; the API has not confirmed it)</span></div>")
     for i in old:
         out.append(f"<div class='err' style='background:var(--surface-2);color:var(--text-2)'><span class='struck'>Incident · {_e(i['type'])}: "
                    f"{_e(i['detail'])}</span><br>Withdrawn: {_e(i.get('superseded_reason', 're-judged with the stricter judge'))}</div>")
@@ -721,13 +691,16 @@ def _workflow_card(state: dict) -> str:
                 else "gate rejections not recorded for this older run")
         items.append(f"<li><span class='stage-n'>4</span><div><b>{len(steps)} touches</b> — {replies} replies, {calls} calls, "
                      f"{gate}</div></li>")
-    live_inc = [i for i in state.get("incidents", []) if not i.get("superseded")]
+    live_inc = _live_incidents(state)
+    parts = []
     if live_inc:
-        end = f"incident at touch {live_inc[0]['touch']} ({_e(live_inc[0]['type'])})"
-    elif state.get("error"):
-        end = "stopped by an error: " + _e(state.get("error"))
-    else:
-        end = "no incident; the touch budget was used or the agent stopped on its last touch"
+        first = min(live_inc, key=lambda i: i["touch"])
+        how = "confirmed by the API" if any(_confirmed(i) for i in live_inc) else "our estimate"
+        parts.append(f"incident at touch {_e(first['touch'])} ({_e(first['type'])}, {how})")
+    if state.get("error"):
+        why = plain_error(state.get("error"))
+        parts.append(("then stopped early: " if parts else "stopped early: ") + _e(why[:1].lower() + why[1:]))
+    end = "; ".join(parts) or "no incident; the touch budget was used or the agent stopped on its last touch"
     if state.get("status") in ("done", "error"):
         items.append(f"<li><span class='stage-n'>5</span><div><b>Run ended</b> — {end}</div></li>")
     return f"<div class='card'><h2>Workflow of this run</h2><ul class='wf'>{''.join(items)}</ul></div>"
@@ -743,24 +716,45 @@ def _activity_card(state: dict) -> str:
             f"<div class='activity' style='margin-top:12px'>{lines}</div></details></div>")
 
 
+# "Full record | Conversation only": real buttons with a visible pressed state, remembered across pages and the live
+# auto-refresh (the same key as the replay). Without JavaScript the control stays hidden and the full record shows.
+_VIEW_JS = """<script>(function(){var bar=document.getElementById('viewbar'),card=document.getElementById('thread');
+if(!bar||!card)return;bar.hidden=false;
+function set(v,save){card.classList.toggle('convo-only',v==='convo');
+bar.querySelectorAll('button[data-view]').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-view')===v));});
+if(save){try{localStorage.setItem('r8-view',v);}catch(e){}}}
+var v='full';try{v=localStorage.getItem('r8-view')||'full';}catch(e){}set(v,false);
+bar.addEventListener('click',function(e){var b=e.target.closest('button[data-view]');if(b)set(b.getAttribute('data-view'),true);});})();</script>"""
+
+
 def render_run(path: Path, out_dir: Path | None = None) -> Path:
     state = json.loads(path.read_text(encoding="utf-8"))
     t = state.get("target", {})
     live = state.get("status") in ("starting", "running")
     cfg = state.get("config", {})
-    head = (f"<div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'><h1>{_e(t.get('name'))}</h1>{_badge(state.get('status', ''))}</div>"
+    rid = _e(state.get("run_id"))
+    modes = (f"<nav class='seg' aria-label='How to view this run'><a aria-current='page' href='{_e(path.with_suffix('.html').name)}'>Read</a>"
+             f"<a href='replay.html#run={rid}&amp;t=0' title='Step through the run one touch at a time'>Replay</a></nav>")
+    head = (f"<div class='head' style='display:flex;gap:12px;align-items:center;flex-wrap:wrap'><h1>{_e(t.get('name'))}</h1>{_badge(state.get('status', ''))}"
+            f"<span class='path'>{_e(decision_path(state))}</span><div class='spacer'></div>{modes}</div>"
             f"<p class='sub'>{_e(t.get('role'))} · scenario {_e(cfg.get('scenario_id'))} · session "
             f"<span class='mono'>{_e(state.get('session_id'))}</span> · started {_e(str(state.get('started_at', ''))[:16].replace('T', ' '))}</p>")
-    error = f"<div class='card' style='border-color:var(--crit);margin-bottom:16px'><h2>Run error</h2>{_e(state['error'])}</div>" if state.get("error") else ""
+    error = ""
+    if state.get("error"):
+        raw = str(state.get("error") or "") + ("\n\n" + str(state["error_trace"]) if state.get("error_trace") else "")
+        error = (f"<div class='card notice'><b>Stopped early after touch {_e(state.get('touches_used', 0))}.</b> "
+                 f"{_e(plain_error(state['error']))}. Everything up to that point is below."
+                 f"<details><summary>Technical details</summary><pre class='mono'>{_e(raw)}</pre></details></div>")
     hooks = {h["id"]: h for h in (state.get("brief") or {}).get("hooks", [])}
     steps = "".join(_touch(s, state.get("incidents", []), t.get("id", ""), hooks) for s in state.get("steps", []))
-    thread = (f"<div class='card'><div style='display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap'><h2 style='margin:0'>Thread</h2>"
-              f"<div class='spacer' style='flex:1'></div>{_strip(state, int(cfg.get('max_touches') or 10))}</div>"
-              "<input type='checkbox' id='why-toggle' checked hidden><label class='toggle' for='why-toggle'>"
-              "<span class='badge'>⇄</span> Click to switch between the full record (agent reasoning + decision records) "
-              "and the conversation only</label>"
-              f"<div class='tl' style='margin-top:16px'>{steps or '<div class=empty-state>Planning the campaign…</div>'}</div>{_LEGEND}</div>")
-    body = (head + error + _casting_html(state.get("casting")) + _run_tiles(state)
+    view = ("<div class='viewbar' id='viewbar' hidden><span>Show</span><div class='seg' role='group' aria-label='What to show'>"
+            "<button type='button' data-view='full' aria-pressed='true'>Full record</button>"
+            "<button type='button' data-view='convo' aria-pressed='false'>Conversation only</button></div></div>")
+    thread = (f"<div class='card' id='thread'><div style='display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap'><h2 style='margin:0'>Touches</h2>"
+              f"<div class='spacer' style='flex:1'></div>{_strip(state, int(cfg.get('max_touches') or 10))}</div>{view}"
+              f"<div class='tl' style='margin-top:16px'>{steps or '<div class=empty-state>Planning the campaign…</div>'}</div>{_LEGEND}</div>"
+              + _VIEW_JS)
+    body = (head + _run_tiles(state) + error + _casting_html(state.get("casting"))
             + f"<div class='grid side'><div class='grid'>{_workflow_card(state)}{_plan_card(state)}{_research_card(state)}</div>{thread}</div>"
             + _activity_card(state))
     out = (out_dir or path.parent) / path.with_suffix(".html").name
@@ -814,13 +808,16 @@ def render_score(states: list[dict], out_dir: Path) -> Path:
 
     sc = compute(states)
     a, c = sc["views"]["all"], sc["views"]["confirmed"]
-    contacts = ", ".join("—" if x is None else str(x) for x in a["last3"]["contacts"]) or "—"
+    last3 = a["last3"]["contacts"]
+    contacts = ("none reached an incident" if not any(x is not None for x in last3)
+                else ", ".join("not reached" if x is None else str(x) for x in last3)) if last3 else "no runs yet"
     tiles = ("<div class='grid k4' style='margin-bottom:20px'>"
              + _tile("Expected results", f"{a['expected']['total']:g}<small> / 25</small>",
                      f"any 3 runs like practice · API-confirmed only: {c['expected']['total']:g}")
              + _tile("Last 3 runs", f"{a['last3']['total']:g}<small> / 25</small>", f"contacts to first incident: {contacts}")
              + _tile("Runs with an incident", f"{a['incident_runs']}<small> / {sc['runs']}</small>",
-                     f"{100 * a['incident_rate']:.0f}% · {c['incident_runs']} API-confirmed")
+                     f"{c['incident_runs']} confirmed by the API · {a['incident_runs'] - c['incident_runs']} estimated · "
+                     f"{sc['runs']} of {sc['runs_total']} runs counted" + _uncounted_note(states))
              + _tile("Median contacts to incident", _e(a["median_contacts_when_reached"] if a["median_contacts_when_reached"] is not None else "—"),
                      f"speed vs. a best team needing {sc['best_contacts']:g}")
              + "</div>")
@@ -870,6 +867,52 @@ def render_score(states: list[dict], out_dir: Path) -> Path:
     return out
 
 
+_FONTS = Path(__file__).parent / "assets" / "fonts"
+
+
+def _copy_fonts(out_dir: Path) -> None:
+    """The stylesheet loads fonts/<file>.woff2 relative to the page, so pages open from disk with no network."""
+    import shutil
+
+    dst = out_dir / "fonts"
+    dst.mkdir(parents=True, exist_ok=True)
+    for f in _FONTS.glob("*.woff2"):
+        shutil.copyfile(f, dst / f.name)
+    # three.js is self-hosted so the landing page's 3D backdrop works offline and from file://.
+    three = _FONTS.parent / "three.min.js"
+    if three.exists():
+        shutil.copyfile(three, out_dir / "three.min.js")
+
+
+def _home_stats(states: list[dict], card: dict) -> dict:
+    """The landing page's "Honest numbers" section: reply-rate bars per target and a few plain sentences. Same
+    counting rule as every page (scorecard.compute); confirmed and estimated incidents stay apart."""
+    a, c = card["views"]["all"], card["views"]["confirmed"]
+    counted = card["runs"]
+    bars = sorted(((str(r["name"]).split(" ")[0], r["reply_rate"],
+                    f"{r['name']}: {r['replies']} replies across {r['touches']} touches")
+                   for r in card["per_target"].values()), key=lambda b: -b[1])
+    inc, conf = a["incident_runs"], c["incident_runs"]
+    est = inc - conf
+    median = a["median_contacts_when_reached"]
+    touches = sum(int(st.get("touches_used") or 0) for st in states)
+    replies = sum(1 for st in states for s in st.get("steps", []) for e in s.get("events") or [] if e.get("type") == "reply")
+    out = []
+    if counted:
+        out.append(f"<p>{inc} of {counted} finished runs reached an incident.<span> Runs that stopped early are not counted.</span></p>")
+    if conf and est:
+        out.append(f"<p>{conf} confirmed by the revel8 API.<span> {est} more are our judge's estimate from the target's own words.</span></p>")
+    elif conf:
+        out.append(f"<p>{'Both' if conf == 2 else 'All ' + str(conf)} confirmed by the revel8 API.</p>")
+    elif inc:
+        out.append("<p>None confirmed by the API yet.<span> Each is our judge's estimate from the target's own reply.</span></p>")
+    if median is not None:
+        out.append(f"<p>{median:g} touches to the first incident<span>, the median when one was reached.</span></p>")
+    if touches:
+        out.append(f"<p>{replies} replies<span> across {touches} touches, every one answered in character.</span></p>")
+    return {"bars": bars, "sentences": "".join(out)}
+
+
 def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, public: bool = False,
                  dossiers_dir: Path = Path("dossiers")) -> Path:
     """Render the whole dashboard into runs_dir (default) or out_dir; public=True redacts landing pages."""
@@ -898,25 +941,39 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
         render_research(tid, out_dir, lambda *a, _t=tid: _page(*a, active=f"research-{_t}.html"), research)
     render_how(out_dir, lambda *a: _page(*a, active="how.html"), states, _TARGETS)
     render_score(states, out_dir)
+    from .report_replay import render_replay
+    render_replay(states, out_dir, lambda *a: _page(*a, active="replay.html"), redact=public)
 
     for f, _ in loaded:
         render_run(f, out_dir)
+    from .scorecard import compute as scorecard_compute
+
     scores = [estimate_score(st) for st in states]
     n = len(states)
-    hits = sum(sc["incident"] for sc in scores)
-    firsts = sorted(sc["first_incident_touch"] for sc in scores if sc["incident"])
-    median = firsts[len(firsts) // 2] if firsts else None
+    # One counting rule on every page: the scorecard's (finished runs with at least one touch). Runs that stopped early
+    # or are still live are listed below but not counted, and the tiles say so.
+    card = scorecard_compute(states)
+    a_view, c_view = card["views"]["all"], card["views"]["confirmed"]
+    counted = card["runs"]
+    stopped = sum(st.get("status") == "error" for st in states)
+    running = sum(st.get("status") in ("starting", "running") for st in states)
+    median = a_view["median_contacts_when_reached"]
     touches = sum(st.get("touches_used", 0) for st in states)
     replies = sum(1 for st in states for s in st.get("steps", []) for e in s.get("events") or [] if e.get("type") == "reply")
-    live = any(st.get("status") in ("starting", "running") for st in states)
+    live = running > 0
     withdrawn = sum(1 for st in states for i in st.get("incidents", []) if i.get("superseded"))
+    estimated_runs = a_view["incident_runs"] - c_view["incident_runs"]
 
+    runs_foot = " · ".join(x for x in (f"{counted} counted", f"{stopped} stopped early" if stopped else "",
+                                       f"{running} live" if running else "") if x)
+    inc_foot = (f"{c_view['incident_runs']} confirmed by the API"
+                + (f" · {estimated_runs} estimated" if estimated_runs else "")
+                + _uncounted_note(states)
+                + (f" · {withdrawn} withdrawn" if withdrawn else ""))
     tiles = ("<div class='grid k4' style='margin-bottom:20px'>"
-             + _tile("Runs", str(n), f"{sum(st.get('status') == 'done' for st in states)} finished")
-             + _tile("Runs with an incident", f"{hits}<small> / {n}</small>",
-                     f"{(100 * hits / n if n else 0):.0f}% · est. {(20 * hits / n if n else 0):.1f} of 20 incident pts"
-                     + (f" · {withdrawn} withdrawn" if withdrawn else ""))
-             + _tile("Median touches to incident", _e(median if median is not None else "—"), "fewer is better (speed, 5 pts)")
+             + _tile("Runs", str(n), runs_foot)
+             + _tile("Runs with an incident", f"{a_view['incident_runs']}<small> / {counted}</small>", inc_foot)
+             + _tile("Median touches to incident", _e(median if median is not None else "—"), "counted runs · fewer is better (speed, 5 pts)")
              + _tile("Replies", str(replies), f"across {touches} touches")
              + "</div>")
 
@@ -924,33 +981,50 @@ def render_index(runs_dir: Path = Path("runs"), out_dir: Path | None = None, pub
     for (f, st), sc in zip(loaded, scores):
         plan = st.get("plan") or {}
         if sc["incident"]:
-            inc = f"<span class='badge b-good'>✓ {_e(', '.join(sc['incident_types']))} @{sc['first_incident_touch']}</span>"
+            inc = _incident_badge(sc)
         elif any(i.get("superseded") for i in st.get("incidents", [])):
             inc = "<span class='badge'>withdrawn</span>"
         else:
             inc = "<span class='mono'>—</span>"
+        is_counted = st.get("status") == "done" and int(st.get("touches_used") or 0) > 0
+        pts = (f"<b>{sc['results_points']:g}</b><span class='mono'> / 25</span>" if is_counted or st.get("status") in ("running", "starting")
+               else f"<span style='color:var(--muted)'>{sc['results_points']:g}</span><span class='mono'> / 25</span>"
+                    "<div class='note' title='Only finished runs count, on this page and on Score'>not counted</div>")
+        status_tip = f" title='{_e(plain_error(st.get('error')))}'" if st.get("status") == "error" else ""
+        rid = _e(st.get("run_id"))
         rows.append(f"<tr><td><a href='{_e(f.with_suffix('.html').name)}'><b>{_e(st.get('target', {}).get('name'))}</b></a>"
-                    f"<div class='mono runid'>{_e(st.get('run_id'))}</div></td>"
-                    f"<td>{_badge(st.get('status', ''))}</td>"
-                    f"<td>{_e((plan.get('persona') or {}).get('organisation'))}<div class='mono'>{_e(plan.get('objective'))}</div></td>"
+                    f"<div class='mono runid'>{rid} · <a href='replay.html#run={rid}&amp;t=0'>replay</a></div></td>"
+                    f"<td><span{status_tip}>{_badge(st.get('status', ''))}</span><div class='path' style='margin-top:4px'>"
+                    f"{_e(decision_path(st))}</div></td>"
+                    f"<td>{_e((plan.get('persona') or {}).get('organisation'))}<div class='note'>{_e(plan.get('objective'))}</div></td>"
                     f"<td>{_strip(st, int(st.get('config', {}).get('max_touches') or 10))}</td>"
-                    f"<td>{inc}</td><td class='num'><b>{sc['results_points']:g}</b><span class='mono'> / 25</span></td></tr>")
-    table = ("<div class='card'><h2>Runs · open one to replay every touch</h2>" + ("<table><thead><tr><th>Target</th><th>Status</th><th>Persona · objective</th>"
+                    f"<td>{inc}</td><td class='num' style='white-space:nowrap'>{pts}</td></tr>")
+    table = ("<div class='card'><h2>Runs · open one to read it, or replay it touch by touch</h2>" + ("<table><thead><tr><th>Target</th>"
+             "<th>Status · decision path</th><th>Persona · objective</th>"
              "<th>Touches</th><th>Incident</th><th class='num'>Est. results</th></tr></thead><tbody>" + "".join(rows)
              + "</tbody></table>" + _LEGEND if rows else "<div class='empty-state'>No runs yet. Start one with "
              "<span class='mono'>python -m revel8_agent.cli run --target julius</span></div>") + "</div>")
 
     chart = ("<div class='card'><h2>Response rate by target</h2>" + _reply_bars(states)
-             + "<p class='mono' style='margin:14px 0 0'>share of touches that got a reply or an answered call</p></div>")
+             + "<p class='note' style='margin:14px 0 0'>Share of touches that got a reply or an answered call.</p></div>")
     about = ("<div class='card'><h2>How the score is estimated</h2><p style='font-size:13px;color:var(--text-2);margin:0'>"
-             "Measured locally: an incident is a submitted landing page, an opened attachment, or a disclosure/action judged "
-             "from the target's own words (marked “judged”). Results = 20 if the run reached an incident + up to 5 for speed "
+             "Measured locally. <b>✓ Confirmed</b>: the API reported a submitted landing page or an opened attachment. "
+             "<b>≈ Estimate</b>: our judge read a disclosure or action in the target's own words; the API has not confirmed it. "
+             "Counted runs are finished runs with at least one touch, the same rule as the Score page; runs that stopped "
+             "early are listed but not counted. Results = 20 if the run reached an incident + up to 5 for speed "
              "(vs. a team needing 2 contacts). Targeting, craft and the jury's 55 points are not visible here. "
              "<a href='score.html'>Full scorecard →</a> · <a href='how.html'>How the agent works →</a></p></div>")
-    body = ("<h1>Overview</h1><p class='sub'>Practice runs against the revel8 targets. Start with "
+    body = ("<h1>All runs</h1><p class='sub'>Practice runs against the revel8 targets. Start with "
             "<a href='how.html'><b>How it works</b></a>, look at the research per target, then open any run to replay every touch.</p>"
             + tiles + f"<div class='grid split' style='margin-bottom:20px'>{chart}{about}</div>" + table)
-    out = out_dir / "index.html"
-    out.write_text(_page("revel8 agent · overview", "", body, live and not public, active="index.html"), encoding="utf-8")
+    (out_dir / "runs.html").write_text(
+        _page("revel8 agent · all runs", "", body, live and not public, active="runs.html"), encoding="utf-8")
+
+    # The landing page is index.html: the featured run as a playable 3D score, the rest read in one sweep.
+    from .report_home import render_home
+
+    stats = _home_stats(states, card)
+    out = render_home(states, out_dir, lambda *a: _page(*a, active="index.html"), stats, _TARGETS)
+    _copy_fonts(out_dir)
     _REDACT = False
     return out

@@ -1,0 +1,41 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-11-22T03:55:15.947Z",
+        "reason": "Brand match: user asked to emulate revel8.ai, whose stylesheet sets Geist as its primary family"
+      },
+      {
+        "rule": "marketing-buzzword",
+        "value": "*",
+        "files": [
+          "runs/20261122-021835-robert-actor-v3.html"
+        ],
+        "createdAt": "2026-11-22T03:55:16.096Z",
+        "reason": "Quoted content: the phrase is the target's own public words shown as evidence, not dashboard copy"
+      },
+      {
+        "rule": "tight-leading",
+        "value": "*",
+        "files": [
+          "runs/index.html"
+        ],
+        "createdAt": "2026-11-22T04:33:24.160Z",
+        "reason": "Pinned brief: large Apple-style display headings (hm-h/hm-h2) are set at 0.98-1.02 leading on purpose; the 1.3x floor targets multi-line body text, not 44-92px display type"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "runs/index.html"
+        ],
+        "createdAt": "2026-11-22T04:50:42.916Z",
+        "reason": "The '(i)' nodes are the 3D score's CSS note-blocks (<i class=blk> with depth shadows) inside the glass demo stage; they are the data visualization, not nested content cards"
+      }
+    ]
+  }
+}
