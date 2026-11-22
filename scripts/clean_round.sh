@@ -4,7 +4,8 @@
 # usage: scripts/clean_round.sh <profile> <target>...   (profiles as in run_matrix.sh)
 P=$1; shift
 cd "$(dirname "$0")/.."; set -a; source .env; set +a
-source <(sed -n '/^case/,/^esac/p' scripts/run_matrix.sh)
+eval "$(sed -n '/^case/,/^esac/p' scripts/run_matrix.sh)"   # bash 3.2 (macOS): source <(...) is a silent no-op
+echo "profile $P -> LLM_BASE_URL=$LLM_BASE_URL LLM_MODEL=$LLM_MODEL"
 for T in "$@"; do (
   MEM=$(mktemp -d)/memory; export REVEL8_MEMORY_DIR=$MEM
   uv run python - "$MEM" "$T" <<'PY'
