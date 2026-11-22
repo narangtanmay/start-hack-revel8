@@ -91,7 +91,11 @@ def _forecast(tier: Tier, c: dict[str, Any], channel: str, hook: dict[str, Any] 
     if ts["reaction_tag"] == "LINK_OPENED_BOUNCE" and objective in ("action", "disclosure"):
         progress += 0.15
         notes.append("pivots away from login wall after link-open bounce")
-    if is_call and not weekend and c["silent_message_touches"] >= 3:
+    call_invited = "wants_call" in open_doors and not ts.get("call_completed") and "phone_switch" not in blocked
+    if is_call and call_invited:
+        progress += 0.45
+        notes.append("target explicitly invited a call before reviewing files")
+    elif is_call and not weekend and c["silent_message_touches"] >= 3:
         progress += 0.30
         notes.append(f"weekday call after {c['silent_message_touches']} silent message touches")
 
@@ -110,13 +114,13 @@ def _forecast(tier: Tier, c: dict[str, Any], channel: str, hook: dict[str, Any] 
         notes.append("repeats credential link after link-open bounce")
 
     norm = 0.0
-    if is_call and weekend:
+    if is_call and weekend and not call_invited:
         norm += 0.65
         notes.append("call on a weekend")
     if channel in _PHONE_SWITCH and "phone_switch" in blocked:
         norm += 0.65
         notes.append(f"switches to {channel} after target requested email-only")
-    elif c["last_replied_channel"] == "email" and channel in _PHONE_SWITCH and not c["phone_offered"]:
+    elif c["last_replied_channel"] == "email" and channel in _PHONE_SWITCH and not c["phone_offered"] and not (is_call and call_invited):
         norm += 0.65
         notes.append(f"switches to {channel} although target replied on email and offered no number")
     if channel == "sms" and c["last_channel"] == "sms":
@@ -196,7 +200,10 @@ def select_shadow_twin_move(
     ranked = _rank_hooks(list(brief.get("hooks") or []), preferred_id=str(plan.get("hook_id") or "") or None)
     non_past = [h for h in ranked if not _is_past_hook(h)]
     top = (non_past or ranked or [None])[0]
+    last_hook_id = c["used_hooks"][-1] if c["used_hooks"] else None
+    current_hook = next((h for h in ranked if str(h["id"]) == last_hook_id), top)
     unused_hook = next((h for h in non_past if str(h["id"]) not in c["used_hooks"]), top)
+    balanced_hook = current_hook if c["last_replied_channel"] else unused_hook
     message_channels, live_channels = _channel_ladder(plan)
     primary = "email" if "email" in message_channels or not message_channels else message_channels[0]
     active = c["last_replied_channel"] or c["last_channel"] or primary
@@ -221,17 +228,19 @@ def select_shadow_twin_move(
         balanced_channel = next((m for m in message_channels if m != "sms"), "email")
     unused = [m for m in message_channels if m not in c["used_channels"] and m != c["last_channel"]]
     call_channel = live_channels[0] if live_channels else "phone_call"
-    bold_channel = call_channel if (c["silent_message_touches"] >= 3 or not unused) else unused[0]
+    call_invited = "wants_call" in open_doors and not target_state.get("call_completed") and "phone_switch" not in blocked
+    bold_channel = call_channel if (call_invited or c["silent_message_touches"] >= 3 or not unused) else unused[0]
 
     specs: dict[Tier, tuple[str, dict[str, Any] | None, str, str, str]] = {
-        "safe": (safe_channel, top, plan_objective,
+        "safe": (safe_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
                  "Stay in-thread with one low-friction clarifying question.",
-                 f"stay on {safe_channel} with the top current hook"),
-        "balanced": (balanced_channel, unused_hook, plan_objective,
+                 f"stay on {safe_channel} with the active hook"),
+        "balanced": (balanced_channel, balanced_hook, plan_objective,
                      "Advance the objective directly with one concrete, single-purpose request.",
                      f"advance {plan_objective} on {balanced_channel}"),
-        "bold": (bold_channel, top, plan_objective,
-                 "Escalate to a live call or an unused channel with a higher-commitment ask.",
+        "bold": (bold_channel, current_hook if c["last_replied_channel"] else top, plan_objective,
+                 "Place the brief call the target asked for so they can review the document right after."
+                 if call_invited else "Escalate to a live call or an unused channel with a higher-commitment ask.",
                  f"escalate to {bold_channel}"),
     }
 

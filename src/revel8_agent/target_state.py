@@ -104,6 +104,13 @@ _WANTS_DETAILS_RE = re.compile(
     re.IGNORECASE,
 )
 
+_WANTS_CALL_RE = re.compile(
+    r"\b(?:after (?:the |our )?call|happy to talk|let'?s (?:talk|hop on a call|have a quick call)|"
+    r"(?:short|quick|brief|scoping) call|call works|slot (?:works|from my calendar)|"
+    r"kurz telefonieren|nach dem (?:gespräch|telefonat|call)|telefonat passt)\b",
+    re.IGNORECASE,
+)
+
 _ROUTED_RE = re.compile(
     r"\b(?:(?:send|forward|direct) (?:it|this|them|that|the \w+)? ?(?:over )?to [\w.+-]+@|"
     r"reach out to [\w.+-]+@|best (?:handled|sent|directed) (?:by|to)|loop in (?:our|the)|"
@@ -124,6 +131,7 @@ class TargetBeliefState(BaseModel):
     open_doors: list[str] = Field(default_factory=list)
     stated_constraints: list[dict[str, Any]] = Field(default_factory=list)
     link_opened_no_submit: bool = False
+    call_completed: bool = False
     last_replied_channel: str | None = None
     phone_offered: bool = False
 
@@ -181,6 +189,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
     any_link_opened = False
     any_page_submitted = False
     any_reply = False
+    call_completed = False
     last_replied_channel: str | None = None
     phone_offered = False
     last_reply_routed = False
@@ -232,6 +241,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
                 text = str(entry.get("text") or "")
                 if text.strip():
                     any_reply = True
+                    call_completed = True
                     if step_chan:
                         last_replied_channel = step_chan
                     reply_texts.append(text)
@@ -275,6 +285,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
                 ("wants_email_body", _WANTS_EMAIL_BODY_RE),
                 ("wants_weekday_followup", _WANTS_WEEKDAY_RE),
                 ("wants_details", _WANTS_DETAILS_RE),
+                ("wants_call", _WANTS_CALL_RE),
             ):
                 m = pattern.search(combined)
                 if m:
@@ -318,6 +329,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
         open_doors=sorted(open_doors),
         stated_constraints=constraints[-_MAX_CONSTRAINTS:],
         link_opened_no_submit=link_opened_no_submit,
+        call_completed=call_completed,
         last_replied_channel=last_replied_channel,
         phone_offered=phone_offered,
     ).model_dump()
