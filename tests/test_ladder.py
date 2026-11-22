@@ -48,3 +48,22 @@ def test_gate_trigger_generalises_beyond_vendor_founders():
 
     assert "FORMAL STEP" in prompt(st("Any bank detail change has to go through finance with a signed form."), [])
     assert "FORMAL STEP" in prompt(st("That needs approval from my manager first."), [])
+
+
+def test_pre_call_move_after_booked_call_and_invite():
+    from revel8_agent.ladder import check_draft, pre_call, prompt
+
+    steps = [
+        {"touch": 2, "action": {"channel": "email"}, "events": [
+            {"type": "reply", "body": "Tuesday 24 November, 09:30 works for me. Please send an invite to this address."}]},
+        {"touch": 3, "action": {"channel": "email"}, "events": [
+            {"type": "attachment.opened", "filename": "Sanity_Check_Tue.ics"},
+            {"type": "reply", "body": "got the invite, Tuesday 09:30 is in my calendar."}]},
+    ]
+    assert pre_call(steps) and "PRE-CALL MOVE" in prompt(steps, [])
+    email = {"kind": "message", "paragraphs": ["Which tool do you use for this internally?"]}
+    assert check_draft(steps, [], email, "")                       # another email is rejected
+    assert check_draft(steps, [], {"kind": "call", "channel": "phone_call"}, "") == []
+    called = steps + [{"touch": 4, "action": {"channel": "phone_call"}, "transcript": [{"who": "target", "text": "Hi"}]}]
+    assert not pre_call(called)
+    assert not pre_call(steps[:1])                                 # booked but no invite yet: send the invite first

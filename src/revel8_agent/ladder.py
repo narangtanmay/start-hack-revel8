@@ -107,6 +107,8 @@ _RUNG_PROMPT = {
 def prompt(steps: list[dict], incidents: list[dict]) -> str:
     out = _RUNG_PROMPT[rung(steps, incidents)] + _ROLE_NATURAL
     said = last_reply(steps)
+    if pre_call(steps):
+        return out + _PRE_CALL
     if _CALL_BOOKED.search(said):
         return out + (
             "\nCONVERSION POINT - THEY BOOKED A CALL / ASKED FOR THE INVITE. Send exactly what they asked for NOW: "
@@ -136,10 +138,36 @@ def prompt(steps: list[dict], incidents: list[dict]) -> str:
     return out
 
 
+_PRE_CALL = (
+    "\nPRE-CALL MOVE - they booked a call and you already sent the invite, but in writing they only give advice or "
+    "keep internals 'for the call'. Do NOT send another email. Make a short live call NOW (kind call, channel "
+    "phone_call, from the number in your signature): 'two minutes ahead of <the slot they booked>, so the time goes "
+    "on substance'. call_goal: get ONE fact about THEIR OWN organisation (which system/tool they run for it "
+    "internally, who owns or approves it, how their own process runs) - ask about what they DO, not what they "
+    "would recommend; then one level deeper per turn while they talk. Thank them and end politely when done.")
+
+
+def pre_call(steps: list[dict]) -> bool:
+    """Booked + invite delivered + no live call yet (live 22 Nov: Julius booked Tuesday, opened the invite, then
+    answered only 'principle level' advice by mail and kept 'the internals for the call')."""
+    booked_at = next((s.get("touch") or 0 for s in steps for e in s.get("events") or []
+                      if e.get("type") == "reply" and _CALL_BOOKED.search(e.get("body") or "")), None)
+    if booked_at is None or any(s.get("transcript") for s in steps):
+        return False
+    return any((s.get("touch") or 0) > booked_at and (
+        (s.get("action") or {}).get("channel") == "calendar_invite" or
+        str((s.get("action") or {}).get("attachment_filename") or "").lower().endswith(".ics") or
+        any(str(e.get("filename") or "").lower().endswith(".ics") for e in s.get("events") or []))
+        for s in steps)
+
+
 def check_draft(steps: list[dict], incidents: list[dict], a: dict, plan_body: str) -> list[str]:
-    """From rung 1 on, a message draft must carry an elicitation, an approval ask, or a registered link."""
-    if a.get("kind") == "conversation":
+    """From rung 1 on, a message draft must carry an elicitation, an approval ask, or a registered link.
+    After a booked call whose invite was delivered, the next contact must be the live call."""
+    if a.get("kind") in ("conversation", "call"):
         return []
+    if pre_call(steps):
+        return ["LADDER: pre-call state, a message is not allowed here." + _PRE_CALL]
     r = rung(steps, incidents)
     text = " ".join([str(a.get("subject") or ""), plan_body or "", " ".join(a.get("paragraphs") or [])])
     if _ELICIT.search(text) or _APPROVAL.search(text) or a.get("link"):
