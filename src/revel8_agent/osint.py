@@ -560,6 +560,16 @@ def write_dossier(dossier: VerifiedDossier, stats: dict, out_dir: str | Path = "
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{dossier.target_id}.json"
+    # Never replace saved research with an empty result (22 Nov: a Qwen pass that found nothing overwrote Jonas's
+    # 13 facts, a Kimi pass Titus's 13). The empty result is kept beside it for debugging.
+    if not dossier.facts and path.exists():
+        try:
+            prev = json.loads(path.read_text(encoding="utf-8-sig"))
+        except ValueError:
+            prev = {}
+        if prev.get("facts"):
+            (out / f"{dossier.target_id}.empty.json").write_text(dossier.model_dump_json(indent=2), encoding="utf-8")
+            return path
     path.write_text(dossier.model_dump_json(indent=2), encoding="utf-8")
     (out / f"{dossier.target_id}.stats.json").write_text(json.dumps(stats, indent=2, ensure_ascii=False),
                                                        encoding="utf-8")

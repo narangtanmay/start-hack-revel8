@@ -30,3 +30,15 @@ def test_ground_truth_trims_a_theme_instead_of_dropping_everything_after_it():
     d = _d([f"{a} {b} initiative launched {a}-{b} workstream" for a in words[:8] for b in words[8:13]])
     g = ground_truth(d, max_chars=1500, per_theme=40)
     assert 5 <= len(g["fact_ids"]) < 40 and len(g["text"]) <= 1500
+
+
+def test_write_dossier_never_replaces_research_with_an_empty_result(tmp_path):
+    from revel8_agent.osint import write_dossier
+
+    full = _d(["Anna Berg moved the finance team to SAP S/4HANA in 2026."])
+    write_dossier(full, {}, tmp_path)
+    empty = _d([])
+    write_dossier(empty, {}, tmp_path)
+    import json
+    assert len(json.loads((tmp_path / "x.json").read_text(encoding="utf-8"))["facts"]) == 1
+    assert (tmp_path / "x.empty.json").exists()
