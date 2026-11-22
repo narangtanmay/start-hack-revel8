@@ -2,19 +2,6 @@
  "name": "Robert Seilbeck",
  "sessions": [
   {
-   "run": "20261121-232112-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:21:12+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "A job applicant for a security engineer role at revel8, referencing the company's recent seed round and team scaling.",
-   "persona": "Security Engineer (applicant) at None (independent applicant)",
-   "touches": 10,
-   "reply_rate": 0.2,
-   "silence": 8,
-   "brushoffs": 2,
-   "incidents": []
-  },
-  {
    "run": "20261121-232435-robert-DeepSeek-V4-Flash",
    "at": "2026-11-21T22:24:35+00:00",
    "scenario": "practice",
@@ -281,6 +268,19 @@
     "action@t1 (llm-judge (estimate))",
     "disclosure@t3 (llm-judge (estimate))"
    ]
+  },
+  {
+   "run": "20261122-104916-robert-loop7-robert-5f8f8a",
+   "at": "2026-11-22T09:49:16+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO at a mid-sized German manufacturer is shortlisting security-awareness vendors after reading Robert's revel8 vs. SoSafe comparison, and asks a substantive follow-up on MS Teams vishing and works",
+   "persona": "Head of IT Security (CISO) at Wendelstein Präzisionstechnik GmbH",
+   "touches": 10,
+   "reply_rate": 0.1,
+   "silence": 9,
+   "brushoffs": 0,
+   "incidents": []
   }
  ],
  "corrections": [],

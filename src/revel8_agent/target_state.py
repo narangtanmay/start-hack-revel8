@@ -364,7 +364,7 @@ def extract_target_state(steps: list[dict[str, Any]]) -> dict[str, Any]:
             desk = bool(mail) and mail.group(0).split("@")[0].casefold() in _DESK_LOCAL
             desk = desk or (bool(names) and names[0].split()[0].casefold() in _DESK_LOCAL)
             if (names or mail) and (desk or _HANDOFF_CUE_RE.search(combined)):
-                who = re.split(r"\s+(?:or|oder|and|und|bzw\.?|at|bei|to|with|mit|please)\b",
+                who = re.split(r"\s+(?:or|oder|and|und|bzw\.?|at|bei|to|with|mit|please|via|per|mail|telefon|phone)\b",
                                names[0].strip(" .,;"), maxsplit=1)[0] if names else ""
                 who = re.sub(r"^(?:the|a|an|our|your)\s+", "", who, flags=re.IGNORECASE).strip(" .,;")
                 if who.casefold() in _HANDOFF_STOP:
