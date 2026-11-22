@@ -715,3 +715,9 @@ def test_deferral_adds_a_near_deadline_to_the_ask() -> None:
     move = RuleBasedPolicy().choose_next_move(_upcoming_brief(), [t1], touch=2, max_touches=10, plan=plan)
     assert move["require_link"] is True
     assert "near deadline" in move["ask"]
+
+
+def test_portal_refusal_counts_as_login_decline() -> None:
+    from revel8_agent.policy import _LOGIN_DECLINE
+
+    assert _LOGIN_DECLINE.search("I'll send you a revised abstract by reply. I won't use the portal for now.")

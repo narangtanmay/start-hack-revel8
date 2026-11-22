@@ -49,7 +49,10 @@ _LOGIN_DECLINE = re.compile(
     r"won'?t (?:log|sign) in|no (?:login|log-in|sign-in)|don'?t (?:log|sign) in|keine anmeldung|"
     # "no need for me to sign in anywhere ... rather than through the link" (fast-SW Tom T1, 2026-11-22)
     r"no need (?:for me )?to (?:log|sign) ?in|(?:log|sign) ?in anywhere|rather than (?:through|via) the link|"
-    r"nicht (?:extra )?(?:an|ein)melden|ohne (?:login|anmeldung)|lieber (?:direkt )?(?:hier|per mail)",
+    r"nicht (?:extra )?(?:an|ein)melden|ohne (?:login|anmeldung)|lieber (?:direkt )?(?:hier|per mail)|"
+    # "I won't use the portal for now" (hybrid-S7 Tom T2, 2026-11-22)
+    r"won'?t use the (?:portal|link)|not (?:going to )?use the (?:portal|link)|portal (?:nicht|lieber nicht)|"
+    r"nicht (?:über|ins|im) (?:das )?portal",
     re.IGNORECASE,
 )
 
@@ -318,7 +321,8 @@ class RuleBasedPolicy:
             page_type = "meeting" if link_requested and _MEETING_REQUEST.search(last_reply) else "signin"
             if require_link:
                 ask = (f"{ask} Include your registered link (page_type \"{page_type}\") as the natural next step of "
-                       "your own story: the place where they confirm or join what you are talking about.")
+                       "your own story: the place where they confirm or join what you are talking about. The portal is "
+                       "the only place this can be done: do not offer to take it by email or reply instead.")
                 if _DEFERRAL.search(last_reply):
                     ask += (" They are putting it off. Give your own hard, near deadline with a concrete reason only you "
                             "can know (e.g. the printer needs the final files tomorrow at 9:00), thank them for what they "

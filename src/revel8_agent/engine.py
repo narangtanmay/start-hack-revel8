@@ -171,6 +171,15 @@ _REAL_TLDS = {"de", "com", "eu", "org", "net", "io", "ch", "at", "info", "co", "
               "nl", "fr", "uk", "it", "es", "be", "lu", "dk", "se", "no", "fi", "pl", "cz", "us", "ai", "app", "dev",
               "test"}  # .test: reserved for tests (fixtures)
 
+# Offering the target a way around the portal while the policy needs the sign-in.
+_ESCAPE_HATCH = re.compile(
+    r"rather confirm by (?:e-?mail|reply)|confirm by (?:e-?mail|reply)|just reply and I(?:'|’)?ll (?:note|enter|add|update)|"
+    r"I(?:'|’)?ll enter (?:the|your) details (?:on your behalf|for you)|reply with (?:the|your) details instead|"
+    r"per (?:e-?mail|mail|antwort) bestätigen|antworten sie einfach.{0,40}(?:trage|übernehme|notiere)|"
+    r"trage (?:ich )?(?:die|ihre) (?:angaben|daten) (?:für sie )?ein",
+    re.IGNORECASE,
+)
+
 # Path segments under which a site lists one person per page (speaker, team, author pages).
 _PERSON_DIRS = {"sprecher", "sprecher-innen", "sprecherinnen", "speaker", "speakers", "referent", "referenten",
                 "referentinnen", "team", "people", "person", "personen", "profile", "profil", "author", "authors",
@@ -1450,6 +1459,12 @@ class Runner:
                         self.polish(a)
                     plan, payload, page = self.build(a)
                     errors = self.check(a, plan)
+                    if (policy_move and policy_move.get("require_link") and a.get("kind") != "call"
+                            and _ESCAPE_HATCH.search(" ".join(str(p) for p in a.get("paragraphs") or []))):
+                        # hybrid-S7 Tom T1 offered "If you'd rather confirm by email, just reply" -> "I won't use the
+                        # portal for now"
+                        errors.append("Do not offer an alternative to the portal (no 'just reply', 'confirm by email', "
+                                      "'I can enter it for you'): the portal is the only place this is done.")
                     if (policy_move and policy_move.get("require_link") and a.get("kind") != "call"
                             and not (isinstance(a.get("link"), dict) and a["link"].get("url"))):
                         # 2026-11-22: 1 link in 94 DeepSeek touches; without the link there is no incident to win.
