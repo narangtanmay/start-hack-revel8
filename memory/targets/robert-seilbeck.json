@@ -2,58 +2,6 @@
  "name": "Robert Seilbeck",
  "sessions": [
   {
-   "run": "20261121-231533-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:15:33+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "Follow-up on the seed round and scaling priorities — sharing a short engineering benchmark from a peer group.",
-   "persona": "Research Lead at SecOps Benchmark Collective",
-   "touches": 11,
-   "reply_rate": 0.09,
-   "silence": 10,
-   "brushoffs": 1,
-   "incidents": []
-  },
-  {
-   "run": "20261121-231808-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:18:08+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "",
-   "persona": "Partner, Tech & Security Practice at Weber & Partner Executive Search",
-   "touches": 10,
-   "reply_rate": 0.1,
-   "silence": 9,
-   "brushoffs": 0,
-   "incidents": []
-  },
-  {
-   "run": "20261121-231838-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:18:38+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "I am a technical writer and security researcher preparing a case study on how European cybersecurity startups scale their engineering teams after a major funding round. Given revel8's recent €5.7M see",
-   "persona": "Technical Writer & Security Researcher at independent",
-   "touches": 10,
-   "reply_rate": 0.1,
-   "silence": 9,
-   "brushoffs": 1,
-   "incidents": []
-  },
-  {
-   "run": "20261121-232112-robert-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:21:12+00:00",
-   "scenario": "practice",
-   "hook_id": "h1",
-   "pretext": "A job applicant for a security engineer role at revel8, referencing the company's recent seed round and team scaling.",
-   "persona": "Security Engineer (applicant) at None (independent applicant)",
-   "touches": 10,
-   "reply_rate": 0.2,
-   "silence": 8,
-   "brushoffs": 2,
-   "incidents": []
-  },
-  {
    "run": "20261121-232435-robert-DeepSeek-V4-Flash",
    "at": "2026-11-21T22:24:35+00:00",
    "scenario": "practice",
@@ -236,6 +184,98 @@
    "silence": 8,
    "brushoffs": 0,
    "incidents": []
+  },
+  {
+   "run": "20261122-024916-robert-ab-actor-v2",
+   "at": "2026-11-22T01:49:16+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Robert Seilbeck ist für Session 1.3 mit dem Titel Von der Idee zum Takeoff – Start-ups & Gründungen vorgesehen. Nur er kann verbindlich bestätigen, ob seine beiden Profilzeilen stimmen und ob er ein o",
+   "persona": "Programmkoordinatorin für Speaker-Logistik, zuständig für Session 1.3 bei Cybersicherheitsforschung 2027 at Tagungsbüro Falkenried",
+   "touches": 6,
+   "reply_rate": 0.17,
+   "silence": 5,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-053456-robert-adaptive-ds-robert-fresh",
+   "at": "2026-11-22T04:34:56+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A CISO at a mid-sized Augsburg precision-parts supplier whose works council blocked a US awareness platform over data protection reaches out after reading Robert's own revel8 vs. SoSafe comparison for",
+   "persona": "CISO / Head of IT Security at Auerbach Präzisionstechnik GmbH",
+   "touches": 6,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 1,
+   "incidents": [
+    "disclosure@t2 (llm-judge (estimate))",
+    "disclosure@t4 (llm-judge (estimate))",
+    "disclosure@t5 (llm-judge (estimate))",
+    "disclosure@t6 (llm-judge (estimate))"
+   ]
+  },
+  {
+   "run": "20261122-060729-robert-adaptive-ds-robert-v3",
+   "at": "2026-11-22T05:07:29+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "Michael Ostermeier is Head of IT Security at Wendelstein Antriebstechnik, a mid-sized Bavarian drive-technology supplier with three plants and a works council that just blocked a US awareness platform",
+   "persona": "Head of IT Security (CISO) at Wendelstein Antriebstechnik GmbH",
+   "touches": 6,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 1,
+   "incidents": [
+    "disclosure@t1 (llm-judge (estimate))",
+    "disclosure@t5 (llm-judge (estimate))",
+    "disclosure@t6 (llm-judge (estimate))"
+   ]
+  },
+  {
+   "run": "20261122-065252-robert-smoke-stall-1426b23-2952ac",
+   "at": "2026-11-22T05:52:52+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "Speaker onboarding for Session 1.3 'Von der Idee zum Takeoff – Start-ups & Gründungen' at Cybersicherheitsforschung 2027: the programme desk confirms his speaker bio, headshot and AV setup, offers a s",
+   "persona": "Programme Coordination, Session 1.3 at Cybersicherheitsforschung 2027 – Programme Office",
+   "touches": 6,
+   "reply_rate": 0.67,
+   "silence": 2,
+   "brushoffs": 2,
+   "incidents": []
+  },
+  {
+   "run": "20261122-070929-robert-final-5ade40d-f39ef1",
+   "at": "2026-11-22T06:09:29+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A mid-sized Bavarian medical-technology manufacturer is shortlisting security-awareness vendors for a NIS2-driven programme and has just read his published revel8 vs. SoSafe comparison. The sender is ",
+   "persona": "Head of IT Security at Kranzberger Medizintechnik GmbH",
+   "touches": 6,
+   "reply_rate": 0.33,
+   "silence": 4,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t1 (llm-judge (estimate))",
+    "disclosure@t2 (llm-judge (estimate))"
+   ]
+  },
+  {
+   "run": "20261122-071942-robert-silence-9240e0c-254f76",
+   "at": "2026-11-22T06:19:42+00:00",
+   "scenario": "practice",
+   "hook_id": "h4",
+   "pretext": "A security lead at a mid-sized German medical-technology manufacturer with an active works council is comparing awareness vendors after the works council blocked a US platform on data-protection groun",
+   "persona": "Head of IT Security at Huber Medizintechnik GmbH",
+   "touches": 6,
+   "reply_rate": 0.33,
+   "silence": 4,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t1 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [],
@@ -251,6 +291,56 @@
    "run": "20261122-002633-robert-DeepSeek-V4-Flash",
    "touch": 2,
    "text": "I'll pass it to Claudia Lannes (Head of Solution Engineering), and she will get in touch with you this week about scope and the works-council steps."
+  },
+  {
+   "run": "20261122-053456-robert-adaptive-ds-robert-fresh",
+   "touch": 2,
+   "text": "Thanks, that is concrete. I'm passing it to Claudia Lannes (Solution Engineering). She will send you slots for Tuesday or Thursday afternoon."
+  },
+  {
+   "run": "20261122-053456-robert-adaptive-ds-robert-fresh",
+   "touch": 4,
+   "text": "Claudia will write to you with the slots, and she will decide which address she uses."
+  },
+  {
+   "run": "20261122-053456-robert-adaptive-ds-robert-fresh",
+   "touch": 5,
+   "text": "Claudia Lannes will pick up the grouping question and who owns it when she writes with the slots."
+  },
+  {
+   "run": "20261122-053456-robert-adaptive-ds-robert-fresh",
+   "touch": 6,
+   "text": "I won't give a yes or no on documentation commitments by mail. That goes through Solution Engineering and the contract process. Claudia Lannes will contact you."
+  },
+  {
+   "run": "20261122-060729-robert-adaptive-ds-robert-v3",
+   "touch": 1,
+   "text": "The works-council side of deployments is handled by our solution engineering and customer team, not by me."
+  },
+  {
+   "run": "20261122-060729-robert-adaptive-ds-robert-v3",
+   "touch": 5,
+   "text": "I don't hand out customer references. That goes through sales and the customer team, and only with the customer's consent."
+  },
+  {
+   "run": "20261122-060729-robert-adaptive-ds-robert-v3",
+   "touch": 6,
+   "text": "I won't book a slot myself. Scheduling goes through sales and solution engineering. Once your message at info@revel8.ai has been picked up, they will propose the right people and times."
+  },
+  {
+   "run": "20261122-070929-robert-final-5ade40d-f39ef1",
+   "touch": 1,
+   "text": "Please send your questions and a rough timeline to our solution engineering team, led by Claudia Lannes. They will set up the call and bring the works council material."
+  },
+  {
+   "run": "20261122-070929-robert-final-5ade40d-f39ef1",
+   "touch": 2,
+   "text": "Supplier registrations go through them, not through me."
+  },
+  {
+   "run": "20261122-071942-robert-silence-9240e0c-254f76",
+   "touch": 1,
+   "text": "Details on anonymization thresholds belong in the pilot scoping with our solution engineering team, so I'll pass your question on to them."
   }
  ]
 }

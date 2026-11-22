@@ -2,32 +2,6 @@
  "name": "Julius Muth",
  "sessions": [
   {
-   "run": "20261121-231125-julius-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:11:25+00:00",
-   "scenario": "practice",
-   "hook_id": null,
-   "pretext": "",
-   "persona": "Program Director, CISO Community Hub Initiative at Cyber Resilience Alliance (CRA)",
-   "touches": 10,
-   "reply_rate": 0.9,
-   "silence": 1,
-   "brushoffs": 1,
-   "incidents": []
-  },
-  {
-   "run": "20261121-231659-julius-DeepSeek-V4-Flash",
-   "at": "2026-11-21T22:16:59+00:00",
-   "scenario": "practice",
-   "hook_id": "h4",
-   "pretext": "Julius, I'm a growth marketing specialist with a background in cybersecurity and I've been following revel8's mission to build 10 million human firewalls. I see you're hiring for go-to-market roles an",
-   "persona": "GTM & Growth Marketing Specialist at GrowthWorks Consulting",
-   "touches": 10,
-   "reply_rate": 0.2,
-   "silence": 8,
-   "brushoffs": 2,
-   "incidents": []
-  },
-  {
    "run": "20261121-232112-julius-DeepSeek-V4-Flash",
    "at": "2026-11-21T22:21:12+00:00",
    "scenario": "practice",
@@ -249,6 +223,53 @@
    "silence": 0,
    "brushoffs": 1,
    "incidents": []
+  },
+  {
+   "run": "20261122-052744-julius-adaptive-ds-julius",
+   "at": "2026-11-22T04:27:44+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "A security awareness lead at a Bavarian hospital group is comparing approaches for a deepfake/vishing programme after a near-miss, and writes as a prospective customer because Julius publicly argues r",
+   "persona": "Head of Security Awareness & Human Risk at Mainbogen Kliniken",
+   "touches": 2,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": []
+  },
+  {
+   "run": "20261122-053136-julius-adaptive-ds-julius-v2",
+   "at": "2026-11-22T04:31:36+00:00",
+   "scenario": "practice",
+   "hook_id": "h1",
+   "pretext": "A Head of IT Security at a mid-sized Hamburg insurance broker writes to Julius as a prospective customer: after a near-miss deepfake voice call in her finance team, her board wants a deepfake/vishing ",
+   "persona": "Head of IT Security at Lohmann & Weyrauch Versicherungsmakler",
+   "touches": 4,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t2 (llm-judge (estimate))",
+    "action@t4 (api event)",
+    "disclosure@t4 (llm-judge (estimate))"
+   ]
+  },
+  {
+   "run": "20261122-065808-julius-smoke-1426b23-516393",
+   "at": "2026-11-22T05:58:08+00:00",
+   "scenario": "practice",
+   "hook_id": "h2",
+   "pretext": "A Head of IT Security at a mid-sized German machine-tool manufacturer writes as a prospective customer after a near-miss AI voice fraud in her accounts-payable team. She is scoping a vishing/deepfake ",
+   "persona": "Head of IT Security at Mühlbach Präzisionsteile GmbH",
+   "touches": 3,
+   "reply_rate": 1.0,
+   "silence": 0,
+   "brushoffs": 0,
+   "incidents": [
+    "disclosure@t1 (llm-judge (estimate))",
+    "action@t3 (api event)",
+    "action@t3 (llm-judge (estimate))"
+   ]
   }
  ],
  "corrections": [
@@ -274,5 +295,21 @@
   "no_office_files",
   "offers_input"
  ],
- "disclosed": []
+ "disclosed": [
+  {
+   "run": "20261122-053136-julius-adaptive-ds-julius-v2",
+   "touch": 2,
+   "text": "I'll then bring in Claudia from our solution engineering team."
+  },
+  {
+   "run": "20261122-053136-julius-adaptive-ds-julius-v2",
+   "touch": 4,
+   "text": "Onboarding effort: for a pilot of about 36 people it is light. A few weeks from kickoff to the first simulations, mostly agreeing on scope, scenarios and the reporting setup."
+  },
+  {
+   "run": "20261122-065808-julius-smoke-1426b23-516393",
+   "touch": 1,
+   "text": "I'd bring in Claudia from our solution engineering team for a short call."
+  }
+ ]
 }
