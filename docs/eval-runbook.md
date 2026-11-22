@@ -1,10 +1,15 @@
 # Sunday Official Eval Runbook (`eval/merged`)
 
+> **Version Pin & Scoring Update (2026-11-22)**
+> Eval runs on tag **`eval-final-05b7f5d`** from `/home/tanmay/Desktop/START_hack-eval`.
+> Pre-flight: `git diff eval-final-05b7f5d -- src tests` must print nothing; `PYTHONPATH=$PWD/src ../START_hack/.venv/bin/python -m pytest -q` must pass (359).
+> Scoring update 2026-11-22: `link.opened` and `attachment.opened` are logged but are **NOT** incidents; only something given or done counts (form secret = `page.submitted`, internal information, an action).
+
 > **Scored-round rules**
-> - **Code freeze:** Code is frozen at the go/no-go commit (**`2fb6f1e`** unless told otherwise). All 3 scored sessions run on that same commit.
+> - **Code freeze:** Code is frozen at tag **`eval-final-05b7f5d`** (`05b7f5d` unless told otherwise). All 3 scored sessions run on that same code.
 > - **Session budget:** A scored session counts as used once one message is sent; the team has **3 in total**. Never stop a session halfway to fix something.
 > - **Zero human-in-the-loop:** Never write, edit, or approve messages while a scored session runs (the rubric voids the run). Watching is fine.
-> - **Between sessions:** Only two things are allowed: fixing an outright crash, and the dossier + events check (Section 4). **No behaviour tweaks.**
+> - **Between sessions:** Only fixes for an outright crash and the between-session review (Section 4) are allowed. **No behaviour changes.**
 
 **Submission Deadline:** Sunday, 22 Nov 2026, **12:45 CET**  
 **Eval Rules (`docs/revel8-api-docs.md`):**
@@ -18,8 +23,8 @@
 
 - **Machine:** Tanmay's laptop (single operator — no teammate triggers `--scenario eval` from another machine).
 - **Working directory:** `/home/tanmay/Desktop/START_hack-eval`
-- **Branch:** `eval/merged` (frozen at **`2fb6f1e`**)
-- **Why one folder:** All 3 scored sessions run from this same folder so `runs/` (for jury replay packaging) and `memory/targets/` (soft-hint memory carried across sessions) stay together.
+- **Branch / Tag:** `eval/merged` (frozen code at **`eval-final-05b7f5d`**)
+- **Why one folder:** All 3 scored sessions run from this same folder, one machine, one operator, so `runs/` (for jury replay packaging) and `memory/targets/` (soft-hint memory carried across sessions) stay together.
 
 ---
 
@@ -27,15 +32,14 @@
 
 ```bash
 cd /home/tanmay/Desktop/START_hack-eval
-git rev-parse --short HEAD                  # Must match frozen commit (2fb6f1e unless told otherwise)
-git status --short -- src tests             # Must be clean (no uncommitted edits)
+git diff eval-final-05b7f5d -- src tests    # MUST print nothing
 PYTHONPATH=$PWD/src ../START_hack/.venv/bin/python -c "import revel8_agent; print(revel8_agent.__file__)"
                                             # MUST print /home/tanmay/Desktop/START_hack-eval/src/revel8_agent/__init__.py
-PYTHONPATH=$PWD/src ../START_hack/.venv/bin/pytest -q
-                                            # Must be 100% green
+PYTHONPATH=$PWD/src ../START_hack/.venv/bin/python -m pytest -q
+                                            # MUST pass (359 passed)
 ```
 
-1. **Balance check:** Verify `succ.ai` balance has comfortable headroom (and keep concurrency = 1, especially if falling back to `succ-zero`).
+1. **Balance & concurrency check:** Verify `succ.ai` balance has comfortable headroom and zero other processes are using the `succ.ai` key.
 2. **1-token LLM health check:** Verify `succ-deepseek-flash-abliterated` returns 200 OK.
 3. **Reveal eval target(s):**
    ```bash
@@ -52,7 +56,34 @@ PYTHONPATH=$PWD/src ../START_hack/.venv/bin/pytest -q
 - **Primary model:** `succ-deepseek-flash-abliterated` with `LLM_JSON_MODE=0 LLM_REASONING=0 LLM_MAX_TOKENS=8192`
 - **Fallback model:** `succ-zero` (with `LLM_MAX_TOKENS=8192 LLM_REASONING_EFFORT=low`, omit `LLM_JSON_MODE=0 LLM_REASONING=0`)
 
-### Session 1 (Live Research — Target Hidden Until Window Opens)
+### Session 1 — Three Steps (Research Outside the Scored Session)
+
+#### Step 1a — Research Only (Opens No Session, Uses None of the 3 Scored Runs)
+Run **NOTHING else** on the `succ.ai` key meanwhile (4 parallel runs exhausted the budget and produced 0 hooks in practice today):
+
+```bash
+cd /home/tanmay/Desktop/START_hack-eval
+set -a; source ../START_hack/.env; set +a
+
+PYTHONPATH=$PWD/src \
+LLM_BASE_URL="https://api.succ.ai/v1" \
+LLM_API_KEY="$KIMI_API_KEY" \
+LLM_API_KEYS="" \
+LLM_MODEL="succ-deepseek-flash-abliterated" \
+LLM_JSON_MODE=0 \
+LLM_REASONING=0 \
+LLM_MAX_TOKENS=8192 \
+../START_hack/.venv/bin/python -m revel8_agent.cli research \
+  --scenario eval \
+  --target <TARGET_ID> \
+  --budget 300
+```
+
+#### Step 1b — Audit `dossiers/<TARGET_ID>.json`
+- Confirm `"hypotheses"` is **non-empty** and the facts behind the top hooks are actually about **this person** (no facts from someone else's page / colleague bio).
+- If `"hypotheses"` is empty, repeat **Step 1a** (free — still uses 0 scored runs).
+
+#### Step 1c — Run Scored Session 1 (With Audited Dossier)
 
 ```bash
 cd /home/tanmay/Desktop/START_hack-eval
@@ -70,15 +101,16 @@ LLM_MAX_TOKENS=8192 \
   --scenario eval \
   --allow-eval \
   --target <TARGET_ID> \
+  --dossier dossiers/<TARGET_ID>.json \
   --policy \
   --shadow-twin \
   --touches 10 \
   --label eval-run-1
 ```
 
-### Sessions 2 and 3 (Reuse Audited Dossier)
+### Sessions 2 and 3 (Keep `--dossier dossiers/<TARGET_ID>.json`)
 
-After auditing `dossiers/<TARGET_ID>.json` following Session 1, pass `--dossier dossiers/<TARGET_ID>.json` on Sessions 2 and 3 so they reuse the audited dossier instead of re-researching (honoured in eval since `2fb6f1e`). Run from this same folder so memory carries over.
+All 3 sessions run from `/home/tanmay/Desktop/START_hack-eval` (one folder, one machine, one operator) so memory carries over.
 
 ```bash
 cd /home/tanmay/Desktop/START_hack-eval
@@ -108,24 +140,39 @@ LLM_MAX_TOKENS=8192 \
 
 ---
 
-## 4. Mandatory Between-Session Check (Before Session 2 and Before Session 3)
+## 4. Between-Session Review (Before Session 2 and Before Session 3; Never During a Session)
 
-**Only two things are allowed between sessions:** fixing an outright crash, and this dossier + events check (no behaviour tweaks).
+**Only fixes for an outright crash are allowed between sessions; no behaviour changes.**
 
-1. **Previous session API events & T1–T2 check:** Inspect `runs/*eval-run-N*.html` and `.json` — check the real API events (`link.opened` / `page.submitted` / `attachment.opened`) and what happened at **T1–T2**.
-2. **Dossier audit (`dossiers/<TARGET_ID>.json`):** Verify that every fact the top hooks rely on is actually about **this person** (no facts from someone else's page / colleague bio).
-3. **Memory note:** Cross-session refusals in `memory/targets/<slug>.json` act as **soft hints** in the planner prompt since `454da61` (they are not hard-blocked).
-4. **Log the session:** Record `session_id`, `status`, and API events in the Session Log table below before starting the next session.
+1. **Run the blind per-touch judge:**
+   ```bash
+   /home/tanmay/Desktop/START_hack/scripts/blind_touch_judge.sh \
+     /home/tanmay/Desktop/START_hack/docs/judge-eval-run-N.md \
+     runs/<eval-run-N file>.json
+   ```
+2. **Read its `SYSTEMIC` section and per-touch codes:**
+   - `A1` artifact mismatch
+   - `A2` unasked artifact
+   - `R1` refusal ignored
+   - `S1` misread signal
+   - `D1` redirect ignored
+   - `C1` contradiction
+   - `P1` promise unkept
+   - `Q1` question ignored
+3. **Verify previous session API events & T1–T2:** Check `link.opened` / `attachment.opened` (logged signal, not incidents) and `page.submitted` (incident) plus what happened at T1–T2.
+4. **Dossier check:** Confirm every fact behind the top hooks in `dossiers/<TARGET_ID>.json` is about this person.
+5. **Memory note:** Cross-session refusals in `memory/targets/<slug>.json` act as **soft hints** in the planner prompt since `454da61` (not hard-blocked).
+6. **Log the session:** Record `session_id`, `status`, API events, and judge codes in the Session Log table below before starting the next session.
 
 ---
 
 ## 5. Eval Session Log (Fill Live)
 
-| Session | Target ID | Model & Mode | Session ID | Status | Touches | API Events (`link.opened` / `page.submitted` / `attachment.opened`) | Replay HTML |
-|---|---|---|---|---|---:|---|---|
-| Eval 1 | | | | | | | |
-| Eval 2 | | | | | | | |
-| Eval 3 | | | | | | | |
+| Session | Target ID | Model & Mode | Session ID | Status | Touches | API Events (`page.submitted` / `link.opened` / `attachment.opened`) | Judge Codes (`A1..Q1`) | Replay HTML |
+|---|---|---|---|---|---:|---|---|---|
+| Eval 1 | | | | | | | | |
+| Eval 2 | | | | | | | | |
+| Eval 3 | | | | | | | | |
 
 ---
 
