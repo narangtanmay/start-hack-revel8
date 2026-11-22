@@ -306,6 +306,13 @@ class LLMPool:
     def lane(self, i: int) -> "PooledClient":
         return PooledClient(self, i % len(self.clients))
 
+    def set_model(self, model: str, extra_body: dict | None = None) -> None:
+        """Switch every key's client to another model on the same endpoint (model_strategy, after planning)."""
+        for c in self.clients:
+            c.model = model
+            c.extra_body = dict(extra_body or {})
+        self.model = model
+
     def close(self) -> None:
         for c in self.clients:
             c.close()
@@ -391,6 +398,10 @@ class PooledClient:
     def __init__(self, pool: LLMPool, preferred: int) -> None:
         self.pool, self.preferred = pool, preferred
         self.model = pool.model
+
+    def set_model(self, model: str, extra_body: dict | None = None) -> None:
+        self.pool.set_model(model, extra_body)
+        self.model = model
 
     def chat(self, messages: Sequence[ChatMessage], *, json_mode: bool = False,
              temperature: float | None = None, deadline: float | None = None,

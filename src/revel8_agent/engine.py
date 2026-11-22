@@ -1401,6 +1401,13 @@ class Runner:
         try:
             self.save()
             self.plan()
+            from .model_strategy import choose_model
+
+            choice = choose_model(st.brief, st.plan)
+            if choice and hasattr(self.llm, "set_model"):
+                self.llm.set_model(choice["model"], choice["extra_body"])
+                st.plan["model_strategy"] = choice
+                self.log(f"model: {choice['model']} for the '{choice['situation']}' situation ({choice['reason']})")
             if self.cfg.scenario_id == "eval":
                 self.log("!!! EVAL SESSION: this uses one of the 3 scored runs")
             st.session_id = str(self.api.create_session(self.cfg.scenario_id)["session_id"])
