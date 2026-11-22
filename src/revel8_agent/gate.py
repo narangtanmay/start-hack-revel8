@@ -16,6 +16,13 @@ _META_TEXT = re.compile(
     re.IGNORECASE,
 )
 
+# Planner notes leaking into the copy, e.g. a signature "Brenner & Söhne GmbH (fiktiver Zulieferer, ...)".
+_PRETEXT_LEAK = re.compile(
+    r"\b(?:fiktiv\w*|erfunden\w*|fictional|fictitious|made[- ]up|placeholder|platzhalter|"
+    r"lookalike|pretext)\b",
+    re.IGNORECASE,
+)
+
 _CREDENTIAL_FIELDS = frozenset({"password", "passcode", "otp"})
 _NO_LOGIN_CLAIMS = (
     "public page",
@@ -222,6 +229,11 @@ def validate_contact_plan(
 
     if any(_META_TEXT.search(unescape(content)) for content in text):
         errors.append("Draft contains simulator or instruction-override language.")
+    if any(_PRETEXT_LEAK.search(unescape(content)) for content in text):
+        errors.append(
+            "Draft reveals the pretext is invented (e.g. 'fiktiver Zulieferer', 'fictional', 'placeholder'). "
+            "Write the persona and organisation as real; never label them fictional or invented."
+        )
     if any(parser.has_script for parser in parsers):
         errors.append("HTML contains a script tag.")
     if any(parser.has_non_asset_image for parser in parsers):

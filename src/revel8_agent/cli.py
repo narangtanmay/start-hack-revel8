@@ -139,7 +139,7 @@ def _run(
             write_dossier(dossier, stats)
         cfg = RunConfig(
             target_id=target,
-            scenario_id=scenario,
+            scenario_id="mock" if mock else scenario,  # "mock" keeps fake replies out of target memory
             max_touches=touches,
             label=label,
             stop_at_first_incident=not keep_going,

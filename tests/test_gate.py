@@ -248,3 +248,23 @@ def test_social_norm_allows_when_phone_offered_or_no_reply(plan: ContactPlan, do
     assert not any("Social-norm" in e for e in _check(plan, dossier, []))
     plan.channel = "email"
     assert not any("Social-norm" in e for e in _check(plan, dossier, [_email_reply()]))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Viele Grüße, Lena Hartmann, Brenner & Söhne GmbH (fiktiver Zulieferer, ca. 900 Mitarbeitende)",
+        "Best, Lena, Acme Ltd (fictional company)",
+        "Sign in at [placeholder link]",
+    ],
+)
+def test_rejects_pretext_leak(text: str, plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    verdict = validate_contact_plan(plan.model_copy(update={"body": text}), dossier, set())
+    assert not verdict.passed
+    assert any("invented" in e for e in verdict.errors)
+
+
+def test_pretext_leak_allows_ordinary_security_talk(plan: ContactPlan, dossier: VerifiedDossier) -> None:
+    body = "We run persona-based simulations; the team invented a new reporting flow last year."
+    verdict = validate_contact_plan(plan.model_copy(update={"body": body}), dossier, set())
+    assert not any("invented (" in e for e in verdict.errors)

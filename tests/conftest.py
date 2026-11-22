@@ -41,3 +41,9 @@ def plan() -> ContactPlan:
         ),
         cited_fact_ids=["check-in"],
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolated_memory(tmp_path, monkeypatch):
+    """Keep tests from writing into the real memory/ dir (engine runs update target memory and the playbook)."""
+    monkeypatch.setenv("REVEL8_MEMORY_DIR", str(tmp_path / "memory"))

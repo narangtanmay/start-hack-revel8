@@ -17,6 +17,7 @@ Four layers, all plain JSON on disk and all deterministic except where noted:
 from __future__ import annotations
 
 import json
+import os
 import re
 import unicodedata
 from collections import defaultdict
@@ -25,6 +26,11 @@ from pathlib import Path
 from typing import Any
 
 MEMORY_DIR = Path("memory")
+
+
+def _root(root: Path | None) -> Path:
+    """Resolve the memory dir at call time so tests and mock runs can point REVEL8_MEMORY_DIR elsewhere."""
+    return root if root is not None else Path(os.environ.get("REVEL8_MEMORY_DIR") or MEMORY_DIR)
 
 _OWN = {"social": 3, "own_article": 3, "news": 1, "web": 1, "aggregator": 0}
 _CORRECTION = re.compile(r"doesn'?t match|we weren'?t|wasn'?t (?:at|there)|took place in|not sure which|"
@@ -121,8 +127,8 @@ class SessionLedger:
 class TargetMemory:
     """What we learned about one person across sessions. Stored at memory/targets/<name>.json."""
 
-    def __init__(self, name: str, root: Path = MEMORY_DIR) -> None:
-        self.path = root / "targets" / f"{_slug(name)}.json"
+    def __init__(self, name: str, root: Path | None = None) -> None:
+        self.path = _root(root) / "targets" / f"{_slug(name)}.json"
         self.data: dict = {"name": name, "sessions": [], "corrections": [], "rules": [], "disclosed": []}
         if self.path.exists():
             try:
@@ -246,8 +252,8 @@ def playbook_prompt(pb: dict | None = None) -> str:
             "; ".join(f"{k}: {v['reply_rate']:.0%} replies, {v['brushoff_rate']:.0%} brush-offs, {v['runs']} runs" for k, v in rows))
 
 
-def load_playbook(root: Path = MEMORY_DIR) -> dict:
-    p = root / "playbook.json"
+def load_playbook(root: Path | None = None) -> dict:
+    p = _root(root) / "playbook.json"
     if p.exists():
         try:
             return json.loads(p.read_text(encoding="utf-8"))
@@ -256,7 +262,8 @@ def load_playbook(root: Path = MEMORY_DIR) -> dict:
     return {}
 
 
-def save_playbook(pb: dict, root: Path = MEMORY_DIR) -> Path:
+def save_playbook(pb: dict, root: Path | None = None) -> Path:
+    root = _root(root)
     root.mkdir(parents=True, exist_ok=True)
     p = root / "playbook.json"
     p.write_text(json.dumps(pb, indent=1), encoding="utf-8")

@@ -32,7 +32,7 @@ from pydantic import ValidationError
 
 from .api_client import Revel8APIError, Revel8Client
 from .decision import DELIVER, ELICIT, ESCALATE_CALL, PIVOT_CHANNEL, STOP, AdvancedDecider, engine_decision
-from .gate import _META_TEXT, validate_contact_plan, validate_session_consistency
+from .gate import _META_TEXT, _PRETEXT_LEAK, validate_contact_plan, validate_session_consistency
 from .llm_client import ChatMessage, LocalLLMClient, LocalLLMError
 from .osint import normalize
 from .policy import Policy, RuleBasedPolicy, _rank_hooks
@@ -624,8 +624,17 @@ class Runner:
                          "their university) and website_domain may be a personal domain of their name.")
                 continue
             persona = plan.get("persona") or {}
+            # Planner notes leak into the signature: "Brenner & Söhne GmbH (fiktiver Zulieferer, ...)" (2026-11-22).
+            # Drop such parentheticals here; the persona is fixed for the session, so the gate alone would only
+            # reject every redraft of every touch.
+            for k in ("name", "organisation", "role"):
+                v = str(persona.get(k) or "")
+                v = re.sub(r"\s*[(\[][^)\]]*[)\]]", lambda m: "" if _PRETEXT_LEAK.search(m.group(0)) else m.group(0), v)
+                persona[k] = v.strip(" ,;-–")
             domain = str(persona.get("website_domain", "")).lower().strip()
             problem = self._domain_problem(domain)
+            if not problem and any(_PRETEXT_LEAK.search(str(persona.get(k) or "")) for k in ("name", "organisation", "role")):
+                problem = "persona labels itself fictional/invented; write it as a real person and organisation"
             if problem and persona.get("name"):
                 # Individuals (applicants, students) often come back without a website. Give them a personal domain
                 # of their own name that no one has registered, instead of failing the run (v4, 2026-11-21).
@@ -975,7 +984,7 @@ class Runner:
             names = re.split(r"\s*[,;]\s*", names)
         clean: list[str] = []
         for fname in [str(n).strip() for n in names if str(n).strip()][:2]:
-            fname = re.sub(r"\.(exe|docm|xlsm|js|bat|scr|vbs|msi)$", ".docx", fname, flags=re.I)
+            fname = re.sub(r"\.(exe|docm|xlsm|js|bat|scr|vbs|msi)$", ".pdf", fname, flags=re.I)
             clean.append(fname)
             attachments.append(AttachmentSpec(filename=fname))
             # Declared by name (not uploaded): the API reports `attachment.opened` for declared files, which is
