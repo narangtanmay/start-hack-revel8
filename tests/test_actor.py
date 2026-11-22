@@ -4,7 +4,17 @@ from unittest.mock import MagicMock
 import pytest
 
 from revel8_agent import cli, engine
-from revel8_agent.actor import ARCHITECTURE, ActorRunner, _derive_decision, _target_sends, unsupported_years
+from revel8_agent.actor import (
+    ARCHITECTURE,
+    ActorRunner,
+    _derive_decision,
+    _target_sends,
+    closed_routes,
+    invented_names,
+    near_repeat,
+    offered_lines,
+    unsupported_years,
+)
 from revel8_agent.engine import RunConfig
 from revel8_agent.schemas import HookHypothesis, VerifiedDossier, VerifiedFact
 
@@ -36,7 +46,7 @@ def _cast(**over) -> dict:
 def _act(**over) -> dict:
     out = {"inner_monologue": "First contact: I introduce myself and ask for the one thing I need.",
            "kind": "message", "channel": "email", "subject": "Ihre Session 1.3", "format": "plain",
-           "paragraphs": ["ich koordiniere das Programm und brauche eine kurze Bestaetigung Ihrer Session."],
+           "paragraphs": ["ich koordiniere das Programm: stimmt Ihr Titel so, wie er im Entwurf steht?"],
            "link": None, "attachment_filename": None, "cited_fact_ids": [],
            "note_to_self": ["I told them the programme prints on my deadline."]}
     out.update(over)
@@ -73,8 +83,9 @@ def test_casting_builds_character_plan_with_future_deadline(hooked, tmp_path, mo
     plan = runner.state.plan
     assert plan["architecture"] == ARCHITECTURE and plan["objective"] == "credentials" and plan["language"] == "de"
     deadline = datetime.strptime(plan["character"]["deadline"], "%Y-%m-%d")
-    assert plan["character"]["deadline_days"] == 14  # clamped: her deadline is close enough to matter
-    assert deadline.date() == (datetime.now() + timedelta(days=14)).date()
+    assert plan["character"]["deadline_days"] == 3  # clamped: the twins know the date; a week out is no reason to act
+    assert deadline.date() == (datetime.now() + timedelta(days=3)).date()
+    assert plan["character"]["first_small_yes"]  # filled when the cast leaves it out
     assert plan["persona"]["email"].endswith("@programm-lenzen.test")
     assert any("Mara Lenzen" in n["note"] for n in runner.notebook)
     assert llm.calls[0][0]["content"].startswith("You cast ONE character")
@@ -160,14 +171,16 @@ def test_full_run_writes_notebook_and_stops_on_api_incident(hooked, tmp_path, mo
     api = MagicMock()
     api.create_session.return_value = {"session_id": "s1"}
     api.send_message.side_effect = [
-        {"message_id": "m1", "events": [], "touches_used": 1},
+        {"message_id": "m1", "events": [{"type": "reply", "body": "Der Titel ist falsch, bitte Co-CEO."}],
+         "touches_used": 1},
         {"message_id": "m2", "events": [{"type": "page.submitted", "fields": ["email", "password"]}], "touches_used": 2},
     ]
-    second = _act(inner_monologue="He went quiet; I follow up on my mail with the portal link.",
-                  paragraphs=["kurze Erinnerung an meine Mail: hier ist der Link zum Portal."],
+    judge = {"disclosure": False, "action": False, "evidence": "", "reason": "", "sentiment": "engaged"}
+    second = _act(inner_monologue="He corrected his title; I applied it and ask him to confirm it in the portal.",
+                  paragraphs=["Ich habe Co-CEO eingetragen, bitte bestaetigen Sie es hier kurz."],
                   link={"url": "https://programm-lenzen.test/portal", "page_type": "signin"},
                   note_to_self=["I sent the portal link on touch 2."])
-    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast(), _act(), second], api=api, max_touches=4)
+    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast(), _act(), judge, second], api=api, max_touches=4)
     monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
     state = runner.run()
     assert state.status == "done", state.error
@@ -175,7 +188,7 @@ def test_full_run_writes_notebook_and_stops_on_api_incident(hooked, tmp_path, mo
     assert any(i["type"] == "credentials" and i["source"] == "api event" for i in state.incidents)
     notes = [n["note"] for n in runner.notebook]
     assert "I told them the programme prints on my deadline." in notes and "I sent the portal link on touch 2." in notes
-    assert state.steps[1]["actor"]["inner_monologue"].startswith("He went quiet")
+    assert state.steps[1]["actor"]["inner_monologue"].startswith("He corrected his title")
     assert state.plan["notebook"]
 
 
@@ -227,6 +240,72 @@ def test_act_prompt_carries_goal_and_weekend_norm(hooked, tmp_path, monkeypatch)
     system = llm.calls[1][0]["content"]
     assert "YOUR GOAL, the one thing that unblocks your work:" in system and "signs in" in system
     assert "Today is Sunday" in system
+
+
+def test_closed_routes_and_offers_from_their_words() -> None:
+    assert closed_routes("Ein Portal-Login kommt für mich nicht in Frage. Den Anhang öffne ich nicht.") == [
+        "no login or sign-in pages", "no attachments or files"]
+    assert "the contact form or formal route" in closed_routes("Bitte nutzen Sie das Kontaktformular auf revel8.ai.")
+    assert "nothing internal by email" in closed_routes("I don't share how we run things internally by email.")
+    assert closed_routes("Thanks, sounds good.") == []
+    offers = offered_lines("Danke. Am Mittwoch hätte mein Solution-Engineering-Team Zeit für einen Call. Grüße")
+    assert offers == ["Am Mittwoch hätte mein Solution-Engineering-Team Zeit für einen Call."]
+
+
+def test_invented_names_and_near_repeat() -> None:
+    corpus = "Bitte wenden Sie sich an Claudia Lannes. Tom Müller"
+    assert invented_names("Ich kläre das mit Frau Dr. Weber.", corpus) == ["Frau Dr. Weber"]
+    assert invented_names("Ich schreibe Frau Lannes und Herrn Müller.", corpus) == []
+    assert near_repeat("Kurzer Check-in zum Panel, bitte bis Donnerstag?", ["Kurzer Check-in zum Panel, bitte bis Donnerstag?"])
+    assert not near_repeat("Ich habe Ihren Titel korrigiert.", ["Kurzer Check-in zum Panel."])
+
+
+def _checked(runner, **over):
+    a = _act(**over)
+    a["sender"] = {"name": "Mara Lenzen", "address": ""}
+    plan, _payload, _page = runner.build(a)
+    return runner.check(a, plan)
+
+
+def test_check_small_yes_first_and_every_message_moves_the_goal(hooked, tmp_path, monkeypatch) -> None:
+    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast()], max_touches=4)
+    monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
+    runner.plan()
+    link = {"url": "https://programm-lenzen.test/portal", "page_type": "signin"}
+    assert any("small yes first" in e for e in _checked(runner, link=link))           # link before any reply
+    runner.state.steps.append({"touch": 1, "events": [{"type": "reply", "body": "Bitte Co-CEO statt CEO."}]})
+    runner.state.touches_used = 1
+    assert not any("small yes first" in e for e in _checked(runner, link=link))       # engaged: link is fine
+    closing = ["Danke, keine Antwort nötig."]
+    assert any("asks for nothing" in e for e in _checked(runner, paragraphs=closing))
+    runner.state.touches_used = 3                                                      # last touch: allowed
+    assert not any("asks for nothing" in e for e in _checked(runner, paragraphs=closing))
+
+
+def test_check_waives_actor_rules_on_the_third_draft(hooked, tmp_path, monkeypatch) -> None:
+    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast()])
+    monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
+    runner.plan()
+    closing = ["Danke, keine Antwort nötig."]
+    assert _checked(runner, paragraphs=closing) and _checked(runner, paragraphs=closing)
+    assert not any("asks for nothing" in e for e in _checked(runner, paragraphs=closing))
+
+
+def test_observe_records_closed_routes_and_decide_shows_them_with_offers(hooked, tmp_path, monkeypatch) -> None:
+    runner, llm = _runner(hooked, tmp_path, monkeypatch, [_cast(), _act()])
+    runner.plan()
+    step = {"touch": 1, "action": _act(note_to_self=[]), "events": [{"type": "reply", "body":
+            "Den Anhang öffne ich nicht. Mittwoch um 10 Uhr hätte ich Zeit für einen Call."}]}
+    runner.state.steps.append(step)
+    runner.observe(step)
+    assert "no attachments or files" in runner._closed()
+    runner.observe(step)                                   # never recorded twice
+    assert runner._closed().count("no attachments or files") == 1
+    runner.decide(2)
+    user = llm.calls[1][1]["content"]
+    assert "ROUTES THEY HAVE CLOSED" in user and "no attachments or files" in user
+    assert "WHAT THEY OFFERED IN THEIR LAST REPLY" in user and "Mittwoch um 10 Uhr" in user
+    assert "YOUR SMALL YES" in llm.calls[1][0]["content"]
 
 
 def test_cli_dossier_flag(monkeypatch: pytest.MonkeyPatch) -> None:

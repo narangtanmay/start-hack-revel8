@@ -44,7 +44,9 @@ from .osint import normalize
 from .policy import _rank_hooks
 
 ARCHITECTURE = "method-actor"
-_DEADLINE_DAYS = (5, 14)       # her own deadline: close enough to matter, far enough to be ordinary
+# Her own deadline. The twins know today's date: a deadline a week out gave no reason to act today ("ob es bis
+# Donnerstag klappt ..."), so it is 1-3 days away, with a reason the target cannot check.
+_DEADLINE_DAYS = (1, 3)
 _MAX_NOTES = 40
 # artifact kind -> (objective, what unblocks her, in her words)
 _UNBLOCK = {
@@ -66,8 +68,9 @@ The character must:
   the objective:
     * the target has to sign in somewhere to confirm or fill in something (speaker portal, review form) -> "credentials"
     * the target has to open a document the character sends (programme draft, questionnaire, profile) -> "action"
-    * the target has to tell the character something about their OWN organisation that is not public (which tool or
-      vendor they use for X, how an internal process runs, who owns it, what is planned) -> "disclosure"
+    * the target has to tell the character something about their OWN organisation that is not public -> "disclosure".
+      The question is about the CHARACTER's own problem, with the internal fact incidental ("which LMS do you
+      integrate with, so I know whether our export fits?"), never a blunt "who owns your metrics?".
   The need is never general advice, opinions or anything public: the character's work is blocked until the target
   signs in, opens the file, or tells them that specific internal thing.
 - artifact is what resolves the need: "portal" = a page of the character's where the target signs in; "document" =
@@ -76,7 +79,13 @@ The character must:
   Prefer "portal": in practice, a page of the character's that the target opens to confirm, review or fill in
   something got opened every time, while cold files and question lists did not. The portal must be an ordinary part
   of the character's job (speaker or programme portal, review form, registration, shared workspace).
-- have their own deadline for that need, a reason for it, and a voice (register, length, du/Sie, warmth);
+- have a first SMALL YES: one low-stakes check the target can answer by simply replying, tied to the artifact
+  ("are these two lines of your speaker profile right?"). It goes first, with no link and no file. The artifact
+  only comes once they have engaged, framed as confirming what they already corrected. (The one proven win: "please
+  check your profile lines" -> he corrected his title -> she applied it, he confirmed -> the confirmation carried the
+  link -> he signed in. Sending a login link before any yes got "a portal login is out of the question".)
+- have their own deadline 1-3 days away with a reason the target cannot check ("the programme goes to print on
+  Monday at 9:00"), and a voice (register, length, du/Sie, warmth);
 - write in the language the target publicly uses (German for targets who post and speak in German).
 - build the reason to write on a hook whose timing is "upcoming" or "current"; a past event is never the reason.
 - anchor on something REAL: if the hook is a real upcoming event, project or publication from the facts, the
@@ -95,7 +104,7 @@ Return ONLY JSON:
  "persona": {"name": str, "organisation": str, "role": str, "email": str, "phone": str,
              "website_domain": str, "brand_color": "#RRGGBB", "story": str},
  "character": {"who": str, "why_them": str, "need": str,
-               "artifact": {"kind": "portal"|"document"|"questions", "name": str},
+               "artifact": {"kind": "portal"|"document"|"questions", "name": str}, "first_small_yes": str,
                "deadline_days": int, "deadline_reason": str, "voice": str, "would_never": [str]},
  "cited_fact_ids": [str], "rationale": str}"""
 
@@ -104,8 +113,21 @@ only as this character, in your own voice, about your own work. You are not runn
 likeable professional trying to get one thing done before your deadline, and {target} is the only person who can help.
 
 YOUR GOAL, the one thing that unblocks your work: {goal}
+YOUR SMALL YES (ask this first, before any link or file): {small_yes}
 
 Each turn, read your conversation and your notebook and do what you would really do now:
+- Build small yeses first. Your first message asks only your small yes, which they can answer by replying: no link,
+  no file. Once they have engaged (corrected, confirmed or asked something), send your link or file framed as
+  confirming exactly what they already told you ("I've put your corrected title in; please confirm it here").
+- A "no" closes a ROUTE, never your goal. When a route is refused (no login, no attachments, nothing internal by
+  email, "use the contact form"), note it as "ROUTE CLOSED: ..." in note_to_self, then re-derive your need into a form
+  that is still open: a sign-in page -> a page with the document to review -> one question about YOUR own problem.
+  Never spend a message on a closing note ("no reply needed"); every message moves your goal one step.
+- When they offer a route (a meeting, a call slot, an invite, another team, a template, a form), take it and be the
+  one who sets it up: send the calendar_invite yourself for the time they proposed, with a short agenda and a link
+  to a pre-read page, or ask them to loop in the person they named. Never just say "thanks".
+- When you ask about their organisation, ask about YOUR problem with their internal fact incidental ("which LMS do
+  you integrate with, so I know whether our export fits?"), never a blunt "who owns X internally?".
 - If they asked you something or asked for something, that comes first: answer it concretely, or send exactly what
   they asked for, in the form they asked for (a PDF if they want a PDF, the text in the mail if they want it there).
 - If they went quiet, you follow up the way people do, referring to your last message. You have their office number
@@ -117,13 +139,13 @@ Each turn, read your conversation and your notebook and do what you would really
 - General or public answers do not unblock your work. Thank them, then steer kindly to the specific thing you need.
 - If they are cautious, you reassure them with modest, ordinary details about yourself that fit your notebook. You
   never invent things they could look up (grant or project numbers, named partners, links to past reports).
-- If they say no to something (no logins, no attachments, not now), you respect it and find another normal way.
 - If they send you down a formal route (a contact form, another team), never pretend you took it. Take it seriously,
   or offer the simplest genuine alternative, or make your ask smaller while it still unblocks you.
 - Never claim anything you did not do in this conversation (met them, saw them somewhere, submitted a form). Never
   state a year or date for anything they did. Never name anyone except yourself and them: if they ask who else is
   involved, describe roles, never invent names.
-- One message, one ask. Short for chat and SMS; a real mail for email.
+- One message, one ask, and every message carries your link, your file or one question. Short for chat and SMS; a
+  real mail for email.
 - Your deadline is real to you: you can reach them about {remaining} more times before it.
 
 """ + _RULES + """
@@ -184,6 +206,60 @@ def _target_sends(need: str, first_name: str) -> bool:
     return False
 
 
+# Routes the target closed, read from their own words (the character also notes them herself in note_to_self).
+_REFUSALS = [
+    ("no login or sign-in pages", re.compile(
+        r"portal-?login|kein(?:en)? login|melde mich (?:nirgends|nicht) an|nicht anmelden|no login|"
+        r"(?:won'?t|will not|do not|don'?t) (?:sign|log) in", re.I)),
+    ("no attachments or files", re.compile(
+        r"anhang öffne ich nicht|keine anhänge|öffne (?:keine|den|diesen) anh|"
+        r"(?:won'?t|will not|do not|don'?t) open (?:the |any |this )?(?:attachment|file)", re.I)),
+    ("nothing internal by email", re.compile(
+        r"(?:nicht|keine\w*) per (?:e-?)?mail|nichts internes|interne\w* (?:details|infos|informationen|abläufe)|"
+        r"(?:won'?t|do not|don'?t) share .{0,40}internal|not (?:by|over|via) e-?mail", re.I)),
+    ("the contact form or formal route", re.compile(r"kontaktformular|contact form|formalen weg|formal (?:route|process)",
+                                                    re.I)),
+    ("no calls", re.compile(r"keine anrufe|no calls|it'?s sunday|es ist sonntag", re.I)),
+]
+# Routes the target offers: a meeting, a slot, an invite, another team or person, a template or a form.
+_OFFER = re.compile(r"termin|einladung|invite|calendar|kalender|\bcall\b|meeting|treffen|\bteams?\b|kolleg|"
+                    r"ansprechpartner|template|vorlage|formular|\bform\b|demo|webinar|slot", re.I)
+# A person named with a title, the form the gate's "colleague X" / "X at Org" check misses (v2: "Frau Dr. Weber").
+_TITLED = re.compile(r"\b(?:Dr\.|Prof\.|Herrn?|Frau|Mr\.?|Ms\.?|Mrs\.?)\s+(?:Dr\.\s+)?([A-ZÄÖÜ][\w\-]+)"
+                     r"(?:\s+([A-ZÄÖÜ][\w\-]+))?")
+_CLOSED_PREFIX = "ROUTE CLOSED: "
+
+
+def closed_routes(text: str) -> list[str]:
+    return [label for label, rx in _REFUSALS if rx.search(text or "")]
+
+
+def offered_lines(text: str, limit: int = 3) -> list[str]:
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", text or "")
+    return [s.strip() for s in sentences if s.strip() and _OFFER.search(s)][:limit]
+
+
+def invented_names(text: str, allowed: str) -> list[str]:
+    """Titled person names in our draft whose surname appears nowhere the target or the public facts used."""
+    hay = normalize(allowed)
+    out = []
+    for m in _TITLED.finditer(text or ""):
+        surname = m.group(2) or m.group(1)
+        if normalize(surname) not in hay:
+            out.append(m.group(0).strip())
+    return sorted(set(out))
+
+
+def _tokens(text: str) -> set[str]:
+    return {w for w in re.findall(r"\w+", normalize(text)) if len(w) > 2}
+
+
+def near_repeat(text: str, earlier: list[str], threshold: float = 0.8) -> bool:
+    """The API counts an identical message as the same contact; a near-copy wastes the touch on the target too."""
+    mine = _tokens(text)
+    return bool(mine) and any(len(mine & t) / len(mine | t) >= threshold for t in map(_tokens, earlier) if t)
+
+
 def unsupported_years(text: str, allowed: set[str]) -> list[str]:
     """Years in our draft that the target never used and that are not our own deadline's year."""
     return sorted({y for y in _YEAR.findall(text or "") if y not in allowed})
@@ -210,6 +286,7 @@ class ActorRunner(Runner):
         self.decider = None
         self.notebook: list[dict] = []
         self._pending_page = None
+        self._checks: dict[int, int] = {}   # draft checks per touch: the actor's own checks give way on the 3rd
 
     # ---- casting (replaces plan)
     def plan(self) -> None:
@@ -284,10 +361,12 @@ class ActorRunner(Runner):
         elif cast.get("objective") not in ("credentials", "action", "disclosure"):
             cast["objective"] = "disclosure"
         character["unblocks_me"] = (_UNBLOCK.get(kind) or _UNBLOCK["questions"])[1].format(first=first, thing=thing)
+        if not str(character.get("first_small_yes") or "").strip():
+            character["first_small_yes"] = f"a quick check, answerable by reply, that one detail for {thing} is right"
         try:
             days = int(character.get("deadline_days"))
         except (TypeError, ValueError):
-            days = 7
+            days = 2
         days = max(_DEADLINE_DAYS[0], min(_DEADLINE_DAYS[1], days))
         character["deadline_days"] = days
         character["deadline"] = f"{today + timedelta(days=days):%Y-%m-%d}"
@@ -303,6 +382,7 @@ class ActorRunner(Runner):
             f"My deadline is {character['deadline']}: {character.get('deadline_reason', '')}".strip(),
             f"What I need from them: {character['need']}",
             f"What unblocks me: {character['unblocks_me']}",
+            f"My small yes, first and without a link: {character['first_small_yes']}",
         )]
         self.log(f"casting: {persona['name']} ({persona['role']}, {persona['organisation']}, {domain}) | "
                  f"hook={cast['hook_id']} objective={cast['objective']} deadline={character['deadline']} | "
@@ -316,6 +396,25 @@ class ActorRunner(Runner):
     def _notebook_text(self) -> str:
         return "\n".join(f"- {n['note']}" for n in self.notebook[-_MAX_NOTES:])
 
+    def _target_said(self) -> list[str]:
+        """Everything the target wrote or said this session, in order."""
+        out: list[str] = []
+        for s in self.state.steps:
+            out += [e.get("body", "") for e in s.get("events") or [] if e.get("type") == "reply"]
+            out += [t["text"] for t in s.get("transcript") or [] if t.get("who") == "target"]
+        return [x for x in out if x and x.strip()]
+
+    def _last_reply(self) -> str:
+        for s in reversed(self.state.steps):
+            said = [e.get("body", "") for e in s.get("events") or [] if e.get("type") == "reply"]
+            said += [t["text"] for t in s.get("transcript") or [] if t.get("who") == "target"]
+            if any(x.strip() for x in said):
+                return "\n".join(said)
+        return ""
+
+    def _closed(self) -> list[str]:
+        return [n["note"][len(_CLOSED_PREFIX):] for n in self.notebook if n["note"].startswith(_CLOSED_PREFIX)]
+
     def _conversation_text(self) -> str:
         # Her own log, without our analysis lines: she reads what was said and done, nothing else.
         lines = [ln for ln in _history_text(self.state).splitlines() if not ln.startswith("(our read")]
@@ -325,13 +424,17 @@ class ActorRunner(Runner):
         persona, character = self.state.plan.get("persona", {}), self.state.plan.get("character", {})
         first = self.dossier.target_name.split()[0]
         now = datetime.now()
-        weekend = (f"Today is {now:%A}: people do not take business calls at the weekend, so today you write; "
-                   f"a call waits for a working day." if now.weekday() >= 5 else "")
+        weekend = (f"Today is {now:%A}: no cold calls at the weekend (a call is fine if they offered one). When they "
+                   f"go quiet at the weekend, do not wait for a working day: make your ask smaller and self-contained, "
+                   f"everything in one message and answerable in one line." if now.weekday() >= 5 else "")
         system = (_ACT_SYS.replace("{msg}", ", ".join(MESSAGE_CHANNELS)).replace("{live}", ", ".join(LIVE_CHANNELS))
                   .format(name=persona.get("name"), role=persona.get("role"), organisation=persona.get("organisation"),
                           target=self.dossier.target_name, remaining=self._remaining(),
                           domain=persona.get("website_domain"), weekend_note=weekend,
-                          goal=character.get("unblocks_me") or character.get("need", "")))
+                          goal=character.get("unblocks_me") or character.get("need", ""),
+                          small_yes=character.get("first_small_yes") or "a quick check they can answer by reply"))
+        offers = offered_lines(self._last_reply())
+        closed = self._closed()
         user = (f"YOUR CHARACTER SHEET: {json.dumps({'persona': persona, 'character': character}, ensure_ascii=False)}\n"
                 f"LANGUAGE: {'German' if self.state.plan.get('language') == 'de' else 'English'}\n"
                 f"TODAY: {datetime.now():%A %Y-%m-%d}. YOUR DEADLINE: {character.get('deadline')}.\n"
@@ -346,6 +449,10 @@ class ActorRunner(Runner):
                 + (f"\nTHINGS THEY CORRECTED BEFORE (never repeat): "
                    f"{json.dumps([c['text'] for c in self.tmemory.data['corrections'][-4:]], ensure_ascii=False)}"
                    if self.tmemory.data.get("corrections") else "")
+                + (f"\nROUTES THEY HAVE CLOSED (never use them again; re-derive your need into a form that is still "
+                   f"open): {json.dumps(closed, ensure_ascii=False)}" if closed else "")
+                + (f"\nWHAT THEY OFFERED IN THEIR LAST REPLY (take it and set it up yourself): "
+                   f"{json.dumps(offers, ensure_ascii=False)}" if offers else "")
                 + "\nWhat do you do now?")
         if feedback:
             user += f"\n\nThat draft could not be sent: {feedback}\nWrite it again, still as yourself."
@@ -362,19 +469,50 @@ class ActorRunner(Runner):
         a.setdefault("discarded", [])
         return a
 
-    # ---- an outside guardrail: never a year the target did not use (it-sa "2025" vs Tom's "2026", 2026-11-22)
+    # ---- outside guardrails: they reject a draft, they never choose the move
     def check(self, a: dict, plan: Any) -> list[str]:
         errors = super().check(a, plan)
-        said = [e.get("body", "") for s in self.state.steps for e in s.get("events") or [] if e.get("type") == "reply"]
-        said += [t["text"] for s in self.state.steps for t in s.get("transcript") or [] if t.get("who") == "target"]
-        allowed = set(_YEAR.findall(" ".join(said)))
-        allowed.add(str(self.state.plan.get("character", {}).get("deadline", ""))[:4])
+        touch = self.state.touches_used + 1
+        self._checks[touch] = self._checks.get(touch, 0) + 1
+        if self._checks[touch] >= 3:
+            # The engine aborts a run after three rejected drafts; the actor's own checks must never cost the run.
+            self.log(f"touch {touch}: actor checks waived on the third draft")
+            return errors
+        said = self._target_said()
         text = " ".join([str(a.get("subject") or ""), str(a.get("opening_line") or ""),
                          *[str(p) for p in a.get("paragraphs") or []]])
+        name = self.dossier.target_name
+        # 1. no year the target never used (it-sa "2025" vs Tom's "2026", 2026-11-22)
+        allowed = set(_YEAR.findall(" ".join(said)))
+        allowed.add(str(self.state.plan.get("character", {}).get("deadline", ""))[:4])
         bad = unsupported_years(text, allowed)
         if bad:
-            errors.append(f"The draft states the year(s) {', '.join(bad)}, which {self.dossier.target_name} never "
-                          f"mentioned. Public sources disagree on dates: refer to things without the year.")
+            errors.append(f"The draft states the year(s) {', '.join(bad)}, which {name} never mentioned. Public "
+                          f"sources disagree on dates: refer to things without the year.")
+        # 2. no titled person the target or the public facts never named (v2 invented "Frau Dr. Weber")
+        corpus = " ".join([*said, name, str(self.state.plan.get("persona", {}).get("name", "")),
+                           *(f"{f.fact} {f.verbatim_quote}" for f in self.dossier.facts)])
+        invented = invented_names(text, corpus)
+        if invented:
+            errors.append(f"The draft names {', '.join(invented)}, whom {name} never mentioned and no public source "
+                          f"names: they would look them up. Describe the role instead of naming anyone.")
+        is_call = a.get("kind") == "call"
+        link = a.get("link") if isinstance(a.get("link"), dict) and a["link"].get("url") else None
+        # 3. small yes first: no sign-in page before they have engaged at all
+        if link and not said and not is_call:
+            errors.append("They have not replied yet. Ask your small yes first (answerable by reply, no link); the "
+                          "link comes once they have engaged, framed as confirming what they told you.")
+        # 4. every message moves the goal: a link, a file or a question (closing notes waste the touch)
+        last_touch = touch >= self.cfg.max_touches
+        if not is_call and not last_touch and not link and not a.get("attachment_filename") and "?" not in text:
+            errors.append("This message asks for nothing. A no closes a route, not your goal: carry your link, your "
+                          "file or one question that is still open to you.")
+        # 5. never (nearly) the same message twice: the API counts it as the same contact
+        earlier = [" ".join([str(s["action"].get("subject") or ""), *[str(p) for p in s["action"].get("paragraphs") or []]])
+                   for s in self.state.steps if s.get("action") and s["action"].get("kind") != "call"]
+        if not is_call and near_repeat(text, earlier):
+            errors.append("This repeats an earlier message almost word for word. Say something new that moves your "
+                          "goal, or make the ask smaller.")
         return errors
 
     # ---- calls: register the page first, then let her talk
@@ -440,6 +578,10 @@ class ActorRunner(Runner):
     def observe(self, step: dict) -> None:
         a = step.get("action") or {}
         notes = list(a.get("note_to_self") or []) + list(step.get("call_notes") or [])
+        # Routes they closed, read from their own words, so a refusal is never forgotten or retried.
+        replies = [e.get("body", "") for e in step.get("events") or [] if e.get("type") == "reply"]
+        replies += [t["text"] for t in step.get("transcript") or [] if t.get("who") == "target"]
+        notes += [_CLOSED_PREFIX + r for r in closed_routes(" ".join(replies)) if r not in self._closed()]
         known = {normalize(n["note"]) for n in self.notebook}
         for note in notes:
             if normalize(note) not in known:
