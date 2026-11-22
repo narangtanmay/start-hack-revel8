@@ -9,10 +9,13 @@ from revel8_agent.actor import (
     ActorRunner,
     _derive_decision,
     _target_sends,
+    allowed_years,
     closed_routes,
+    invented_event,
     invented_names,
     near_repeat,
     offered_lines,
+    scrub,
     unsupported_years,
 )
 from revel8_agent.engine import RunConfig
@@ -272,10 +275,12 @@ def test_check_small_yes_first_and_every_message_moves_the_goal(hooked, tmp_path
     monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
     runner.plan()
     link = {"url": "https://programm-lenzen.test/portal", "page_type": "signin"}
-    assert not any("small yes first" in e for e in _checked(runner, link=link))       # link allowed on T1 alongside small yes
+    bare = ["Bitte bestaetigen Sie Ihr Profil im Portal."]
+    assert any("link alone" in e for e in _checked(runner, link=link, paragraphs=bare))  # bare link, no reply yet
+    assert not any("link alone" in e for e in _checked(runner, link=link))              # with the small-yes question
     runner.state.steps.append({"touch": 1, "events": [{"type": "reply", "body": "Bitte Co-CEO statt CEO."}]})
     runner.state.touches_used = 1
-    assert not any("small yes first" in e for e in _checked(runner, link=link))       # engaged: link is fine
+    assert not any("link alone" in e for e in _checked(runner, link=link, paragraphs=bare))  # engaged: link is fine
     closing = ["Danke, keine Antwort nötig."]
     assert any("asks for nothing" in e for e in _checked(runner, paragraphs=closing))
     runner.state.touches_used = 3                                                      # last touch: allowed
@@ -306,6 +311,58 @@ def test_observe_records_closed_routes_and_decide_shows_them_with_offers(hooked,
     assert "ROUTES THEY HAVE CLOSED" in user and "no attachments or files" in user
     assert "WHAT THEY OFFERED IN THEIR LAST REPLY" in user and "Mittwoch um 10 Uhr" in user
     assert "YOUR SMALL YES" in llm.calls[1][0]["content"]
+
+
+def test_allowed_years_keeps_upcoming_fact_years_but_not_past_ones() -> None:
+    facts = "Speaks at Cybersicherheitsforschung 2027. Live demo at it-sa Expo 2025."
+    years = allowed_years(["Das war 2019."], facts, "2026-11-24", 2026)
+    assert {"2027", "2026", "2019"} <= years and "2025" not in years
+
+
+def test_invented_event_and_scrub() -> None:
+    facts = "Tom speaks at the Cybersicherheitsforschung Konferenz in March."
+    assert invented_event("DACH Security Summit", facts)
+    assert invented_event("CyberResilience Circle", facts)
+    assert not invented_event("Programmbuero Lenzen", facts)
+    assert not invented_event("Cybersicherheitsforschung Konferenz", facts)
+    paras = ["Ich kläre das mit Frau Dr. Weber. Stimmt Ihr Titel?", "Seit it-sa 2019 kenne ich Ihre Arbeit."]
+    assert scrub(paras, ["Frau Dr. Weber", "2019"]) == ["Stimmt Ihr Titel?"]
+
+
+def test_casting_rejects_an_invented_event_organisation(hooked, tmp_path, monkeypatch) -> None:
+    summit = _cast(persona={**_PERSONA, "organisation": "DACH Security Summit"})
+    runner, llm = _runner(hooked, tmp_path, monkeypatch, [summit, _cast()])
+    runner.plan()
+    assert len(llm.calls) == 2 and "appears nowhere in the facts" in runner.state.plan_attempts[0]["rejected"]
+
+
+def test_casting_withholds_past_event_facts(hooked, tmp_path, monkeypatch) -> None:
+    hooked.facts.append(VerifiedFact(id="f3", fact="Joined a roundtable at a January summit", category="talk_or_event",
+                                     source_url="https://x.test", verbatim_quote="Joined a roundtable", recency="2020-01"))
+    runner, llm = _runner(hooked, tmp_path, monkeypatch, [_cast()])
+    runner.plan()
+    cast_prompt = llm.calls[0][1]["content"]
+    assert "Joined a roundtable at a January summit" not in cast_prompt.split("PROFILE")[0]
+    assert "Speaks in session 1.3" in cast_prompt
+
+
+def test_third_draft_is_repaired_not_rejected(hooked, tmp_path, monkeypatch) -> None:
+    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast()])
+    monkeypatch.setattr(runner, "_ensure_brand", lambda: False)
+    runner.plan()
+    runner._checks[1] = 2                                  # two drafts of touch 1 were already rejected
+    a = _act(channel="whatsapp", paragraphs=["Frau Dr. Weber hat zugestimmt. Stimmt Ihr Titel so?"])
+    a["sender"] = {"name": "Mara Lenzen", "address": ""}
+    runner.build(a)
+    assert a["paragraphs"] == ["Stimmt Ihr Titel so?"] and a["channel"] == "email"
+
+
+def test_empty_message_becomes_a_call(hooked, tmp_path, monkeypatch) -> None:
+    runner, _ = _runner(hooked, tmp_path, monkeypatch, [_cast(), _act(paragraphs=[])])
+    runner.plan()
+    a = runner.decide(3)
+    assert a["kind"] == "call" and a["channel"] == "phone_call" and a["opening_line"].startswith("Guten Tag")
+    assert a["call_goal"] == runner.state.plan["character"]["unblocks_me"]
 
 
 def test_cli_dossier_flag(monkeypatch: pytest.MonkeyPatch) -> None:
