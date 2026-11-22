@@ -178,8 +178,9 @@ LLM_MAX_TOKENS=8192 \
 | Eval 4 | `patrick` | `succ-standard-open` (`--policy --shadow-twin`) | `s_384cbe10bc` | done | 10 | 0 `page.submitted`; 0 `attachment.opened`; 0 `link.opened`; judged disclosure estimate T8 | not run | `runs/20261122-122546-patrick-eval-run-4-patrick-5ba1de.html` |
 | Eval 5 | `titus` | `succ-standard-open` (`--policy --shadow-twin`) | `s_96e0fdcb10` | done | 10 | 0 `page.submitted`; `link.opened` T1; `attachment.opened` T3/T5 (logged signals, not incidents) | not run | `runs/20261122-123014-titus-eval-run-5-titus-db8efc.html` |
 | Eval 6 | `jonas` | `succ-standard-open` (`--policy --shadow-twin`) | `s_26bb9800d2` | done | 10 | 0 `page.submitted`; 0 `attachment.opened`; 0 `link.opened`; judged disclosure estimates T1–T6/T8–T10 | not run | `runs/20261122-123514-jonas-eval-run-6-jonas-a8961d.html` |
+| Eval 7 | `patrick` | `succ-standard-open` (`--policy --shadow-twin`) | `s_939fc59b66` | done | 10 | 0 `page.submitted`; 0 `attachment.opened`; 0 `link.opened`; judged disclosure estimate T8 | not run | `runs/20261122-124146-patrick-eval-run-7-patrick-572a32.html` |
 
-Attempts 4–6 were the user-requested single retry per persona, run sequentially on the frozen code. Six of 15 sessions are used (two per persona); three per persona remain. See `report-eval-runs-4-6.md` for exact event accounting and behavioral evidence.
+Attempts 4–6 were the user-requested single retry per persona, run sequentially on the frozen code. Attempt 7 was the final Patrick retry before the 12:45 CET eval closure. Seven of 15 sessions were used: Patrick 3/5, Titus 2/5 and Jonas 2/5; eval is now closed. See `report-eval-runs-4-6.md` for exact event accounting and behavioral evidence.
 
 ---
 
